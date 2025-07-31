@@ -1,0 +1,30 @@
+{
+    "project_info": {
+      "project_number": "34767207106",
+      "project_id": "eoffice-6c2ef",
+      "firebase_url": "https://eoffice-6c2ef-default-rtdb.firebaseio.com",
+      "storage_bucket": "eoffice-6c2ef.firebasestorage.app"
+    },
+    "client": [
+      {
+        "client_info": {
+          "mobilesdk_app_id": "1:34767207106:android:a72f17f780f065f22fd95b",
+          "android_client_info": {
+            "package_name": "com.vigorous.E_Office"
+          }
+        },
+        "oauth_client": [],
+        "api_key": [
+          {
+            "current_key": "AIzaSyCm9af0OdF0OTY3rT1hon9QbkZjxD65L84"
+          }
+        ],
+        "services": {
+          "appinvite_service": {
+            "other_platform_oauth_client": []
+          }
+        }
+      }
+    ],
+    "configuration_version": "1"
+  }
