@@ -11,6 +11,7 @@
   "dependencies": {
     "@hero-design/react-native-month-year-picker": "^8.43.1",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-community/datetimepicker": "8.2.0",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-firebase/app": "^22.0.0",
     "@react-native-firebase/messaging": "^22.0.0",
@@ -68,7 +69,7 @@
     "react-native-ui-datepicker": "^3.0.7",
     "react-native-webview": "^13.13.5",
     "react-redux": "^9.2.0",
-    "@react-native-community/datetimepicker": "8.2.0"
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

@@ -1,17 +1,22 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
-import { SafeAreaView, ScrollView, View, Text, StyleSheet, Image, Animated, StatusBar, Platform, Alert, TextInput, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid } from "react-native";
+import { SafeAreaView, ScrollView, View, Text, StyleSheet, Image, Animated, StatusBar, Platform, Alert, TextInput, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, LinearGradient } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
 import { useDispatch, useSelector } from 'react-redux';
 import { login } from "../Redux/Reducer/Auth/Auth.reducers";
+import { logout } from "../Redux/Reducer/Auth/Auth.reducers";
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 
 import BASE_URL from "../Urls/DomainUrl";
 import Style from "../Style/Style";
-import { Entypo } from "@expo/vector-icons";
+import { Entypo, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import messaging from '@react-native-firebase/messaging';
 import * as Contacts from 'expo-contacts';
+import io from "socket.io-client";
+
+const { width, height } = Dimensions.get('window');
 
 function showToast(message) {
   if (Platform.OS === 'android') {
@@ -39,13 +44,16 @@ export default function Splash({ navigation }) {
   const [timer, setTimer] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fcmToken, setFcmToken] = useState(null);
+  const [fcmTokenLoading, setFcmTokenLoading] = useState(true);
   const [contactList, setContactList] = useState([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const socketRef = useRef(null);
 
   useFocusEffect(
     React.useCallback(() => {
       const requestUserPermission = async () => {
         try {
+          setFcmTokenLoading(true);
           const authStatus = await messaging().requestPermission();
           const enabled =
             authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
@@ -59,21 +67,36 @@ export default function Splash({ navigation }) {
           }
         } catch (error) {
           console.error("Permission request failed", error);
+        } finally {
+          setFcmTokenLoading(false);
         }
       };
       requestUserPermission();
     },[])
   );
 
-  const handleLogin = () => {
-    // if (!fcmToken) {
-    //   console.log("FCM Token is missing");
-    //   return;
-    // }
+  const handleLogin = async () => {
+    // Wait for FCM token if it's not available yet
+    let currentFcmToken = fcmToken;
+    if (!currentFcmToken) {
+      try {
+        const authStatus = await messaging().requestPermission();
+        const enabled =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        if (enabled) {
+          currentFcmToken = await messaging().getToken();
+          setFcmToken(currentFcmToken);
+        }
+      } catch (error) {
+        console.error("Error getting FCM token:", error);
+      }
+    }
+    
     let reqData = {
       userName: userName,
       password: password,
-      fcmToken: fcmToken, 
+      fcmToken: currentFcmToken || '', // Send empty string if no token available
     };
     dispatch(login(reqData));
   };
@@ -216,13 +239,31 @@ export default function Splash({ navigation }) {
 
   const empLogin = async () => {
       setIsLoading(true);
+      
+      // Wait for FCM token if it's not available yet
+      let currentFcmToken = fcmToken;
+      if (!currentFcmToken) {
+        try {
+          const authStatus = await messaging().requestPermission();
+          const enabled =
+            authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+            authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+          if (enabled) {
+            currentFcmToken = await messaging().getToken();
+            setFcmToken(currentFcmToken);
+          }
+        } catch (error) {
+          console.error("Error getting FCM token:", error);
+        }
+      }
+      
       const myHeaders = new Headers();
       myHeaders.append("Content-Type", "application/json");
-      
+  
       const raw = JSON.stringify({
-          "email": userName,
-          "fcmToken": fcmToken,
-          "password": password
+          email: userName,
+          fcmToken: currentFcmToken || '', // Send empty string if no token available
+          password: password
       });
   
       const requestOptions = {
@@ -231,22 +272,26 @@ export default function Splash({ navigation }) {
           body: raw,
           redirect: "follow"
       };
-  
+      
       try {
           const response = await fetch(`${BASE_URL}/admin/login`, requestOptions);
           const result = await response.json();
-          
+  
           if (result.statusCode === 200) {
-              const token = result?.token;
-             //  console.log("token = result?.token", result?.token)
               await AsyncStorage.setItem('authToken', result?.token);
-              navigation.navigate('WebViewComp');
+               if (result?.data) {
+                 await AsyncStorage.setItem('userData', JSON.stringify(result?.data));
+               }
+              navigation.navigate('WebViewComp', { userData: result?.data });
               showToast(result.message);
+              setIsLoading(false);
+          } else if (result.statusCode === 400) {
+              Alert.alert("Login Failed", result.message);
               setIsLoading(false);
           } else {
               showToast(result.message);
+              setIsLoading(false);
           }
-          setIsLoading(false);
       } catch (error) {
           console.error(error);
           setIsLoading(false);
@@ -274,198 +319,649 @@ export default function Splash({ navigation }) {
     };
   }, [groupId]);
 
-  // console.log("user", user)
+   useEffect(() => {
+     if (!user?.data?._id) return;
+   
+     const userId = user.data._id;
+     const socketUrl = `https://api.easymyoffice.com?userId=${userId}`;
+     socketRef.current = io(socketUrl, {
+       transports: ['websocket'],
+       reconnection: true,
+       reconnectionAttempts: 5,
+       reconnectionDelay: 1000,
+       reconnectionDelayMax: 5000,
+       randomizationFactor: 0.5,
+     });
+   
+     const socket = socketRef.current;
+   
+     socket.on('connect', () => {
+       console.warn('Socket connected');
+     });  
+     console.log("connect...");
+     //  Log when the socket emits "force_logout"
+    socket.on("force_logout", (data) => {
+      console.log("Received force_logout message: ", data);
+      // Prevent reconnection
+      socket.io.opts.reconnection = false;
+      socket.disconnect();
+      socketRef.current = null;
+    
+      (async () => {
+        await AsyncStorage.removeItem('token');
+        console.log("AsyncStorage cleared.");
+        dispatch(logout());
+        navigation.reset({
+         index: 0,
+         routes: [{ name: 'Splash' }],
+       });
+      })();
+    });
+     socket.on('disconnect', () => {
+       console.warn('Socket disconnected');
+     });
+   
+     socket.on('reconnect', () => {
+       console.warn('Socket reconnected');
+     });
+   
+     socket.on('reconnect_attempt', () => {
+       console.warn('Attempting to reconnect...');
+     });
+   
+     socket.on('reconnect_error', (error) => {
+       console.error('Reconnection attempt failed:', error);
+     });
+   
+     return () => {
+       socket.disconnect();
+     };
+   }, [user]);
+
+  // console.log("clientList", clientList)
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <StatusBar backgroundColor={'#ebf1fd'} barStyle='dark-content' />
-        <ImageBackground source={require("../assets/bgImg.png")} resizeMode="cover" style={{ flex:1  }}>
-          <ScrollView style={{ flex: 1, padding:20,  }} >
-            <View style={{ flex: 1, justifyContent: "center",  }}>
-            <View style={{ marginBottom:30, marginTop:60 }}>
-            <Image
-              source={require("../assets/Eofficelogo.png")}
-              resizeMode="contain"
-              style={{ width: "100%", height: 60 }}
-            />
-          </View>
-          <View style={{ flexDirection:'row', gap:20, marginBottom:20 }} >
-            {/* <TouchableOpacity onPress={()=> setActiveTab('Group')} style={{ flex:1, height:50, backgroundColor: activeTab === 'Group'?'#b6b6b610':'#658Eff10', justifyContent:'center', alignItems:'center', borderRadius:6, borderWidth:1, borderColor:activeTab === 'Group'?'#658Eff':'#d6d6d6' }} >
-              <Text style={{ fontSize: 14, fontFamily: 'Poppins-Medium', color: activeTab === 'Group'? '#658Eff':'#7c7c7c' }} >Group</Text>
-            </TouchableOpacity> */}
-            <TouchableOpacity onPress={()=> setActiveTab('Client')} style={{ flex:1, height:50, backgroundColor:activeTab === 'Client'?'#b6b6b610':'#658Eff10', justifyContent:'center', alignItems:'center', borderRadius:6, borderWidth:1, borderColor:activeTab === 'Client'?'#658Eff':'#d6d6d6' }} >
-              <Text style={{ fontSize: 14, fontFamily: 'Poppins-Medium', color: activeTab === 'Client'? '#658Eff':'#7c7c7c' }} >Client</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={()=> setActiveTab('Employee')} style={{ flex:1, height:50, backgroundColor:activeTab === 'Employee'?'#b6b6b610':'#658Eff10', justifyContent:'center', alignItems:'center', borderRadius:6, borderWidth:1, borderColor:activeTab === 'Employee'?'#658Eff':'#d6d6d6' }} >
-              <Text style={{ fontSize: 14, fontFamily: 'Poppins-Medium', color: activeTab === 'Employee'? '#658Eff':'#7c7c7c' }} >Employee</Text>
-            </TouchableOpacity>
-          </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 10, marginTop: 20 }}>
-              <Text style={{ fontSize: 18, fontFamily:'Roboto-Bold' }}>Welcome to</Text>
-              <Text style={{ fontSize: 18, fontFamily:'Roboto-Bold', color: '#658eff',  }}>&nbsp;E-Office!</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar translucent={false} backgroundColor={'#ffffff'} barStyle='dark-content' />
+      <View style={styles.backgroundContainer}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Section */}
+          <View style={styles.headerSection}>
+            <View style={styles.logoContainer}>
+              <View style={styles.logoWrapper}>
+                <Image
+                  source={require("../assets/Eofficelogo.png")}
+                  resizeMode="contain"
+                  style={styles.logo}
+                />
+              </View>
             </View>
-            <View>
+            
+            <View style={styles.welcomeContainer}>
+              <Text style={styles.welcomeText}>Welcome to</Text>
+              <Text style={styles.appNameText}>E-Office</Text>
+              <Text style={styles.subtitleText}>Your digital workspace solution</Text>
+            </View>
+          </View>
+
+          {/* Tab Selector */}
+          <View style={styles.tabContainer}>
+            <View style={styles.tabWrapper}>
+              <TouchableOpacity 
+                onPress={() => setActiveTab('Group')} 
+                style={[
+                  styles.tabButton,
+                  activeTab === 'Group' && styles.activeTabButton
+                ]}
+              >
+                <MaterialIcons 
+                  name="group" 
+                  size={20} 
+                  color={activeTab === 'Group' ? '#fff' : '#666'} 
+                />
+                <Text style={[
+                  styles.tabText,
+                  activeTab === 'Group' && styles.activeTabText
+                ]}>
+                  Group
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={() => setActiveTab('Client')} 
+                style={[
+                  styles.tabButton,
+                  activeTab === 'Client' && styles.activeTabButton
+                ]}
+              >
+                <MaterialIcons 
+                  name="person" 
+                  size={20} 
+                  color={activeTab === 'Client' ? '#fff' : '#666'} 
+                />
+                <Text style={[
+                  styles.tabText,
+                  activeTab === 'Client' && styles.activeTabText
+                ]}>
+                  Client
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={() => setActiveTab('Employee')} 
+                style={[
+                  styles.tabButton,
+                  activeTab === 'Employee' && styles.activeTabButton
+                ]}
+              >
+                <MaterialIcons 
+                  name="work" 
+                  size={20} 
+                  color={activeTab === 'Employee' ? '#fff' : '#666'} 
+                />
+                <Text style={[
+                  styles.tabText,
+                  activeTab === 'Employee' && styles.activeTabText
+                ]}>
+                  Employee
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {/* Form Section */}
+          <View style={styles.formContainer}>
             {
               activeTab === 'Client' ? (
                 <>
-                  <View style={{ width: '100%', marginTop: 10 }}>
-                    <Text style={{ fontSize: 12, fontFamily:'Poppins-Medium' }}>Enter your e-mail</Text>
-                    <View style={{ width: "100%", height: 50, borderWidth: 1, borderRadius: 5, borderColor: '#074173', marginTop: 0 }}>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Email Address</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="mail-outline" size={20} color="#667eea" style={styles.inputIcon} />
                       <TextInput
-                        placeholder="Enter your e-mail"
+                        placeholder="Enter your email"
                         value={userName}
                         onChangeText={value => setUserName(value)}
                         placeholderTextColor="#999"
-                        style={{ flex: 1, backgroundColor: '#fff', borderRadius: 5, padding: 5, paddingLeft:15 }}
+                        style={styles.textInput}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
                       />
                     </View>
                   </View>
-                  <View style={{ width: '100%', marginTop: 10 }}>
-                    <Text style={{ fontSize: 12, fontFamily:'Poppins-Medium' }}>Enter your Password</Text>
-                    <View style={{ flexDirection: 'row', width: "100%", backgroundColor: '#fff', height: 50, borderWidth: 1, borderRadius: 5, borderColor: '#074173', marginTop: 0 }}>
+                  
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Password</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
                       <TextInput
-                        placeholder="Password"
+                        placeholder="Enter your password"
                         value={password}
                         onChangeText={value => setPassword(value)}
                         placeholderTextColor="#999"
-                        secureTextEntry={showPass ? true : false}
-                        style={{ flex: 9, borderRadius: 5, padding: 5, paddingLeft:15 }}
+                        secureTextEntry={showPass}
+                        style={styles.textInput}
                       />
-                      <TouchableOpacity onPress={() => setShowPass(!showPass)} style={{ flex: 1.5, justifyContent: 'center', alignItems: 'center', }}>
-                        <Icon name={showPass ? 'eye-slash' : 'eye'} size={16} color='#074173' />
+                      <TouchableOpacity 
+                        onPress={() => setShowPass(!showPass)} 
+                        style={styles.eyeIcon}
+                      >
+                        <Ionicons 
+                          name={showPass ? 'eye-off-outline' : 'eye-outline'} 
+                          size={20} 
+                          color="#667eea" 
+                        />
                       </TouchableOpacity>
                     </View>
                   </View>
                 </>
-              ) :activeTab === 'Group' ? (
+              ) : activeTab === 'Group' ? (
                 <>
-                  <View style={{ width: '100%', marginTop: 0 }}>
-                    <Text style={{ fontSize: 12, fontFamily:'Poppins-Medium' }}>Enter Group Name</Text>
-                    <View style={{ width: "100%", flexDirection:'row', backgroundColor: '#fff', height: 50, borderWidth: 1, borderRadius: 5, borderColor: '#074173', marginTop: 0 }}>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Group Name</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="business-outline" size={20} color="#667eea" style={styles.inputIcon} />
                       <TextInput
-                        placeholder="Group name"
+                        placeholder="Enter group name"
                         value={groupId}
                         onChangeText={value => setGroupId(value)}
                         autoCapitalize="characters"
                         placeholderTextColor="#999"
-                        style={{ flex: 9, borderRadius: 5, padding: 5, paddingLeft:15 }}
+                        style={styles.textInput}
                       />
                       {isLoading && (
-                        <TouchableOpacity style={{ flex: 1.5, justifyContent: 'center', alignItems: 'center', }}>
-                          <ActivityIndicator size="small" color="#658eff" />
-                        </TouchableOpacity>
+                        <View style={styles.loadingContainer}>
+                          <ActivityIndicator size="small" color="#667eea" />
+                        </View>
                       )}
                     </View>
                   </View>
-                  <View style={{ width: '100%', marginTop: 10 }}>
-                    <Text style={{ fontSize: 12, fontFamily:'Poppins-Medium' }}>Enter your username</Text>
-                     <SelectDropdown
-                        data={clientList.length === 0 ? [{ fullName: 'No Client has this User ID' }] : clientList}
-                        disabled={!groupId}
-                        onPress={() => !groupId && showToast('Alert', 'Please fill in the Group ID first')}
-                        onSelect={(clientList, index) => {
-                          setUserName(clientList.email);
-                        }}
-                        renderButton={(clientList, isOpened) => {
-                          return (
-                            <View style={styles.dropdownButtonStyle}>
-                               <Text style={styles.dropdownButtonTxtStyle}>
-                                 {(clientList && clientList.fullName) || 'Client List'}
-                               </Text>
-                               <Entypo name={isOpened ? 'chevron-up' : 'chevron-down'} style={styles.dropdownButtonArrowStyle} />
-                            </View>
-                          );
-                        }}
-                        renderItem={(clientList, index, isSelected) => {
-                          return (
-                            <View style={{...styles.dropdownItemStyle, ...(isSelected && {backgroundColor: '#D2D9DF'})}}>
-                              <Text style={styles.dropdownItemTxtStyle}>{clientList.fullName}</Text>
-                            </View>
-                          );
-                        }}
-                        showsVerticalScrollIndicator={false}
-                        dropdownStyle={styles.dropdownMenuStyle}
-                     />
+                  
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Select Client</Text>
+                    <SelectDropdown
+                      data={clientList.length === 0 ? [{ fullName: 'No Client has this User ID' }] : clientList}
+                      disabled={!groupId}
+                      onPress={() => !groupId && showToast('Alert', 'Please fill in the Group ID first')}
+                      onSelect={(clientList, index) => {
+                        setUserName(clientList.email);
+                      }}
+                      renderButton={(clientList, isOpened) => {
+                        return (
+                          <View style={styles.modernDropdownButton}>
+                            <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                            <Text style={styles.modernDropdownText}>
+                              {(clientList && clientList?.fullName) || 'Select Client'}
+                            </Text>
+                            <Ionicons 
+                              name={isOpened ? 'chevron-up' : 'chevron-down'} 
+                              size={20} 
+                              color="#667eea" 
+                            />
+                          </View>
+                        );
+                      }}
+                      renderItem={(clientList, index, isSelected) => {
+                        return (
+                          <View style={[styles.modernDropdownItem, isSelected && styles.selectedDropdownItem]}>
+                            <Text style={styles.modernDropdownItemText}>{clientList.fullName}</Text>
+                          </View>
+                        );
+                      }}
+                      showsVerticalScrollIndicator={false}
+                      dropdownStyle={styles.modernDropdownMenu}
+                    />
                   </View>
-                  <View style={{ width: '100%', marginTop: 10 }}>
-                   <Text style={{ fontSize: 12, fontFamily:'Poppins-Medium' }}>Enter your Password</Text>
-                    <View style={{ flexDirection: 'row', width: "100%", backgroundColor: '#fff', height: 50, borderWidth: 1, borderRadius: 5, borderColor: '#074173', marginTop: 0 }}>
+                  
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Password</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
                       <TextInput
-                        placeholder="Password"
+                        placeholder="Enter your password"
                         value={password}
                         onChangeText={value => setPassword(value)}
                         placeholderTextColor="#999"
-                        secureTextEntry={showPass ? true : false}
-                        style={{ flex: 9, borderRadius: 5, padding: 5, paddingLeft:15 }}
+                        secureTextEntry={showPass}
+                        style={styles.textInput}
                       />
-                      <TouchableOpacity onPress={() => setShowPass(!showPass)} style={{ flex: 1.5, justifyContent: 'center', alignItems: 'center', }}>
-                        <Icon name={showPass ? 'eye-slash' : 'eye'} size={16} color='#074173' />
+                      <TouchableOpacity 
+                        onPress={() => setShowPass(!showPass)} 
+                        style={styles.eyeIcon}
+                      >
+                        <Ionicons 
+                          name={showPass ? 'eye-off-outline' : 'eye-outline'} 
+                          size={20} 
+                          color="#667eea" 
+                        />
                       </TouchableOpacity>
                     </View>
                   </View>
                 </>
-              ):(
+              ) : (
                 <>
-                 <View style={{ width: '100%', marginTop: 10 }}>
-                     <Text style={{ fontSize: 12, fontFamily:'Poppins-Medium' }}>Enter your e-mail</Text>
-                      <View style={{ width: "100%", height: 50, borderWidth: 1, borderRadius: 5, borderColor: '#074173', marginTop: 0 }}>
-                        <TextInput
-                          placeholder="Enter your e-mail"
-                          value={userName}
-                          onChangeText={value => setUserName(value)}
-                          placeholderTextColor="#999"
-                          style={{ flex: 1, backgroundColor: '#fff', borderRadius: 5, padding: 5, paddingLeft:15 }}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Email Address</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="mail-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                      <TextInput
+                        placeholder="Enter your email"
+                        value={userName}
+                        onChangeText={value => setUserName(value)}
+                        placeholderTextColor="#999"
+                        style={styles.textInput}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                      />
+                    </View>
+                  </View>
+                  
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Password</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                      <TextInput
+                        placeholder="Enter your password"
+                        value={password}
+                        onChangeText={value => setPassword(value)}
+                        placeholderTextColor="#999"
+                        secureTextEntry={showPass}
+                        style={styles.textInput}
+                      />
+                      <TouchableOpacity 
+                        onPress={() => setShowPass(!showPass)} 
+                        style={styles.eyeIcon}
+                      >
+                        <Ionicons 
+                          name={showPass ? 'eye-off-outline' : 'eye-outline'} 
+                          size={20} 
+                          color="#667eea" 
                         />
-                      </View>
-                   </View>
-                   <View style={{ width: '100%', marginTop: 10 }}>
-                    <Text style={{ fontSize: 12, fontFamily:'Poppins-Medium' }}>Enter your Password</Text>
-                     <View style={{ flexDirection: 'row', width: "100%", backgroundColor: '#fff', height: 50, borderWidth: 1, borderRadius: 5, borderColor: '#074173', marginTop: 0 }}>
-                       <TextInput
-                         placeholder="Password"
-                         value={password}
-                         onChangeText={value => setPassword(value)}
-                         placeholderTextColor="#999"
-                         secureTextEntry={showPass ? true : false}
-                         style={{ flex: 9, borderRadius: 5, padding: 5, paddingLeft:15 }}
-                       />
-                       <TouchableOpacity onPress={() => setShowPass(!showPass)} style={{ flex: 1.5, justifyContent: 'center', alignItems: 'center', }}>
-                         <Icon name={showPass ? 'eye-slash' : 'eye'} size={16} color='#074173' />
-                       </TouchableOpacity>
-                     </View>
-                   </View> 
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </>
               )
             }
-            </View>
-            <Text onPress={()=> navigation.navigate('ForgotPass')} style={{ alignSelf: 'flex-end', fontSize: 14, fontFamily:'Poppins-SemiBold', color: '#464646', paddingVertical: 10 }}>Forgot Password?</Text>
-            <View style={{ width: '100%', alignItems: 'center' }}>
-              {
-                activeTab === 'Employee' ? (
-                  <TouchableOpacity onPress={empLogin} disabled={isLoading} style={{ width: '60%', height: 40, backgroundColor: '#658eff', borderRadius: 5, justifyContent: 'center', alignItems: 'center' }}>
-                     {
-                       isLoading ? <ActivityIndicator size="small" color="#fff" /> : 
-                       <Text style={{ fontSize: 16, fontFamily:'Poppins-Medium', color: '#fff' }}>Login</Text>
-                     }
-                  </TouchableOpacity>
-                ):(
-                  <TouchableOpacity onPress={()=> {handleLogin()}} disabled={login_loading} style={{ width: '60%', height: 40, backgroundColor: '#658eff', borderRadius: 5, justifyContent: 'center', alignItems: 'center' }}>
-                    {
-                      login_loading ? <ActivityIndicator size="small" color="#fff" /> : 
-                      <Text style={{ fontSize: 16, fontFamily:'Poppins-Medium', color: '#fff' }}>Login</Text>
-                    }
-                  </TouchableOpacity>
-                )
-              }
-            </View> 
-            </View>                                                                  
-          </ScrollView>
-        </ImageBackground>
+          </View>
+          {/* Forgot Password */}
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('ForgotPass')} 
+            style={styles.forgotPasswordContainer}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          {/* Login Button */}
+          <View style={styles.loginButtonContainer}>
+            {activeTab === 'Employee' ? (
+              <TouchableOpacity 
+                onPress={empLogin} 
+                disabled={isLoading || fcmTokenLoading} 
+                style={[styles.loginButton, (isLoading || fcmTokenLoading) && styles.disabledButton]}
+              >
+                <View style={styles.loginButtonContent}>
+                  {(isLoading || fcmTokenLoading) ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="log-in-outline" size={20} color="#fff" style={styles.loginIcon} />
+                      <Text style={styles.loginButtonText}>Login</Text>
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                onPress={() => handleLogin()} 
+                disabled={login_loading || fcmTokenLoading} 
+                style={[styles.loginButton, (login_loading || fcmTokenLoading) && styles.disabledButton]}
+              >
+                <View style={styles.loginButtonContent}>
+                  {(login_loading || fcmTokenLoading) ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="log-in-outline" size={20} color="#fff" style={styles.loginIcon} />
+                      <Text style={styles.loginButtonText}>Login</Text>
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Main Container Styles
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  backgroundContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+
+  // Header Section Styles
+  headerSection: {
+    alignItems: 'center',
+    marginTop: 0,
+    marginBottom: 20,
+  },
+  logoContainer: {
+    marginBottom: 10,
+  },
+  logoWrapper: {
+    // backgroundColor: '#f8f9fa',
+    borderRadius: 15,
+    padding: 20,
+    // borderWidth: 1,
+    // borderColor: '#e9ecef',
+  },
+  logo: {
+    width: 120,
+    height: 50,
+  },
+  welcomeContainer: {
+    alignItems: 'center',
+  },
+  welcomeText: {
+    fontSize: 18,
+    fontFamily: 'Poppins-Light',
+    color: '#333',
+    marginBottom: 0,
+  },
+  appNameText: {
+    fontSize: 24,
+    fontFamily: 'Poppins-Bold',
+    color: '#667eea',
+    marginBottom: 1,
+  },
+  subtitleText: {
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+    color: '#666',
+    textAlign: 'center',
+  },
+
+  // Tab Selector Styles
+  tabContainer: {
+    marginBottom: 15,
+  },
+  tabWrapper: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginHorizontal: 2,
+  },
+  activeTabButton: {
+    backgroundColor: '#667eea',
+  },
+  tabText: {
+    fontSize: 14,
+    fontFamily: 'Poppins-Medium',
+    color: '#666',
+    marginLeft: 6,
+  },
+  activeTabText: {
+    color: '#fff',
+    fontFamily: 'Poppins-SemiBold',
+  },
+
+  // Form Container Styles
+  formContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    paddingHorizontal: 16,
+    height: 56,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: 'Poppins-Regular',
+    color: '#333',
+  },
+  eyeIcon: {
+    padding: 8,
+  },
+  loadingContainer: {
+    padding: 8,
+  },
+
+  // Modern Dropdown Styles
+  modernDropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    paddingHorizontal: 16,
+    height: 56,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modernDropdownText: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: 'Poppins-Regular',
+    color: '#333',
+    marginLeft: 12,
+  },
+  modernDropdownMenu: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modernDropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f3f4',
+  },
+  selectedDropdownItem: {
+    backgroundColor: '#f8f9fa',
+  },
+  modernDropdownItemText: {
+    fontSize: 16,
+    fontFamily: 'Poppins-Regular',
+    color: '#333',
+  },
+
+  // Forgot Password Styles
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#667eea',
+    textDecorationLine: 'underline',
+  },
+
+  // Login Button Styles
+  loginButtonContainer: {
+    alignItems: 'center',
+    marginTop: 0,
+  },
+  loginButton: {
+    width: '100%',
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: '#667eea',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loginButtonContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  disabledButton: {
+    opacity: 0.8,
+  },
+  loginIcon: {
+    marginRight: 8,
+  },
+  loginButtonText: {
+    fontSize: 18,
+    fontFamily: 'Poppins-SemiBold',
+    color: '#fff',
+  },
+
+  // Legacy dropdown styles (keeping for compatibility)
   dropdownButtonStyle: {
     width: "100%",
     height: 50,
@@ -475,7 +971,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 12,
-    borderWidth:1,
+    borderWidth: 1,
   },
   dropdownButtonTxtStyle: {
     flex: 1,
@@ -496,7 +992,6 @@ const styles = StyleSheet.create({
   },
   dropdownItemStyle: {
     width: '100%',
-    // flexDirection: 'row',
     paddingHorizontal: 12,
     justifyContent: 'center',
     paddingVertical: 8,

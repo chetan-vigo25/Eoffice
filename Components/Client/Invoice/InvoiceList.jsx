@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, RefreshControl, SafeAreaView, ScrollView, Modal, StyleSheet, LayoutAnimation, UIManager, Platform, Alert, ToastAndroid, ActivityIndicator } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown'
 // import * as Sharing from 'expo-sharing';
@@ -9,6 +9,8 @@ import moment from "moment";
 import DatePicker from 'react-native-modern-datepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 
 import { AntDesign, Feather, Entypo, Ionicons, Fontisto } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
@@ -17,16 +19,32 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
 export default function InvoiceList({ navigation }) {
 
+  const dispatch = useDispatch();
   const [scale] = useState(new Animated.Value(0)); 
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisible1, setModalVisible1] = useState(false);
@@ -42,6 +60,7 @@ export default function InvoiceList({ navigation }) {
   const [invoiceData, setInvoiceData] = useState([]);
   const [refresh, setRefresh] = useState(false);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+  const logoutHandled = useRef(false);
   
   const statusData = ['Paid', 'PendingPayment']
 
@@ -53,9 +72,18 @@ export default function InvoiceList({ navigation }) {
     }).start();
   }, []);
 
+  useEffect(() => {
+    getInvoiceList();
+  },[])
+
   const getInvoiceList = async () => {
-    setLoading(true);
-     let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+       setLoading(true)
+       let token = await AsyncStorage.getItem("token");
+       if(!token) {
+        navigation.navigate('Autologin');
+        return;
+     }
      const myHeaders = new Headers();
      myHeaders.append("Authorization", "Bearer " + token);
      myHeaders.append("Content-Type", "application/json");
@@ -84,8 +112,16 @@ export default function InvoiceList({ navigation }) {
           setInvoiceData(result.data.docs);
           setFilteredData(result.data.docs);
           setLoading(false);
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         }else{
-          showToast(result.message);
+          // showToast(result.message);
           setLoading(false);
           setInvoiceData([]);
           setFilteredData([]);
@@ -134,7 +170,7 @@ export default function InvoiceList({ navigation }) {
           setStatusD('');
           setStartDate('');
         }else{
-          showToast(result.message);
+          // showToast(result.message);
           setLoading(false);
           setInvoiceData([]);
           setFilteredData([]);
@@ -154,10 +190,6 @@ export default function InvoiceList({ navigation }) {
       setModalVisible1(false);
     }
   };
-
-  useEffect(() => {
-    getInvoiceList();
-  },[])
 
   const handleSearch = (text) => {
     setSearchQuery(text);
@@ -181,7 +213,7 @@ export default function InvoiceList({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
+      <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Modal
            animationType="slide"
            transparent={true}
@@ -191,7 +223,7 @@ export default function InvoiceList({ navigation }) {
              setModalVisible(false)
            }}>
          <TouchableOpacity onPress={()=> setModalVisible(false)} style={{ flex:1, backgroundColor:'#00000080', justifyContent:'flex-end'}}>
-            <View style={{ width:'100%', backgroundColor:'#eee', height:400,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
+            <View style={{ width:'100%', backgroundColor:'#fff', height:400,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
             <View style={{ width:60, height:4, backgroundColor:'#b3b3b3', alignSelf:'center', marginTop:20, borderRadius:5 }} ></View>
             <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:10 }} >
               <Text style={{ fontSize:16, fontWeight:"600", color:'#074173', }}>Filters</Text>
@@ -313,7 +345,15 @@ export default function InvoiceList({ navigation }) {
                   filteredData.length > 0 ? (
                     filteredData.map((item, index) => {
                           return (
-                            <View key={index} style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, marginBottom:10, padding:10 }} >
+                            <View key={index} style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, marginBottom:10, padding:10, 
+                              borderWidth: .5,
+                              borderColor: '#e0e0e0',
+                              shadowColor: '#000',
+                              shadowOffset: {
+                                width: 0,
+                                height: 2,
+                              },
+                            }} >
                               <View style={{ width:"100%", flexDirection:'row', gap:10, justifyContent:'space-between', alignItems:'center' }} >
                                   <Text style={{flex:8, fontSize:16, fontWeight:"500", color:Style.headerBgColor }}>{item.invoiceNumber}</Text>
                                   <View style={{flex:2, width:100, backgroundColor:item.status === 'Paid'? '#85BD2A':'#E51E1E', height:30, justifyContent:'center', alignItems:'center', borderRadius:5 }} >

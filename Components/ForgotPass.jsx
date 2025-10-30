@@ -57,7 +57,7 @@ export default function ForgotPass({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Style.primaryBgColor }}>
-      <StatusBar barStyle='dark-content' backgroundColor={Style.primaryBgColor} />
+      <StatusBar translucent={false} barStyle='dark-content' backgroundColor={Style.primaryBgColor} />
       <ScrollView style={{ flex: 1, padding: 20 }}>
         <View style={{ width: "100%", height: 200, justifyContent: "center", alignItems: "center", }} >
           <Image source={require("../assets/Eofficelogo.png")} resizeMode="contain" style={{ width: "100%", height: 100 }} />

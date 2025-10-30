@@ -1,31 +1,59 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiCall } from "../../../Config/Http";
-import { Alert, ToastAndroid } from "react-native";
+import { Alert, ToastAndroid, Platform } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 
-
-function showToast(message) {
+function showToast(message, onOk = null) {
+  if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
-}
-
-export async function personalInfo(requestBody) {
-  try {
-    const response = await apiCall("POST", "/client/auth/profile", requestBody);
-    if (response.statusCode === 200) {
-      return response.data;
-    } else {
-      // Show error toast if response statusCode is not 200
-      showToast("Error: " + response.message || "Failed to fetch Client Profile");
-      throw new Error("Failed to fetch Client Profile: " + response.message);
+    if (onOk) {
+      setTimeout(onOk, 2000);
     }
-  } catch (error) {
-    // Log the error and show a toast message
-    console.error("Error fetching Client Data:", error);
-    showToast("Error fetching Client data");
-    throw error;
+  } else {
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
+export async function personalInfo(requestBody, navigation) {
+  try {
+    // Ensure token exists before calling the API
+    const token = await AsyncStorage.getItem('token');
+    if (!token) {
+      // If no token, show a toast and throw an error
+      throw new Error("No token found. Please log in.");
+    }
 
+    // Make the API call only if token is available
+    const response = await apiCall("POST", "/client/auth/profile", requestBody);
+    
+    // Ensure the response is defined and has statusCode
+    if (response && response.statusCode === 200) {
+      return response.data;
+    } else {
+      throw new Error("Failed to fetch Client Profile:2 " + response?.message);
+    }
+  } catch (error) {
+    // Log the error and show a toast message
+    showToast("Session expired. Please log in again.", () => {
+      AsyncStorage.clear() // Navigate to autologin page
+    });
+    console.log("Error fetching Client Data:3", error);
+   
+    throw error;
+  }
+}
 
 export const clientServices = {
   personalInfo,

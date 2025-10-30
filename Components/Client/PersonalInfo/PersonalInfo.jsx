@@ -26,7 +26,7 @@ export default function PersonInfo({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
+      <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
            <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
              <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start',}}>
@@ -50,7 +50,18 @@ export default function PersonInfo({ navigation }) {
          <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
            <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1,}}>
                <Animated.View style={{ transform: [{ scale }] }}>
-                   <TouchableOpacity onPress={()=> navigation.navigate('PersonalDetail')} style={{ width:'100%',  borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5 }} >
+                   <TouchableOpacity onPress={()=> navigation.navigate('PersonalDetail')} style={{ width:'100%',  borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, marginBottom:10, padding:5,
+                            // iOS shadow
+                            shadowColor: '#000',
+                            shadowOffset: {
+                              width: 0,
+                              height: 2,
+                            },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 3.84,
+                            // Android shadow
+                            elevation: 1,
+                           }} >
                        <View style={{ flex:1.5, alignItems:'center', justifyContent:'center' }} >
                            <Image source={require('../../../assets/user.png')} resizeMode="contain" style={{ width: 25, height: 30, }} />
                        </View>
@@ -58,7 +69,18 @@ export default function PersonInfo({ navigation }) {
                           <Text style={{ color:Style.headerBgColor, fontSize: 12, fontWeight: '500', }}>Personal Information</Text>
                        </View>
                    </TouchableOpacity>
-                   <TouchableOpacity onPress={()=> navigation.navigate('OwnerDetail')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5 }} >
+                   <TouchableOpacity onPress={()=> navigation.navigate('OwnerDetail')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, marginBottom:10, padding:5, 
+                            // iOS shadow
+                            shadowColor: '#000',
+                            shadowOffset: {
+                              width: 0,
+                              height: 2,
+                            },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 3.84,
+                            // Android shadow
+                            elevation: 2,
+                           }} >
                        <View style={{ flex:1.5, alignItems:'center', justifyContent:'center' }} >
                            <Image source={require('../../../assets/briefcase.png')} resizeMode="contain" style={{ width: 20, height: 25, }} />
                        </View>
@@ -66,7 +88,18 @@ export default function PersonInfo({ navigation }) {
                           <Text style={{color:Style.headerBgColor, fontSize: 12, fontWeight: '500', }}>Owner Details</Text>
                        </View>
                    </TouchableOpacity>
-                   <TouchableOpacity onPress={()=> navigation.navigate('ContactDetail')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5 }} >
+                   <TouchableOpacity onPress={()=> navigation.navigate('ContactDetail')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, marginBottom:10, padding:5, 
+                            // iOS shadow
+                            shadowColor: '#000',
+                            shadowOffset: {
+                              width: 0,
+                              height: 2,
+                            },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 3.84,
+                            // Android shadow
+                            elevation: 2,
+                           }} >
                        <View style={{ flex:1.5, alignItems:'center', justifyContent:'center' }} >
                            <Image source={require('../../../assets/phone-call.png')} resizeMode="contain" style={{ width: 20, height: 25, }} />
                        </View>
@@ -74,7 +107,18 @@ export default function PersonInfo({ navigation }) {
                           <Text style={{color: Style.headerBgColor, fontSize: 12, fontWeight: '500', }}>Contact Details</Text>
                        </View>
                    </TouchableOpacity>
-                   <TouchableOpacity onPress={()=> navigation.navigate('BankDetail')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5 }} >
+                   <TouchableOpacity onPress={()=> navigation.navigate('BankDetail')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, marginBottom:10, padding:5, 
+                            // iOS shadow
+                            shadowColor: '#000',
+                            shadowOffset: {
+                              width: 0,
+                              height: 2,
+                            },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 3.84,
+                            // Android shadow
+                            elevation: 2,
+                           }} >
                        <View style={{ flex:1.5, alignItems:'center', justifyContent:'center' }} >
                            <Image source={require('../../../assets/layout.png')} resizeMode="contain" style={{ width: 20, height: 30, }} />
                        </View>
@@ -82,7 +126,18 @@ export default function PersonInfo({ navigation }) {
                           <Text style={{color: Style.headerBgColor, fontSize: 12, fontWeight: '500', }}>Bank Account Details</Text>
                        </View>
                    </TouchableOpacity>
-                   <TouchableOpacity onPress={()=> navigation.navigate('DigitalSign')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5 }} >
+                   <TouchableOpacity onPress={()=> navigation.navigate('DigitalSign')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, marginBottom:10, padding:5, 
+                            // iOS shadow
+                            shadowColor: '#000',
+                            shadowOffset: {
+                              width: 0,
+                              height: 2,
+                            },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 3.84,
+                            // Android shadow
+                            elevation: 2,
+                           }} >
                        <View style={{ flex:1.5, alignItems:'center', justifyContent:'center' }} >
                            <Image source={require('../../../assets/copy.png')} resizeMode="contain" style={{ width: 20, height: 30, }} />
                        </View>

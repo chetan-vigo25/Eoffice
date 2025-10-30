@@ -5,6 +5,9 @@ import Carousel, { Pagination } from 'react-native-snap-carousel';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from '@react-navigation/native';
 import moment from "moment";
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from "../../Redux/Reducer/Auth/Auth.reducers";
+import { personalInfo } from "../../Redux/Reducer/Client/Client.Reducer";
 
 import { useContacts } from '../../Context/Contact';
 import BASE_URL from '../../Urls/DomainUrl';
@@ -14,22 +17,39 @@ import { Feather, AntDesign } from "@expo/vector-icons";
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
 export default function ClientDash({ navigation, route }) {
     
+    const dispatch = useDispatch();
     const { userData } = route.params;
     const [invoiceData, setInvoiceData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [paidInvoices, setPaidInvoices] = useState([]);
     const [unpaidInvoices, setUnpaidInvoices] = useState([]);
     const [activeSlide, setActiveSlide] = useState(0);
+    const logoutHandled = useRef(false);
 
     const dashData = [
         { id:1, screen: 'PersonalInfo', name:'Personal Information', cardColor:'#ff6968', img:require('../../assets/personIcon.png')},
@@ -45,8 +65,13 @@ export default function ClientDash({ navigation, route }) {
     };
 
     const getInvoiceList = async () => {
+      if (logoutHandled.current) return;
         setLoading(true)
          let token = await AsyncStorage.getItem("token");
+         if(!token) {
+          navigation.navigate('Autologin');
+          return;
+         }
          const myHeaders = new Headers();
          myHeaders.append("Authorization", "Bearer " + token);
          myHeaders.append("Content-Type", "application/json");
@@ -56,12 +81,12 @@ export default function ClientDash({ navigation, route }) {
           "sort": true,
           "status": '',
           "departmentId": "",
-          "isPagination": false,
+          "isPagination": true,
           "date": '',
         });
     
          const requestOptions = {
-           method: "POST",
+           method: "POST", 
            headers: myHeaders,
            body: raw,
            redirect: "follow"
@@ -69,18 +94,26 @@ export default function ClientDash({ navigation, route }) {
          
          fetch(`${BASE_URL}/client/invoice/list`, requestOptions)
          .then((response) => response.json())
-          .then((result) => {
-             if (result.statusCode === 200) {
-                 const paidInvoicesData = result.data.docs.filter(invoice => invoice.status === "Paid");
-                 const unpaidInvoicesData = result.data.docs.filter(invoice => invoice.status !== "Paid");
-                 setPaidInvoices(paidInvoicesData || []);
-                 setUnpaidInvoices(unpaidInvoicesData || []); 
-                 setLoading(false);
-             } else {
-                 showToast(result.message);
-                 setLoading(false);
-             }
-         })
+          .then(async(result) => {
+            if (result.statusCode === 200) {
+              const paidInvoicesData = result.data.docs.filter(invoice => invoice.status === "Paid");
+              const unpaidInvoicesData = result.data.docs.filter(invoice => invoice.status !== "Paid");
+              setPaidInvoices(paidInvoicesData || []);
+              setUnpaidInvoices(unpaidInvoicesData || []);
+              setLoading(false);
+            } else if (result.statusCode === 401) {
+              if (!logoutHandled.current) {
+                logoutHandled.current = true; // Flag to prevent multiple logouts
+                showToast("Session expired. Please log in again.", () => {
+                  dispatch(logout()); // Dispatch logout action when OK is pressed
+                  navigation.navigate('Autologin'); // Navigate to autologin page
+                });
+              }
+            } else {
+              showToast(result.message || "Something went wrong.");
+              setLoading(false);
+            }
+          })
          .catch((error) => console.error(error))
          .finally(() => setLoading(false));
       }
@@ -158,7 +191,7 @@ export default function ClientDash({ navigation, route }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#ebf1fd' }}>
-      <StatusBar backgroundColor={'#ebf1fd'} barStyle='dark-content' />
+      <StatusBar translucent={false} backgroundColor={'#ebf1fd'} barStyle='dark-content' />
         <View style={{ padding:20 }} >
             <View style={{ flexDirection:'row', justifyContent:'space-between', marginBottom: 20, }} >
                 <View style={{ flex:3,}} >
@@ -256,7 +289,7 @@ export default function ClientDash({ navigation, route }) {
                 }
             </View>
             <TouchableOpacity onPress={()=> navigation.navigate('AddAdvance')} style={{ width:'100%', height:45, backgroundColor:Style.headerBgColor, borderRadius:6, justifyContent:'center', alignItems:'center', marginTop:10 }} >
-              <Text style={{ fontSize:16, fontFamily:'Poppins-Medium', color:'#fff' }} ></Text>
+              <Text style={{ fontSize:16, fontFamily:'Poppins-Medium', color:'#fff' }} >Statements</Text>
             </TouchableOpacity>
          </ScrollView>
         </View>

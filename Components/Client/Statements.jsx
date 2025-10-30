@@ -131,7 +131,7 @@ export default function AdvancedList({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-     <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
+     <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
         <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>

@@ -130,7 +130,7 @@ export default function VerifyOtp({ navigation, route }) {
   return (
  
     <View style={{ flex: 1, backgroundColor: "white" }}>
-      <StatusBar backgroundColor={'#6a8ff3'} barStyle='light-content' />
+      <StatusBar translucent={false} backgroundColor={'#6a8ff3'} barStyle='light-content' />
        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled' style={{ paddingHorizontal: 20, paddingTop: 20 }}>
           <View style={{justifyContent:'center', alignItems:'center', padding:20}}>
                <View style={{marginTop:10}}>

@@ -1,6 +1,6 @@
 export default {
     basicbgColor:'#fff',
-    primaryBgColor: '#eee',
+    primaryBgColor: '#fff',
     // headerBgColor: '#2B547E',
     headerBgColor: '#658eff',
     basicTextColor: '#000',

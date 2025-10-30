@@ -8,6 +8,7 @@ import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
 import { useDispatch, useSelector } from 'react-redux';
 import { DATA_ENCRYPT_DCRYPT_KEY } from "@env";
 import { useFocusEffect } from '@react-navigation/native';
+import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 
 import BASE_URL from '../../../Urls/DomainUrl';
 import Style from '../../../Style/Style';
@@ -17,11 +18,26 @@ const SECRET = DATA_ENCRYPT_DCRYPT_KEY;
 
 const { width } = Dimensions.get('window');
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
@@ -38,6 +54,7 @@ export default function TransDetail({ navigation, route }) {
     const [compData, setCompData] = useState([]);
     const [isloading, setIsLoading] = useState(false);
     const [dataFetched, setDataFetched] = useState(false);
+    const logoutHandled = useRef(false);
 
     useEffect(() => {
       Animated.timing(slideAnim, {
@@ -48,9 +65,14 @@ export default function TransDetail({ navigation, route }) {
     }, []); 
 
       const transDetail = async ()=>{
-        setIsLoading(true)
+        if (logoutHandled.current) return;
+          setIsLoading(true)
+          let token = await AsyncStorage.getItem("token");
+          if(!token) {
+           navigation.navigate('Autologin');
+           return;
+        }
         setDataFetched(false);
-        let token = await AsyncStorage.getItem("token");
         const myHeaders = new Headers();
         myHeaders.append("Authorization", "Bearer " + token);
         myHeaders.append("Content-Type", "application/json");
@@ -73,32 +95,55 @@ export default function TransDetail({ navigation, route }) {
                 // console.log("trans detail...",result.data);
                 setTransdata(result.data);
                 setDataFetched(true);
+            }else if (result.statusCode === 401) {
+              if (!logoutHandled.current) {
+                logoutHandled.current = true; // Flag to prevent multiple logouts
+                showToast("Session expired. Please log in again.", () => {
+                  dispatch(logout()); // Dispatch logout action when OK is pressed
+                  navigation.navigate('Autologin'); // Navigate to autologin page
+                });
+              }
             }else{
-                showToast(result.message);
+                // showToast(result.message);
+                setIsLoading(false);
             }
           })
           .catch((error) => console.error(error))
           .finally(()=> setIsLoading(false))
       }
 
-      const downloadPDF = () => {
-          const { invoiceURL, status } = transData;
-          if (!invoiceURL) {
-              showToast("Invoice not generate.");
-              return;
-          }
-          if (status === 'Paid') {
-              Linking.openURL(invoiceURL)
-                  .catch((err) => console.error("An error occurred while opening the URL", invoiceURL));
-          } else {
-             showToast("This invoice is not marked as Paid.");
-          }
-      };
+      const downloadPDF = async () => {
+        // Check if transData is valid
+        const { invoiceURL, status } = transData;
+        
+        if (!invoiceURL) {
+            showToast("Invoice not generated.");
+            return;
+        }
+        
+        if (transData.statusCode === 401) {
+            if (!logoutHandled.current) {
+                logoutHandled.current = true; // Flag to prevent multiple logouts
+                showToast("Session expired. Please log in again.", () => {
+                    dispatch(logout()); // Dispatch logout action when OK is pressed
+                    navigation.navigate('Autologin'); // Navigate to autologin page
+                });
+            }
+            return;
+        }
+    
+        if (status === 'Paid') {
+            Linking.openURL(invoiceURL)
+                .catch((err) => console.error("An error occurred while opening the URL", invoiceURL));
+        } else {
+            showToast("This invoice is not marked as Paid.");
+        }
+    };
 
       const decryptData = (cipherText) => {
           const bytes = CryptoJS.AES.decrypt(cipherText, SECRET);
           const originalText = bytes.toString(CryptoJS.enc.Utf8);
-          return originalText;
+           return originalText;
       };
 
     const keyFetch = async () => {
@@ -132,7 +177,13 @@ export default function TransDetail({ navigation, route }) {
     }
 
     const CreateOrder = async () =>{
-       let token = await AsyncStorage.getItem("token");
+      if (logoutHandled.current) return;
+        setIsLoading(true)
+        let token = await AsyncStorage.getItem("token");
+        if(!token) {
+         navigation.navigate('Autologin');
+         return;
+      }
        const myHeaders = new Headers();
        myHeaders.append("Authorization", "Bearer " + token);
        myHeaders.append("Content-Type", "application/json");
@@ -155,8 +206,17 @@ export default function TransDetail({ navigation, route }) {
          .then((result) => {
             if(result.statusCode === 200){
                 CheckoutR(result.data.id)
+            }
+            else if (result.statusCode === 401) {
+              if (!logoutHandled.current) {
+                logoutHandled.current = true; // Flag to prevent multiple logouts
+                showToast("Session expired. Please log in again.", () => {
+                  dispatch(logout()); // Dispatch logout action when OK is pressed
+                  navigation.navigate('Autologin'); // Navigate to autologin page
+                });
+              }
             }else{
-                showToast(result.message);
+                console.log(result.message);
             }
          })
          .catch((error) => console.error(error));
@@ -269,7 +329,7 @@ export default function TransDetail({ navigation, route }) {
                     {
                         transData.status === 'Paid'?(
                            <View>
-                            <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2 }}>
+                            <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2, borderWidth: .5, borderColor: '#e0e0e0' }}>
                               <View style={{ width:"100%" }} >
                                   <View style={{ flexDirection:'row', gap:10, justifyContent:'space-between', alignItems:'center' }}>
                                     <Text style={{flex:8, fontSize:16, fontFamily: 'Poppins-Medium', color:Style.headerBgColor }}>{transData.type === "Advance"?`Receipt No. ${transData.receiptNumber}`:`Invoice # ${transData.invoiceNumber}`}</Text>
@@ -301,7 +361,7 @@ export default function TransDetail({ navigation, route }) {
                                </View>
                               </View>
                             </View>
-                            <View style={{ width:'100%', backgroundColor:Style.basicbgColor, marginTop:10, borderRadius:10, padding:10, borderWidth:1, borderColor:Style.secondaryButtonColor }} >
+                            <View style={{ width:'100%', backgroundColor:Style.basicbgColor, marginTop:10, borderRadius:10, padding:10, borderWidth: .5, borderColor: '#e0e0e0' }} >
                                 <View style={{ width:'100%', height:50, backgroundColor:Style.headerBgColor, borderRadius:10, justifyContent:'center', alignItems:'center' }} >
                                     <Text style={{fontSize:16, fontFamily: 'Poppins-Medium', color:"#fff"}} >Payment Detail</Text>
                                 </View>
@@ -338,7 +398,7 @@ export default function TransDetail({ navigation, route }) {
                             </View>
                            </View>
                         ):(
-                         <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2 }}>
+                         <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2, borderWidth: .5, borderColor: '#e0e0e0' }}>
                            <View style={{ width:"100%" }} >
                                <View style={{ flexDirection:'row', gap:10, justifyContent:'space-between', alignItems:'center' }}>
                                     <Text style={{flex:8, fontSize:16, fontFamily: 'Poppins-Medium', color:Style.headerBgColor }}>{transData.type === "Advance"?`Receipt No. ${transData.receiptNumber}`:`Invoice # ${transData.invoiceNumber}`}</Text>

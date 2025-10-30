@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, Modal, Platform, ScrollView, ToastAndroid, ActivityIndicator, Alert, StyleSheet, RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
+import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import SelectDropdown from 'react-native-select-dropdown';
 import moment from "moment";
 import * as ImagePicker from 'expo-image-picker';
@@ -14,11 +15,26 @@ import { AntDesign, Feather, Ionicons, Entypo, MaterialIcons } from "@expo/vecto
 import Style from "../../../Style/Style";
 import BASE_URL from "../../../Urls/DomainUrl";
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
@@ -39,6 +55,7 @@ export default function RegDocument({ navigation }) {
   const [selectedItem_id, setSelectedItem_id] = useState('');
   const [refresh, setRefresh] = useState(false);
   const [originalDocData, setOriginalDocData] = useState({});
+  const logoutHandled = useRef(false);
 
   const pickImages = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -86,7 +103,12 @@ export default function RegDocument({ navigation }) {
   );
 
   const getDocType = async ()=>{
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+     let token = await AsyncStorage.getItem("token");
+     if(!token) {
+      navigation.navigate('Splash');
+      return;
+    }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -111,8 +133,16 @@ export default function RegDocument({ navigation }) {
       .then((result) => {
         if(result.statusCode === 200){
           setDocType(result?.data?.docs);
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         }else{
-          showToast(result.message)
+          console.log(result.message)
         }
       })
       .catch((error) => console.error(error));
@@ -128,7 +158,12 @@ export default function RegDocument({ navigation }) {
       return;
     }
     try {
-      let token = await AsyncStorage.getItem("token");
+      if (logoutHandled.current) return;
+       let token = await AsyncStorage.getItem("token");
+       if(!token) {
+        navigation.navigate('Splash');
+        return;
+      }
       const formData = new FormData();
   
       images.forEach((img, index) => {
@@ -160,6 +195,14 @@ export default function RegDocument({ navigation }) {
         // console.log("Uploaded data:", result);
         setFileData(result.data);
         uploadDoc(result.data);
+      }else if (result.statusCode === 401) {
+        if (!logoutHandled.current) {
+          logoutHandled.current = true; // Flag to prevent multiple logouts
+          showToast("Session expired. Please log in again.", () => {
+            dispatch(logout()); // Dispatch logout action when OK is pressed
+            navigation.navigate('Autologin'); // Navigate to autologin page
+          });
+        }
       } else {
         console.log("Upload failed:", result.message);
         showToast(result.message || "Upload failed.");
@@ -171,7 +214,12 @@ export default function RegDocument({ navigation }) {
   };
 
   const uploadDoc = async (data) => {
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+     let token = await AsyncStorage.getItem("token");
+     if(!token) {
+      navigation.navigate('Splash');
+      return;
+    }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -214,6 +262,14 @@ export default function RegDocument({ navigation }) {
           setDocNo('');
           dispatch(personalInfo());
           showToast(result.message);
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         }else{
           showToast(result.message || "Document upload failed.");
         }
@@ -221,45 +277,53 @@ export default function RegDocument({ navigation }) {
       .catch((error) => console.error(error));
   }
 
-    const downloadFile = async (fileUrl) => {
-      if (!fileUrl) {
-        showToast("No file found to download.");
-        return;
+   const downloadFile = async (fileUrl) => {
+  if (!fileUrl) {
+    showToast("No file found to download.");
+    return;
+  }
+
+  // Check if token exists
+  let token = await AsyncStorage.getItem("token");
+  if (!token) {
+    showToast("Session expired. Please log in again.");
+    navigation.navigate('Splash'); // Navigate to the login screen
+    return;
+  }
+
+  try {
+    const filename = fileUrl.split('/').pop();
+    const fileUri = FileSystem.documentDirectory + filename;
+
+    const downloadResumable = FileSystem.createDownloadResumable(
+      fileUrl,
+      fileUri
+    );
+
+    const { uri } = await downloadResumable.downloadAsync();
+
+    if (Platform.OS === 'android') {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status === 'granted') {
+        const asset = await MediaLibrary.createAssetAsync(uri);
+        await MediaLibrary.createAlbumAsync('Documents', asset, false);
+        showToast("Download complete and saved to Documents folder.");
+      } else {
+        showToast("Permission denied to save the file.");
       }
-    
-      try {
-        const filename = fileUrl.split('/').pop();
-        const fileUri = FileSystem.documentDirectory + filename;
-    
-        const downloadResumable = FileSystem.createDownloadResumable(
-          fileUrl,
-          fileUri
-        );
-    
-        const { uri } = await downloadResumable.downloadAsync();
-    
-        if (Platform.OS === 'android') {
-          const { status } = await MediaLibrary.requestPermissionsAsync();
-          if (status === 'granted') {
-            const asset = await MediaLibrary.createAssetAsync(uri);
-            await MediaLibrary.createAlbumAsync('Documents', asset, false);
-            showToast("Download complete and saved to Documents folder.");
-          } else {
-            showToast("Permission denied to save the file.");
-          }
-        } else if (Platform.OS === 'ios') {
-          const isAvailable = await Sharing.isAvailableAsync();
-          if (isAvailable) {
-            await Sharing.shareAsync(uri); // Share and allow saving to Files
-          } else {
-            showToast("Sharing not available on this device.");
-          }
-        }
-      } catch (e) {
-        console.error("Download error:", e);
-        showToast("Download failed.");
+    } else if (Platform.OS === 'ios') {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri); // Share and allow saving to Files
+      } else {
+        showToast("Sharing not available on this device.");
       }
-    };
+    }
+  } catch (e) {
+    console.error("Download error:", e);
+    showToast("Download failed.");
+  }
+};
 
   useEffect(()=>{
     getDocType();
@@ -353,14 +417,14 @@ export default function RegDocument({ navigation }) {
                    </TouchableOpacity>
                  </View>
                   <View style={{ padding:10 }}>
-                    <TouchableOpacity style={{ width:'100%', height:50, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                    <TouchableOpacity style={{ width:'100%', height:50, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                     {Array.isArray(docType) && docType.length > 0 ? (
                       <SelectDropdown
                         data={docType}
                         defaultValue={docType.find(d => d.name === docName) || null}
                         onSelect={(selecteddocType, index) => {
                           setDocName(selecteddocType.name);
-                          showToast(`Selected: ${selecteddocType.name}`);
+                          // showToast(`Selected: ${selecteddocType.name}`);
                         }}
                         renderButton={(selecteddocType, isOpened) => (
                           <View style={styles.dropdownButtonStyle}>
@@ -517,7 +581,7 @@ export default function RegDocument({ navigation }) {
                            </TouchableOpacity>
                          </View>
                           <View style={{ padding:10 }}>
-                            <TouchableOpacity style={{ width:'100%', height:50, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                            <TouchableOpacity style={{ width:'100%', height:50, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                              <SelectDropdown
                                data={docType || []}
                                defaultValue={
@@ -525,7 +589,7 @@ export default function RegDocument({ navigation }) {
                                }
                                onSelect={(selecteddocType, index) => {
                                  setDocName(selecteddocType.name);
-                                 showToast(`Selected: ${selecteddocType.name}`);
+                                //  showToast(`Selected: ${selecteddocType.name}`);89
                                }}
                                renderButton={(selecteddocType, isOpened) => (
                                  <View style={styles.dropdownButtonStyle}>

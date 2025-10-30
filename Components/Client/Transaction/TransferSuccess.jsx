@@ -25,7 +25,7 @@ export default function TransferSuccess({ navigation, route }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.paySuccessbgColor }}>
-        <StatusBar barStyle='light-content' backgroundColor={ Style.paySuccessbgColor } />
+        <StatusBar translucent={false} barStyle='light-content' backgroundColor={ Style.paySuccessbgColor } />
         <ScrollView contentContainerStyle={{ justifyContent:'center' }} showsVerticalScrollIndicator={false} style={{ flex:1, padding:20, }}>
             <View>
                <LottieView

@@ -1,24 +1,43 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Animated, SafeAreaView, ScrollView, StyleSheet, Platform, Alert, ToastAndroid, ActivityIndicator} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from "../../Redux/Reducer/Auth/Auth.reducers";
 
 import BASE_URL from '../../Urls/DomainUrl';
 import Style from "../../Style/Style";
 import { AntDesign, Feather, Entypo } from "@expo/vector-icons";
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
 export default function Support({ navigation }) {
  
+  const dispatch = useDispatch();
   const [scale] = useState(new Animated.Value(0)); 
   const [issueMsg, setIssuepMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false)
+  const logoutHandled = useRef(false);
 
   useEffect(() => {
     Animated.timing(scale, {
@@ -29,8 +48,13 @@ export default function Support({ navigation }) {
   }, []);
 
   const createIssue = async ()=>{
-    setIsLoading(true);
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+    setIsLoading(true)
+     let token = await AsyncStorage.getItem("token");
+     if(!token) {
+      navigation.navigate('Splash');
+      return;
+    }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -54,6 +78,14 @@ export default function Support({ navigation }) {
           showToast(result.message);
           setIsLoading(false);
           setIssuepMsg('');
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         }else{
           showToast(result.message);
           setIsLoading(false)
@@ -65,7 +97,7 @@ export default function Support({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-     <StatusBar barStyle='light-content' backgroundColor={ Style.headerBgColor } />
+     <StatusBar translucent={false} barStyle='light-content' backgroundColor={ Style.headerBgColor } />
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
         <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
@@ -80,9 +112,9 @@ export default function Support({ navigation }) {
            <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
                 <View>
                   <View style={{  }}>
-                      <Text style={{ color: Style.secondryTextColor, fontSize: 14, fontFamily:"Poppins-SemiBold" }}>Enter your Query here</Text>
+                      <Text style={{ color: Style.secondryTextColor, fontSize: 14, fontFamily:"Poppins-SemiBold", paddingBottom:10 }}>Enter your Query here</Text>
                   </View>
-                  <View style={{ paddingHorizontal:1 }}>
+                  <View style={{ paddingHorizontal:1, }}>
                      <TextInput
                        placeholder="Enter your query..."
                        placeholderTextColor={Style.primaryTextColor}
@@ -93,7 +125,14 @@ export default function Support({ navigation }) {
                        numberOfLines={10}
                      />
                   </View>
-                  <TouchableOpacity disabled={issueMsg === ""} onPress={createIssue} style={{ width:'100%', height:45, backgroundColor:issueMsg===""?'#cbcbcb': Style.headerBgColor, justifyContent:'center', alignItems:'center', borderRadius:6 }} >
+                  <TouchableOpacity disabled={issueMsg === ""} onPress={createIssue} style={{ width:'100%', height:50, backgroundColor:issueMsg===""?'#cbcbcb': Style.headerBgColor, justifyContent:'center', alignItems:'center', borderRadius:6, 
+                    // iOS shadow
+                    shadowColor: '#000',
+                    shadowOffset: {
+                      width: 0,
+                      height: 2,
+                    },
+                  }} >
                     {
                       isLoading?<ActivityIndicator color={'white'} />:
                       <Text style={{ color:'#fff', fontSize:14, fontFamily:'Poppins-Medium' }} >Report your issue</Text>
@@ -118,6 +157,18 @@ const styles = StyleSheet.create({
       color: Style.primaryTextColor,
       fontSize: 12,
       backgroundColor:'#fff',
-      fontFamily:'Poppins-Medium'
+      fontFamily:'Poppins-Medium',
+      borderWidth: .5,
+      borderColor: '#e0e0e0',
+      // iOS shadow
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+      // Android shadow
+      elevation: 2,
     }
   });

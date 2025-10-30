@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { View, Text, SafeAreaView, ScrollView, StyleSheet, StatusBar, Platform, Alert, TouchableOpacity, RefreshControl, Image, TextInput, TouchableWithoutFeedback, Keyboard, Modal, ToastAndroid, ActivityIndicator } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
@@ -7,16 +7,33 @@ import { logout } from "../../Redux/Reducer/Auth/Auth.reducers";
 import moment from "moment";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { io } from 'socket.io-client';
+import { useFocusEffect } from '@react-navigation/native';
 
 import BASE_URL from '../../Urls/DomainUrl';
 import Style from "../../Style/Style";
 import { Feather } from "@expo/vector-icons";
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
@@ -25,7 +42,10 @@ export default function ClientProfile({ navigation, route }) {
     const dispatch = useDispatch();
     const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
     const [loading, setLoading] = useState(false);
-    const [images, setImages] = useState(null)
+    const [images, setImages] = useState(null);
+    const [refresh, setRefresh] = useState(false);
+    const socketRef = useRef(null);
+    const logoutHandled = useRef(false);
 
     const pickImages = async () => {
       let result = await ImagePicker.launchImageLibraryAsync({
@@ -40,49 +60,49 @@ export default function ClientProfile({ navigation, route }) {
     };
 
     const logoutFun = async () => {
-      setLoading(true);
-      let token = await AsyncStorage.getItem("token");
-  
-      if (!token) {
-          showToast("No active session found.");
-          setLoading(false);
-          return;
-      }
-  
-      const myHeaders = new Headers();
-      myHeaders.append("Authorization", "Bearer " + token);
-      myHeaders.append("Content-Type", "application/json");
-  
-      const requestOptions = {
-          method: "POST",
-          headers: myHeaders,
-          redirect: "follow"
-      };
-  
-      fetch(`${BASE_URL}/client/auth/logout`, requestOptions)
-          .then((response) => response.json())
-          .then((result) => {
-              if (result.statusCode === 200) {
-                  showToast(result.message);
-                  AsyncStorage.removeItem("token");
-                  dispatch(logout());
+      setLoading(true)
+        let token = await AsyncStorage.getItem("token");
+        const myHeaders = new Headers();
+        myHeaders.append("Authorization", "Bearer " + token);
+        myHeaders.append("Content-Type", "application/json");
+       
+       const requestOptions = {
+         method: "POST",
+         headers: myHeaders,
+         redirect: "follow"
+       };
+       
+       fetch(`${BASE_URL}/client/auth/logout`, requestOptions)
+        .then((response) => response.json())
+         .then(async(result) => {
+            if(result.statusCode === 200){
+                showToast(result.message);
+                AsyncStorage.removeItem("token");
+                await AsyncStorage.clear();
+                dispatch(logout());
                   navigation.reset({
-                      index: 0,
-                      routes: [{ name: 'Splash' }]
+                    index: 0,
+                    routes: [{ name: 'Autologin' }],
                   });
-  
-                  setLoading(false);
-              } else {
-                  showToast(result.message);
-                  setLoading(false);
-              }
-          })
-          .catch((error) => {
-              console.error(error);
-              showToast("An error occurred while logging out.");
-              setLoading(false);
-          });
-  };
+                setLoading(false);
+            } else if(result.statusCode === 401){
+                showToast("Session expired. Please log in again.");
+                await AsyncStorage.removeItem("token");
+                dispatch(logout());
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Autologin' }],
+                });
+                setLoading(false);
+                return;
+            }else{
+                showToast(result.message);
+                setLoading(false);
+            }
+         })
+         .catch((error) => console.error(error))
+         .finally(() => setLoading(false));
+    }
 
     const uploadFile = async (image) => {
       if (!image) {
@@ -91,7 +111,13 @@ export default function ClientProfile({ navigation, route }) {
       }
     
       try {
-        let token = await AsyncStorage.getItem("token");
+        if (logoutHandled.current) return;
+         setLoading(true)
+         let token = await AsyncStorage.getItem("token");
+         if(!token) {
+          navigation.navigate('Splash');
+          return;
+        }
         const formData = new FormData();
         formData.append("filePath", {
           uri: image.uri,
@@ -119,6 +145,14 @@ export default function ClientProfile({ navigation, route }) {
           // showToast(result.message);
           // console.log("Uploaded profile:", result);
           uploadImage(result.data[0]);
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         } else {
           showToast(result.message || "Upload failed.");
         }
@@ -129,7 +163,7 @@ export default function ClientProfile({ navigation, route }) {
     };
 
     const uploadImage = async (data) => {
-      setLoading(true)
+      setLoading(true);
       let token = await AsyncStorage.getItem("token");
       const myHeaders = new Headers();
       myHeaders.append("Authorization", "Bearer " + token);
@@ -162,16 +196,70 @@ export default function ClientProfile({ navigation, route }) {
         .finally(()=> setLoading(false));
     };
 
+    // useFocusEffect(
+    //   React.useCallback(() => {
+    //     dispatch(personalInfo());
+    //   },[dispatch])
+    // );
+
+    // useEffect(()=>{
+    //   dispatch(personalInfo());
+    // },[])
+
     useEffect(() => {
-         dispatch(personalInfo());
+      // Check for token when the component mounts
+      const checkTokenAndFetchData = async () => {
+        try {
+          const token = await AsyncStorage.getItem('token'); // Assuming the token is stored under 'token'
+  
+          if (!token) {
+            // If no token, show an alert
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          } else {
+            // If token exists, dispatch the personalInfo action
+            dispatch(personalInfo());
+          }
+        } catch (error) {
+          console.log('Error checking token:', error);
+          Alert.alert('Error', 'An error occurred while checking the token.');
+        }
+      };
+  
+      checkTokenAndFetchData();
     }, [dispatch]);
+
+    const onRefresh = () => {
+      setRefresh(true);
+      dispatch(personalInfo());
+      setTimeout (()=>{
+          setRefresh(false);
+      },2000)
+  }
+
+  // Function to handle logout
+  const handleLogout = async() => {
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      dispatch(logout());
+      await AsyncStorage.clear();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Autologin' }],
+      });
+      // console.warn('Socket disconnected due to logout');
+    }
+    // Handle your logout logic (redirect, reset user, etc.) 
+  };
 
     const { city, country, pinCode, state, street } = personalInfoData?.addresses?.primary || {};
     const fullAddress = `${street || "Street not available"}, ${city || "City not available"}, ${state || "State not available"} ${pinCode || "PinCode not available"}, ${country || "Country not available"}`;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor:Style.headerBgColor }}>
-      <StatusBar barStyle="light-content" style="auto" backgroundColor={Style.headerBgColor} />
+      <StatusBar translucent={false} barStyle="light-content" backgroundColor={Style.headerBgColor} />
         <View style={{ flex: 1 }}>
           <View style={{ width: "100%", padding: 50, alignItems: "center" }}>
             <View style={{ width:80, height:80, justifyContent:'center', alignItems:'center', borderWidth:1, borderRadius:100, borderColor:'#fff' }} >
@@ -188,7 +276,7 @@ export default function ClientProfile({ navigation, route }) {
             </View>
           </View>
           <View style={{ flex: 1, backgroundColor: "#fff", borderTopStartRadius: 20, borderTopEndRadius: 20, padding: 20, }}>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ width: "100%", backgroundColor: "#fff", borderRadius: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 1, elevation: 2, padding: 10, }}>
+            <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false} style={{ width: "100%", backgroundColor: "#fff", borderRadius: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 1, elevation: 2, padding: 10, borderWidth: .5, borderColor: '#e0e0e0' }}>
                 <View>
                   <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor, paddingBottom:5 }}>Profile Name</Text>
                     <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:'#b6b6b610', borderWidth:1, borderColor:'#d6d6d6', marginBottom:10, padding:5, }}>
@@ -277,6 +365,7 @@ export default function ClientProfile({ navigation, route }) {
                      text: "Confirm",
                      onPress: () => {
                        logoutFun(); // ✅ Call the logout function here
+                       handleLogout();
                      },
                    },
                  ]);

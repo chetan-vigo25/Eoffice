@@ -6,7 +6,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 export default function NoInternetScreen({ onRetry, isRetrying }) {
   return (
     <View style={styles.container}>
-      <StatusBar backgroundColor={'#000'} barStyle='light-content' />
+      <StatusBar translucent={false} backgroundColor={'#000'} barStyle='light-content' />
       <Text style={styles.title}>Ooops!</Text>
       <MaterialIcons name="wifi-off" size={80} color="gray" />
       <Text style={{ fontSize: 18, color: 'gray', fontFamily:'Poppins-Medium' }}>You are currently offline.</Text>

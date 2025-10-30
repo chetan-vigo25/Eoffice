@@ -11,7 +11,7 @@ export default function TermCondition({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
-        <StatusBar backgroundColor={'#6a8ff3'} barStyle='light-content' />
+        <StatusBar translucent={false} backgroundColor={'#6a8ff3'} barStyle='light-content' />
          <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', paddingHorizontal:20 }}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
                <AntDesign name="arrowleft" size={24} color="#fff" />

@@ -1,23 +1,41 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, RefreshControl, Alert, ScrollView, Modal, StyleSheet, LayoutAnimation, UIManager, Platform, ToastAndroid, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
 import BASE_URL from '../../../Urls/DomainUrl';
 import moment from "moment";
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 
 import { AntDesign, Feather, Entypo, Fontisto } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
 export default function TaskManagement({ navigation }) {
 
+  const dispatch = useDispatch();
   const [scale] = useState(new Animated.Value(0)); 
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -31,6 +49,7 @@ export default function TaskManagement({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [refresh, setRefresh] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
+  const logoutHandled = useRef(false);
 
 const CLIENT_TASK_STATUS_PENDING = "Pending"
 const CLIENT_TASK_STATUS_REJECT = "Rejected"
@@ -78,8 +97,13 @@ const CLIENT_TASK_STATUS_ARR = [
   }, []);
 
   const getTaskData = async () => {
-    setLoading(true);
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+       setLoading(true)
+       let token = await AsyncStorage.getItem("token");
+       if(!token) {
+        navigation.navigate('Autologin');
+        return;
+     }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -103,11 +127,19 @@ const CLIENT_TASK_STATUS_ARR = [
      .then((response) => response.json())
       .then((result) => {
         if (result.statusCode === 200) {
-          console.log(result.data.docs);
+          // console.log(result.data.docs);
           setTaskData(result.data.docs);
           setFilteredData(result.data.docs);
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         } else {
-          showToast(result.message);
+          // showToast(result.message);
           setTaskData([]);
           setFilteredData([]);
         }
@@ -188,7 +220,7 @@ const CLIENT_TASK_STATUS_ARR = [
           // showToast(result.message);
           setLoading(false);
         }else{
-          showToast(result.message);
+          // showToast(result.message);
           setLoading(false);
         }
       })
@@ -260,7 +292,7 @@ const CLIENT_TASK_STATUS_ARR = [
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
+      <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Modal
            animationType="slide"
            transparent={true}
@@ -270,7 +302,7 @@ const CLIENT_TASK_STATUS_ARR = [
              setModalVisible(false);
            }}>
          <TouchableOpacity onPress={()=> setModalVisible(false)} style={{ flex:1, backgroundColor:'#00000090', justifyContent:'flex-end'}}>
-            <View style={{ width:'100%', backgroundColor:'#eee', height:500,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
+            <View style={{ width:'100%', backgroundColor:'#fff', height:500,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
             <View style={{ width:60, height:4, backgroundColor:'#b3b3b3', alignSelf:'center', marginTop:20, borderRadius:5 }} ></View>
             <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:10  }}>
               <Text style={{ fontSize:16, fontWeight:"600", color:'#074173', }}>Filters</Text>
@@ -279,12 +311,12 @@ const CLIENT_TASK_STATUS_ARR = [
               </TouchableOpacity>
             </View>
               <View style={{ width:'100%', flexDirection:'row', gap:10 }} >
-              <TouchableOpacity style={{ flex:1, height:50, flexDirection:'row', backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+              <TouchableOpacity style={{ flex:1, height:50, flexDirection:'row', backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                 <SelectDropdown
                   data={departmentData.length === 0 ? [{ name: 'No Departments...' }] : departmentData}
                   onSelect={(selectedDepartment, index) => {
                     setDepartment(selectedDepartment._id); 
-                    showToast(`Selected: ${selectedDepartment.name}`);
+                    // showToast(`Selected: ${selectedDepartment.name}`);
                   }}
                   renderButton={(selectedDepartment, isOpened) => {
                     return (
@@ -317,12 +349,12 @@ const CLIENT_TASK_STATUS_ARR = [
                   dropdownStyle={styles.dropdownMenuStyle}
                 />
               </TouchableOpacity>
-              <View style={{ flex:1, height:50, flexDirection:'row', backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+              <View style={{ flex:1, height:50, flexDirection:'row', backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                 <SelectDropdown
                    data={CLIENT_TASK_STATUS_ARR.length === 0 ? ['No data found'] : CLIENT_TASK_STATUS_ARR}
                    onSelect={(CLIENT_TASK_STATUS_ARR, index) => {
                      setStatusD(CLIENT_TASK_STATUS_ARR);
-                     showToast(`Selected: ${CLIENT_TASK_STATUS_ARR}`);
+                    //  showToast(`Selected: ${CLIENT_TASK_STATUS_ARR}`);
                    }}
                    renderButton={(CLIENT_TASK_STATUS_ARR, isOpened) => {
                      return (
@@ -362,8 +394,8 @@ const CLIENT_TASK_STATUS_ARR = [
           </TouchableOpacity>
           <Text style={{color: '#fff',fontSize: 14, fontFamily:"Poppins-SemiBold", flex: 1, }}>Task Management</Text>
         </View>
-        <View style={{flexDirection: 'row',alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
-          <View style={{flex: 8, flexDirection: 'row', alignItems: 'center', backgroundColor:Style.basicbgColor,borderRadius: 50, height: 50, elevation: 4 }}>
+        <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
+          <View style={{flex: 8, flexDirection: 'row', alignItems: 'center', backgroundColor:Style.basicbgColor, borderRadius: 50, height: 50, elevation: 4 }}>
             <TextInput placeholder="Search" value={searchQuery} onChangeText={handleSearch} style={{flex: 9,fontSize: 18,padding: 10,paddingLeft: 20,}} />
             <TouchableOpacity style={{ flex: 1.5, justifyContent: 'center', alignItems: 'center' }}>
               <Image source={require('../../../assets/oui_search.png')} resizeMode='contain'style={{ width: 20, height: 20,}} />
@@ -400,10 +432,28 @@ const CLIENT_TASK_STATUS_ARR = [
                         <TouchableOpacity
                           onPress={() => { navigation.navigate('TaskSummary', { _id: item._id }) }}
                           key={index}
-                          style={{ width: '100%', backgroundColor: '#fff', borderRadius: 10, marginBottom: 10, padding: 10 }}
+                          style={{ 
+                            width: '100%', 
+                            backgroundColor: '#fff', 
+                            borderRadius: 10, 
+                            marginBottom: 10, 
+                            padding: 10,
+                            borderWidth: .5,
+                            borderColor: '#e0e0e0',
+                            // iOS shadow
+                            shadowColor: '#000',
+                            shadowOffset: {
+                              width: 0,
+                              height: 2,
+                            },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 3.84,
+                            // Android shadow
+                            elevation: 2,
+                          }}
                         >
                            <View style={{ flex:4, width:'100%' }}>
-                             <Text numberOfLines={1} ellipsizeMode="tail" style={{ fontSize: 16, fontFamily:'Poppins-SemiBold', color: Style.headerBgColor }}>{item.taskName}</Text>
+                             <Text numberOfLines={1} ellipsizeMode="tail" style={{ fontSize: 14, fontFamily:'Poppins-SemiBold', color: Style.headerBgColor }}>{item.taskName}</Text>
                            </View>
                     
                           <Text style={{ fontSize: 14, fontWeight: "600", color: Style.secondryTextColor }}>
@@ -412,12 +462,12 @@ const CLIENT_TASK_STATUS_ARR = [
                     
                           <View>
                             <View style={{ flexDirection: 'row', paddingBottom: 10 }}>
-                              <Text style={{ fontSize: 16, fontWeight: "600", color: Style.secondryTextColor }}>Code: </Text>
+                              <Text style={{ fontSize: 14, fontWeight: "600", color: Style.secondryTextColor }}>Code: </Text>
                               <Text style={{ fontSize: 14, fontWeight: "500", color: Style.secondryTextColor }}>{item.code}</Text>
                             </View>
                     
                             {item.assignedEmployeData.map((employee, empIndex) => (
-                              <View style={{ flexDirection: 'row' }} key={empIndex}>
+                              <View style={{ flexDirection: 'row', width:'100%' }} key={empIndex}>
                                 <Text style={{ fontSize: 14, fontWeight: "600", color: Style.secondryTextColor }}>Assigned To: </Text>
                                 <Text style={{ fontSize: 12, fontWeight: "500", color: Style.secondryTextColor }}>
                                   {employee.fullName}

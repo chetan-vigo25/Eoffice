@@ -2,7 +2,7 @@
   "expo": {
     "name": "E_Office",
     "slug": "E_Office",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "platforms": [
       "ios",

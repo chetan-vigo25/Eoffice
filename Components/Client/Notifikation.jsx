@@ -1,27 +1,46 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Linking, Animated, SafeAreaView, ScrollView, RefreshControl, StyleSheet, Alert, Platform, ToastAndroid, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../Urls/DomainUrl';
 import moment from "moment";
 import { parseISO, isToday } from 'date-fns';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from "../../Redux/Reducer/Auth/Auth.reducers";
 
 import { AntDesign } from "@expo/vector-icons";
 import Style from "../../Style/Style";
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000); // Slight delay to simulate user reading toast
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
 export default function Notifikation({ navigation }) {
  
+  const dispatch = useDispatch();
   const [scale] = useState(new Animated.Value(0)); 
   const [notifyData, setNotifyData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refresh, setRefresh] = useState(false);
+  const logoutHandled = useRef(false);
 
   useEffect(() => {
     Animated.timing(scale, {
@@ -32,8 +51,13 @@ export default function Notifikation({ navigation }) {
   }, []);
 
   const getNotification = async () => {
-    setIsLoading(true);
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+       setIsLoading(true)
+       let token = await AsyncStorage.getItem("token");
+       if(!token) {
+        navigation.navigate('Autologin');
+        return;
+     }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -49,6 +73,14 @@ export default function Notifikation({ navigation }) {
       .then((result) => {
         if (result.statusCode === 200) {
           setNotifyData(result?.data || []);
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         }else{
           showToast(result.message);
           setIsLoading(false);
@@ -80,7 +112,7 @@ export default function Notifikation({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-     <StatusBar barStyle='light-content' backgroundColor={ Style.headerBgColor } />
+     <StatusBar translucent={false} barStyle='light-content' backgroundColor={ Style.headerBgColor } />
 
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
         <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
@@ -152,7 +184,7 @@ export default function Notifikation({ navigation }) {
 
 
 const TaskCard = ({ data }) => (
-  <View style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, elevation:2, padding:15, marginBottom:10 }} >
+  <View style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, elevation:2, padding:15, marginBottom:10, borderWidth: .5, borderColor: '#e0e0e0' }} >
      <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:5 }} >
        <Text style={{ flex:1, fontSize:12, fontFamily:"Poppins-Medium", color:Style.secondryTextColor }} >Task Name / Task Code</Text>
        <View>
@@ -174,7 +206,7 @@ const TaskCard = ({ data }) => (
 );
 
 const InvoiceCard = ({ data }) => (
-  <View style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, elevation:2, padding:15, marginBottom:10 }} >
+  <View style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, elevation:2, padding:15, marginBottom:10, borderWidth: .5, borderColor: '#e0e0e0' }} >
     <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
       <Text style={{ fontSize:14, fontFamily:"Poppins-Medium", color:Style.primaryTextColor  }}>{data?.data?.invoiceNumber}</Text>
       <Text style={{ fontSize:10, fontFamily:"Poppins-Medium", color:Style.secondryTextColor }}>{moment(data.createdAt).fromNow()}</Text>

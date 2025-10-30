@@ -38,12 +38,12 @@ import ClientMessage from './Components/Client/ClientMessage';
 import Privacy from './Components/Privacy';
 import TermCondition from './Components/TermCondition';
 import VisitHistory from './Components/Client/VisitHistory';
-import EmployeeLogin from    "./Components/Client/EmployeeLogin"
+import EmployeeLogin from "./Components/Client/EmployeeLogin"
 import WebViewComp from './Components/Client/WebViewComp';
 import NoInternetScreen from './Components/Client/NoInternetScreen';
 import Statements from './Components/Client/Statements';
 import AddAdvance from './Components/Client/AddAdvance';
-import AutoLogin from './Components/AutoLogin';
+import Autologin from './Components/AutoLogin';
 
 import { NetworkProvider } from './Context/NetworkContext';
 import messaging from '@react-native-firebase/messaging';
@@ -216,7 +216,7 @@ export default function App() {
   return (
     <SafeAreaProvider style={{ flex:1 }}>
        <NetworkProvider>
-         <StatusBar backgroundColor={'#6a8ff3'} barStyle='dark-content' />
+         <StatusBar translucent={false} backgroundColor={'#ebf1fd'} barStyle='dark-content' />
          {
            isConnected ? 
              <NavigationContainer key={refreshKey} >
@@ -233,7 +233,7 @@ export default function App() {
 function MyStack ({ route }){
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="AutoLogin" component={AutoLogin} />
+      <Stack.Screen name="Autologin" component={Autologin} />
       <Stack.Screen name="Splash" component={Splash} />
       <Stack.Screen name="ClientDash" component={MyTabs} options={{ ...TransitionPresets.SlideFromRightIOS }} initialParams={{ userData: route?.params?.userData }} />
       <Stack.Screen name="PersonalInfo" component={PersonalInfo} options={{ ...TransitionPresets.SlideFromRightIOS }} />
@@ -280,9 +280,9 @@ function MyTabs({ route }) {
              <Image source={focused?require('./assets/home-active.png'):require('./assets/home-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
           ))}} initialParams={{ userData }} />
           <Tab.Screen name="ClientMessage" component={ClientMessage} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
-             <Image source={focused?require('./assets/message-active.png'):require('./assets/message-Inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
+             <Image source={focused?require('./assets/contactActive.png'):require('./assets/contactInactve.png')} style={{width:focused?22:22, height:focused?22:22}} />
           ))}}/>
-          <Tab.Screen name="DemoSc" component={Events} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
+          <Tab.Screen name="Events" component={Events} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
              <Image source={focused?require('./assets/calendarActive.png'):require('./assets/calendar-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
           ))}} initialParams={{ userData }} />
           <Tab.Screen name="ClientProfile" component={ClientProfile} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (

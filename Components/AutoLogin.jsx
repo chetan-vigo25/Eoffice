@@ -1,5 +1,4 @@
 
-
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';

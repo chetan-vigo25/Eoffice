@@ -20,10 +20,13 @@ export default function WebViewComp() {
   
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [webViewLoading, setWebViewLoading] = useState(true);
   const [canGoBackWeb, setCanGoBackWeb] = useState(false);
+  const [webviewKey, setWebviewKey] = useState(0);
   const canExit = useRef(false);
   const webviewRef = useRef(null);
   const exitTimer = useRef(null);
+  const loadingTimeout = useRef(null);
   const navigation = useNavigation();
 
   // Load token from storage
@@ -32,6 +35,7 @@ export default function WebViewComp() {
       const savedToken = await AsyncStorage.getItem('authToken');
       if (savedToken) {
         setToken(savedToken);
+        // console.log(savedToken);
       } else {
         console.log('⛔ No token found.');
       }
@@ -78,6 +82,9 @@ export default function WebViewComp() {
       if (exitTimer.current) {
         clearTimeout(exitTimer.current);
       }
+      if (loadingTimeout.current) {
+        clearTimeout(loadingTimeout.current);
+      }
     };
   }, [canGoBackWeb]);
 
@@ -118,15 +125,34 @@ export default function WebViewComp() {
         try {
           const result = JSON.parse(text);
           if (result.statusCode === 200) {
+            // Clear native storage token first
             await AsyncStorage.removeItem("authToken");
+
+            // Proactively clear WebView storage/cookies in-page (cross-platform)
+            if (webviewRef.current) {
+              webviewRef.current.injectJavaScript(`
+                try {
+                  // Clear local/session storage
+                  window.localStorage && window.localStorage.clear();
+                  window.sessionStorage && window.sessionStorage.clear();
+                  // Clear cookies by expiring them
+                  if (document && document.cookie) {
+                    document.cookie.split(';').forEach(function(c) { 
+                      document.cookie = c
+                        .replace(/^\s+/, '')
+                        .replace(/=.*/, '=;expires=' + new Date(0).toUTCString() + ';path=/;SameSite=Lax');
+                    });
+                  }
+                } catch (e) {}
+                true;
+              `);
+            }
+            // Reset local state and remount WebView to drop any cache/history
             setToken(null);
+            setWebViewLoading(true);
+            setWebviewKey(prev => prev + 1);
             showToast(result.message);
-            setTimeout(() => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Splash' }]
-              });
-            }, 500);
+            navigation.navigate('Splash');
           } else {
             showToast(result.message);
           }
@@ -142,6 +168,8 @@ export default function WebViewComp() {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'LOGOUT') {
         // Navigate to login screen on logout
+        setToken(null);
+        setWebViewLoading(true);
         navigation.navigate('Splash');
         console.log('login errr',data)
       }
@@ -152,8 +180,7 @@ export default function WebViewComp() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
-      <StatusBar backgroundColor={'#074173'} barStyle='light-content' />
-
+      <StatusBar translucent={false} backgroundColor={'#074173'} barStyle='light-content' />
       {/* Header */}
       <View style={{ flexDirection: 'row', width: '100%', backgroundColor: '#074173', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
         <View style={{ flexDirection:'row', gap:10, }} >
@@ -174,26 +201,85 @@ export default function WebViewComp() {
       {/* WebView Container */}
       <View style={{ flex: 1, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
         {loading ? (
-          <ActivityIndicator size="large" color="#074173" style={{ flex: 1 }} />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#074173" />
+            <Text style={{ marginTop: 10, fontSize: 16, fontFamily: 'Poppins-Medium', color: '#074173' }}>Loading...</Text>
+          </View>
         ) : token ? (
-          <WebView
-            ref={webviewRef}
-            key={token}
-            originWhitelist={['*']}
-            source={{ uri: `https://api.easymyoffice.com/login/${token}` }}
-            style={{ flex: 1 }}
-            sharedCookiesEnabled={true}
-            thirdPartyCookiesEnabled={true}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            onMessage={handleMessage}
-            onNavigationStateChange={(navState) => {
-              setCanGoBackWeb(navState.canGoBack);
-            }}
-          />
+          <View style={{ flex: 1 }}>
+            <WebView
+              ref={webviewRef}
+              key={`${token}-${webviewKey}`}
+              originWhitelist={['*']}
+              source={{ uri: `https://easymyoffice.com/login/${token}`}}
+              // source={{ uri: `https://eoffice.vigorousit.com/login/${token}`}}
+              style={{ flex: 1 }}
+              sharedCookiesEnabled={Platform.OS === 'ios'}
+              thirdPartyCookiesEnabled={Platform.OS === 'ios'}
+              incognito={Platform.OS === 'ios'}
+              cacheEnabled={true}
+              javaScriptCanOpenWindowsAutomatically={false}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              onMessage={handleMessage}
+              onNavigationStateChange={(navState) => {
+                setCanGoBackWeb(navState.canGoBack);
+                // Android-specific loading state management
+                if (Platform.OS === 'android') {
+                  if (navState.loading) {
+                    setWebViewLoading(true);
+                  } else {
+                    setWebViewLoading(false);
+                  }
+                }
+              }}
+              onLoadStart={() => {
+                setWebViewLoading(true);
+                // Android timeout fallback
+                if (Platform.OS === 'android') {
+                  if (loadingTimeout.current) {
+                    clearTimeout(loadingTimeout.current);
+                  }
+                  loadingTimeout.current = setTimeout(() => {
+                    setWebViewLoading(false);
+                  }, 10000); // 10 second timeout
+                }
+              }}
+              onLoadEnd={() => {
+                setWebViewLoading(false);
+                if (loadingTimeout.current) {
+                  clearTimeout(loadingTimeout.current);
+                }
+              }}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView error: ', nativeEvent);
+                setWebViewLoading(false);
+                if (loadingTimeout.current) {
+                  clearTimeout(loadingTimeout.current);
+                }
+              }}
+              onHttpError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView HTTP error: ', nativeEvent);
+                setWebViewLoading(false);
+                if (loadingTimeout.current) {
+                  clearTimeout(loadingTimeout.current);
+                }
+              }}
+              startInLoadingState={true}
+              // Android-specific props
+              {...(Platform.OS === 'android' && {
+                mixedContentMode: 'compatibility',
+                allowsInlineMediaPlayback: true,
+                mediaPlaybackRequiresUserAction: false,
+              })}
+            />
+            
+          </View>
         ) : (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 16 }}>Please log in again.</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Poppins-Medium', color: '#074173' }}>Please log in again.</Text>
           </View>
         )}
       </View>

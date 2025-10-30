@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Modal, StyleSheet, LayoutAnimation, UIManager, Platform, ToastAndroid, ActivityIndicator } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { Alert, StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Modal, StyleSheet, LayoutAnimation, UIManager, Platform, ToastAndroid, ActivityIndicator, RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
@@ -8,20 +8,38 @@ import moment from "moment";
 import DatePicker from 'react-native-modern-datepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 
 import { AntDesign, Feather, Ionicons, Fontisto } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
 export default function AdvancedList({ navigation }) {
  
+  const dispatch = useDispatch();
   const [scale] = useState(new Animated.Value(0)); 
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,6 +52,8 @@ export default function AdvancedList({ navigation }) {
   const [filteredData, setFilteredData] = useState([]);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [isDatePickerVisible2, setDatePickerVisibility2] = useState(false);
+  const [refresh, setRefresh] = useState(false);
+  const logoutHandled = useRef(false);
 
   const statusData = ['Paid', 'Unpaid']
 
@@ -46,8 +66,13 @@ export default function AdvancedList({ navigation }) {
   }, []);
 
   const getAdvanceList = async () => {
-    setLoading(true);
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+      setLoading(true)
+      let token = await AsyncStorage.getItem("token");
+      if(!token) {
+       navigation.navigate('Autologin');
+       return;
+    }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -82,6 +107,14 @@ export default function AdvancedList({ navigation }) {
           showToast("No data found for the selected date range.");
         }
   
+      }else if (result.statusCode === 401) {
+        if (!logoutHandled.current) {
+          logoutHandled.current = true; // Flag to prevent multiple logouts
+          showToast("Session expired. Please log in again.", () => {
+            dispatch(logout()); // Dispatch logout action when OK is pressed
+            navigation.navigate('Autologin'); // Navigate to autologin page
+          });
+        }
       } else {
         showToast(result.message || "Something went wrong.");
         setAdvanceData([]);
@@ -89,7 +122,7 @@ export default function AdvancedList({ navigation }) {
       }
     } catch (error) {
       console.error(error);
-      showToast("Failed to fetch data.");
+      // showToast("Failed to fetch data.");
       setAdvanceData([]);
       setFilteredData([]);
     } finally {
@@ -98,10 +131,15 @@ export default function AdvancedList({ navigation }) {
   };
   
   const showDefault = async () => {
-    setLoading(true)
     setStartDate('');
     setEndDate('');
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+      setLoading(true)
+      let token = await AsyncStorage.getItem("token");
+      if(!token) {
+       navigation.navigate('Autologin');
+       return;
+    }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -130,6 +168,14 @@ export default function AdvancedList({ navigation }) {
             setAdvanceData(result.data.docs);
             setFilteredData(result.data.docs);
             setLoading(false)
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         }else{
           showToast(result.message);
           setLoading(false)
@@ -183,9 +229,17 @@ export default function AdvancedList({ navigation }) {
     },[])
   );
 
+  const onRefresh = () => {
+    setRefresh(true);
+    getAdvanceList();
+    setTimeout(() => {
+        setRefresh(false);
+    }, 2000);
+}
+
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-     <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
+     <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <Modal
           animationType="slide"
           transparent={true}
@@ -195,7 +249,7 @@ export default function AdvancedList({ navigation }) {
             setModalVisible(false);
           }}>
          <TouchableOpacity onPress={()=> setModalVisible(false)} style={{ flex:1, backgroundColor:'#00000080', justifyContent:'flex-end'}}>
-            <View style={{ width:'100%', backgroundColor:'#eee', height:300,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
+            <View style={{ width:'100%', backgroundColor:'#fff', height:300,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
             <View style={{ width:60, height:4, backgroundColor:'#b3b3b3', alignSelf:'center', marginTop:20, borderRadius:5 }} ></View>
             <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:10 }} >
              <Text style={{ fontSize:16, fontWeight:"600", color:'#074173', }}>Filters</Text>
@@ -315,7 +369,7 @@ export default function AdvancedList({ navigation }) {
                   </TouchableOpacity>
                 </View>
             </View>
-             <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
+             <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh}/>} showsVerticalScrollIndicator={false} style={{ flex:1 }}>
                <View>
                 {
                   loading ? (

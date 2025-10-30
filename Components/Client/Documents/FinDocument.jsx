@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Platform, Modal, ToastAndroid, ActivityIndicator, Alert, StyleSheet, RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
+import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import SelectDropdown from 'react-native-select-dropdown';
 import DatePicker from 'react-native-modern-datepicker';
 import moment from "moment";
@@ -15,11 +16,26 @@ import { AntDesign, Feather, Ionicons, Entypo, MaterialIcons } from "@expo/vecto
 import Style from "../../../Style/Style";
 import BASE_URL from "../../../Urls/DomainUrl";
 
-function showToast(message) {
+function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
+    if (onOk) {
+      setTimeout(onOk, 2000);
+    }
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert(
+      '',
+      message,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onOk) onOk();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   }
 }
 
@@ -45,6 +61,7 @@ export default function FinDocument({ navigation }) {
    const[selectedType, setSelectedType] = useState(null);
    const [quarterData, setQuarterData] = useState([]);
    const [monthsData, setMonthsData] = useState([]);
+   const logoutHandled = useRef(false);
 
   const onChange = (event, selectedDate) => {
     if (event === 'dismissed') {
@@ -102,7 +119,12 @@ export default function FinDocument({ navigation }) {
   }, []);
 
   const getDocType = async ()=>{
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+     let token = await AsyncStorage.getItem("token");
+     if(!token) {
+      navigation.navigate('Splash');
+      return;
+    }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -128,6 +150,14 @@ export default function FinDocument({ navigation }) {
         if(result.statusCode === 200){
           // console.log("financial",result?.data?.docs);
           setDocType(result?.data?.docs);
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         }else{
           showToast(result.message)
         }
@@ -142,7 +172,12 @@ export default function FinDocument({ navigation }) {
       return;
     }
     try {
-      let token = await AsyncStorage.getItem("token");
+      if (logoutHandled.current) return;
+       let token = await AsyncStorage.getItem("token");
+       if(!token) {
+        navigation.navigate('Splash');
+        return;
+      }
       const formData = new FormData();
   
       images.forEach((img, index) => {
@@ -174,6 +209,14 @@ export default function FinDocument({ navigation }) {
         // console.log("Uploaded data finance:", result);
         setFileData(result.data);
         uploadDoc(result.data);
+      }else if (result.statusCode === 401) {
+        if (!logoutHandled.current) {
+          logoutHandled.current = true; // Flag to prevent multiple logouts
+          showToast("Session expired. Please log in again.", () => {
+            dispatch(logout()); // Dispatch logout action when OK is pressed
+            navigation.navigate('Autologin'); // Navigate to autologin page
+          });
+        }
       } else {
         console.log("Upload failed:", result.message);
         showToast(result.message || "Upload failed.");
@@ -185,8 +228,12 @@ export default function FinDocument({ navigation }) {
   };
 
   const uploadDoc = async (data) => {
-
-    let token = await AsyncStorage.getItem("token");
+    if (logoutHandled.current) return;
+     let token = await AsyncStorage.getItem("token");
+     if(!token) {
+      navigation.navigate('Splash');
+      return;
+    }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -221,7 +268,6 @@ export default function FinDocument({ navigation }) {
       body: raw,
       redirect: "follow"
     };
-console.log('requestOptions', requestOptions)
     fetch(`${BASE_URL}/client/document/update`, requestOptions)
      .then((response) => response.json())
       .then((result) => {
@@ -235,6 +281,14 @@ console.log('requestOptions', requestOptions)
           setMonthsData([]);
           dispatch(personalInfo());
           showToast(result.message);
+        }else if (result.statusCode === 401) {
+          if (!logoutHandled.current) {
+            logoutHandled.current = true; // Flag to prevent multiple logouts
+            showToast("Session expired. Please log in again.", () => {
+              dispatch(logout()); // Dispatch logout action when OK is pressed
+              navigation.navigate('Autologin'); // Navigate to autologin page
+            });
+          }
         }else{
           console.log(result.message || "Document upload failed.");
         }
@@ -242,36 +296,53 @@ console.log('requestOptions', requestOptions)
       .catch((error) => console.error(error));
   }
 
- const downloadFile = async (fileUrl) => {
-     if (!fileUrl) {
-       showToast("No file found to download.");
-       return;
-     }
-   
-     try {
-       const filename = fileUrl.split('/').pop();
-       const downloadResumable = FileSystem.createDownloadResumable(
-         fileUrl,
-         FileSystem.documentDirectory + filename
-       );
-   
-       const { uri } = await downloadResumable.downloadAsync();
-   
-       // Request permission to save to media library
-       const { status } = await MediaLibrary.requestPermissionsAsync();
-       if (status === 'granted') {
-         const asset = await MediaLibrary.createAssetAsync(uri);
-         await MediaLibrary.createAlbumAsync('Documents', asset, false);
-         showToast("Download complete and saved to Documents folder.");
-       } else {
-         showToast("Permission denied to save the file.");
-       }
-   
-     } catch (e) {
-       console.error("Download error:", e);
-       showToast("Download failed.");
-     }
-   };
+  const downloadFile = async (fileUrl) => {
+    if (!fileUrl) {
+      showToast("No file found to download.");
+      return;
+    }
+  
+    // Check if token exists
+    let token = await AsyncStorage.getItem("token");
+    if (!token) {
+      showToast("Session expired. Please log in again.");
+      navigation.navigate('Splash'); // Navigate to the login screen
+      return;
+    }
+  
+    try {
+      const filename = fileUrl.split('/').pop();
+      const fileUri = FileSystem.documentDirectory + filename;
+  
+      const downloadResumable = FileSystem.createDownloadResumable(
+        fileUrl,
+        fileUri
+      );
+  
+      const { uri } = await downloadResumable.downloadAsync();
+  
+      if (Platform.OS === 'android') {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status === 'granted') {
+          const asset = await MediaLibrary.createAssetAsync(uri);
+          await MediaLibrary.createAlbumAsync('Documents', asset, false);
+          showToast("Download complete and saved to Documents folder.");
+        } else {
+          showToast("Permission denied to save the file.");
+        }
+      } else if (Platform.OS === 'ios') {
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(uri); // Share and allow saving to Files
+        } else {
+          showToast("Sharing not available on this device.");
+        }
+      }
+    } catch (e) {
+      console.error("Download error:", e);
+      showToast("Download failed.");
+    }
+  };
  
   useEffect(()=>{
     getDocType();
@@ -421,14 +492,14 @@ console.log('requestOptions', requestOptions)
                  </View>
                   <View style={{ padding:10 }}>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
+                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
                      {Array.isArray(docType) && docType.length > 0 ? (
                       <SelectDropdown
                         data={docType}
                         defaultValue={docType.find(d => d.name === docName) || null}
                         onSelect={(selecteddocType, index) => {
                           setDocName(selecteddocType.name);
-                          showToast(`Selected: ${selecteddocType.name}`);
+                          // showToast(`Selected: ${selecteddocType.name}`);
                         }}
                         renderButton={(selecteddocType, isOpened) => (
                           <View style={styles.dropdownButtonStyle}>
@@ -466,12 +537,12 @@ console.log('requestOptions', requestOptions)
                       </View>
                     )}
                    </TouchableOpacity>
-                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
+                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
                     <SelectDropdown
                       data={yearRanges}
                       onSelect={(selectedYearRange, index) => {
                         setFiscalYear(selectedYearRange); 
-                        showToast(`Selected: ${selectedYearRange}`); 
+                        // showToast(`Selected: ${selectedYearRange}`); 
                       }}
                       renderButton={(selectedYearRange, isOpened) => {
                         return (
@@ -507,12 +578,12 @@ console.log('requestOptions', requestOptions)
                      
                     <View style={{ width:'100%', gap:10, flexDirection:'row', justifyContent:'space-between', }} >
                       <View style={{ flex:1 }} >
-                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                         <SelectDropdown
                           data={["Quaterly", "Monthly", "Yearly"]}
                           onSelect={(selectedType, index) => {
                             setSelectedType(selectedType); 
-                            showToast(`Selected: ${selectedType}`); 
+                            // showToast(`Selected: ${selectedType}`); 
                           }}
                           renderButton={(selectedType, isOpened) => {
                             return (
@@ -552,7 +623,7 @@ console.log('requestOptions', requestOptions)
                               data={quarter}
                               onSelect={(quarterType, index) => {
                                 setQuarterData(quarterType); 
-                                showToast(`Selected Quarter: ${quarterType}`); 
+                                // showToast(`Selected Quarter: ${quarterType}`); 
                               }}
                               renderButton={(quarterType, isOpened) => (
                                 <View style={styles.dropdownButtonStyle}>
@@ -585,7 +656,7 @@ console.log('requestOptions', requestOptions)
                               data={months}
                               onSelect={(monthsType, index) => {
                                 setMonthsData(monthsType); 
-                                showToast(`Selected Month: ${monthsType}`); 
+                                // showToast(`Selected Month: ${monthsType}`); 
                               }}
                               renderButton={(monthsType, isOpened) => (
                                 <View style={styles.dropdownButtonStyle}>
@@ -729,7 +800,7 @@ console.log('requestOptions', requestOptions)
                           </TouchableOpacity>
                         </View>
                          <View style={{ padding:10 }}>
-                           <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                           <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                             <SelectDropdown
                               data={docType || []}
                               defaultValue={
@@ -737,7 +808,7 @@ console.log('requestOptions', requestOptions)
                               }
                               onSelect={(selecteddocType, index) => {
                                 setDocName(selecteddocType.name);
-                                showToast(`Selected: ${selecteddocType.name}`);
+                                // showToast(`Selected: ${selecteddocType.name}`);
                               }}
                               renderButton={(selecteddocType, isOpened) => (
                                 <View style={styles.dropdownButtonStyle}>
@@ -766,13 +837,13 @@ console.log('requestOptions', requestOptions)
                               dropdownStyle={styles.dropdownMenuStyle}
                             />
                           </TouchableOpacity>
-                          <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                          <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                           <SelectDropdown
                             data={yearRanges}
                             defaultValue={fiscalYear}
                             onSelect={(selectedYearRange, index) => {
                               setFiscalYear(selectedYearRange); 
-                              showToast(`Selected: ${selectedYearRange}`); 
+                              // showToast(`Selected: ${selectedYearRange}`); 
                             }}
                             renderButton={(selectedYearRange, isOpened) => {
                               return (
@@ -808,13 +879,13 @@ console.log('requestOptions', requestOptions)
 
                              <View style={{ width:'100%', gap:10, flexDirection:'row', justifyContent:'space-between', }} >
                       <View style={{ flex:1 }} >
-                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                         <SelectDropdown
                           data={["Quaterly", "Monthly", "Yearly"]}
                           defaultValue={selectedType}
                           onSelect={(selectedType, index) => {
                             setSelectedType(selectedType); 
-                            showToast(`Selected: ${selectedType}`); 
+                            // showToast(`Selected: ${selectedType}`); 
                           }}
                           renderButton={(selectedType, isOpened) => {
                             return (
@@ -855,7 +926,7 @@ console.log('requestOptions', requestOptions)
                                   defaultValue={quarterData}
                                   onSelect={(quarterType, index) => {
                                     setQuarterData(quarterType); 
-                                    showToast(`Selected Quarter: ${quarterType}`); 
+                                    // showToast(`Selected Quarter: ${quarterType}`); 
                                   }}
                                   renderButton={(quarterType, isOpened) => (
                                     <View style={styles.dropdownButtonStyle}>
@@ -889,7 +960,7 @@ console.log('requestOptions', requestOptions)
                                   defaultValue={monthsData}
                                   onSelect={(monthsType, index) => {
                                     setMonthsData(monthsType); 
-                                    showToast(`Selected Month: ${monthsType}`); 
+                                    // showToast(`Selected Month: ${monthsType}`); 
                                   }}
                                   renderButton={(monthsType, isOpened) => (
                                     <View style={styles.dropdownButtonStyle}>

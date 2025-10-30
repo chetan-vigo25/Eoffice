@@ -79,7 +79,7 @@ export default function Login({navigation}) {
   // }, [user, navigation]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#eee" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
         <Animated.View
           style={{
