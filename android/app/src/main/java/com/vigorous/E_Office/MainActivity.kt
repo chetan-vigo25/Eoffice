@@ -1,11 +1,7 @@
 package com.vigorous.E_Office
 
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.view.View
-import android.view.WindowInsetsController
-import androidx.core.view.WindowCompat
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -21,25 +17,6 @@ class MainActivity : ReactActivity() {
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
     super.onCreate(null)
-
-    // Enforce StatusBar color and icon appearance on Android
-    try {
-      // Make window respect system insets (disable edge-to-edge)
-      WindowCompat.setDecorFitsSystemWindows(window, true)
-
-      window.statusBarColor = Color.parseColor("#FFFFFF")
-      window.navigationBarColor = Color.parseColor("#FFFFFF")
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        window.insetsController?.setSystemBarsAppearance(
-          WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-          WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-        )
-      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility =
-          window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-      }
-    } catch (_: Throwable) { }
   }
 
   /**

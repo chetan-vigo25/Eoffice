@@ -180,7 +180,7 @@ export default function WebViewComp() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
-      <StatusBar translucent={false} backgroundColor={'#074173'} barStyle='light-content' />
+      <StatusBar translucent={false} backgroundColor={'red'} barStyle='light-content' />
       {/* Header */}
       <View style={{ flexDirection: 'row', width: '100%', backgroundColor: '#074173', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
         <View style={{ flexDirection:'row', gap:10, }} >
@@ -211,7 +211,7 @@ export default function WebViewComp() {
               ref={webviewRef}
               key={`${token}-${webviewKey}`}
               originWhitelist={['*']}
-              source={{ uri: `https://easymyoffice.com/login/${token}`}}
+              source={{ uri: `https://vieasyoffice.com/login/${token}`}}
               // source={{ uri: `https://eoffice.vigorousit.com/login/${token}`}}
               style={{ flex: 1 }}
               sharedCookiesEnabled={Platform.OS === 'ios'}

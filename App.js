@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar, View, Text, Dimensions, Image, Platform, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
@@ -53,6 +53,7 @@ import { TransitionPresets } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Style from './Style/Style';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -70,6 +71,26 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [statusBarBg, setStatusBarBg] = useState('#ffffff');
+  const navigationRef = useRef(null);
+
+  const getActiveRouteName = (state) => {
+    if (!state) return undefined;
+    const route = state.routes[state.index];
+    if (route.state) return getActiveRouteName(route.state);
+    return route.name;
+  };
+
+  // Global StatusBar fallback for Android 14/15
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      try {
+        StatusBar.setTranslucent(false);
+        StatusBar.setBackgroundColor('#ebf1fd', true);
+        StatusBar.setBarStyle('dark-content');
+      } catch (e) {}
+    }
+  }, []);
 
   useEffect(() => {
     // ✅ Track last messageId to prevent duplicate local pop-up
@@ -216,15 +237,37 @@ export default function App() {
   return (
     <SafeAreaProvider style={{ flex:1 }}>
        <NetworkProvider>
-         <StatusBar translucent={false} backgroundColor={'#ebf1fd'} barStyle='dark-content' />
+          <StatusBar translucent={false} backgroundColor={statusBarBg} barStyle='dark-content' />
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor:'transparent' }}
+          edges={['left','right','bottom']}
+        >
          {
-           isConnected ? 
-             <NavigationContainer key={refreshKey} >
-               <MyStack />
-             </NavigationContainer>
-           : 
-             <NoInternetScreen onRetry={handleRetry} isRetrying={isRetrying} />
-         }
+            isConnected ? 
+              <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0, backgroundColor: statusBarBg }}>
+                <NavigationContainer
+                  ref={navigationRef}
+                  key={refreshKey}
+                  onStateChange={(state) => {
+                    const routeName = getActiveRouteName(state);
+                    if (routeName === 'Splash') {
+                      setStatusBarBg('#ffffff');
+                    } else if (routeName === 'ClientDash') {
+                      setStatusBarBg("#ebf1fd");
+                    } else if (routeName === 'WebViewComp') {
+                      setStatusBarBg('#074173');
+                    } else {
+                      setStatusBarBg(Style.headerBgColor);
+                    }
+                  }}
+                >
+                  <MyStack />
+                </NavigationContainer>
+              </View>
+            : 
+              <NoInternetScreen onRetry={handleRetry} isRetrying={isRetrying} />
+          }
+         </SafeAreaView>
        </NetworkProvider>
     </SafeAreaProvider>
   );
@@ -273,9 +316,10 @@ function MyStack ({ route }){
 }
 
 function MyTabs({ route }) {
- const userData = route?.params?.userData;
+  const insets = useSafeAreaInsets();
+  const userData = route?.params?.userData;
   return (
-      <Tab.Navigator screenOptions={{ tabBarLabelStyle:{ fontSize:10, paddingBottom:0, paddingTop:20 }, headerShown:false, tabBarStyle:{ backgroundColor:'#fff', }, tabBarShowLabel:false, tabBarActiveTintColor: '#175a93', tabBarInactiveTintColor: "grey",}}>
+      <Tab.Navigator screenOptions={{ tabBarLabelStyle:{ fontSize:10, paddingBottom:0, paddingTop:20 }, headerShown:false, tabBarStyle:{ backgroundColor:'#fff', height: 0 }, tabBarShowLabel:false, tabBarActiveTintColor: '#175a93', tabBarInactiveTintColor: "grey",}}>
           <Tab.Screen name="ClientDash" component={ClientDash} options={{'tabBarLabel':"EmpDasboard", 'tabBarIcon': ( ({focused, color}) => (
              <Image source={focused?require('./assets/home-active.png'):require('./assets/home-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
           ))}} initialParams={{ userData }} />

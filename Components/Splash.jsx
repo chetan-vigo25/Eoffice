@@ -283,7 +283,7 @@ export default function Splash({ navigation }) {
                  await AsyncStorage.setItem('userData', JSON.stringify(result?.data));
                }
               navigation.navigate('WebViewComp', { userData: result?.data });
-              showToast(result.message);
+              // showToast(result.message);
               setIsLoading(false);
           } else if (result.statusCode === 400) {
               Alert.alert("Login Failed", result.message);
