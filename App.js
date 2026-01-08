@@ -44,8 +44,22 @@ import NoInternetScreen from './Components/Client/NoInternetScreen';
 import Statements from './Components/Client/Statements';
 import AddAdvance from './Components/Client/AddAdvance';
 import Autologin from './Components/AutoLogin';
+{/* EMPLOYEE */}
+import HrDashboard from './Components/HRMS/HR/HrDashboard';
+import EmployeDashboard from './Components/HRMS/Employe/EmployeDashboard';
+import ApplyLeave from './Components/HRMS/Employe/ApplyLeave';
+import EmployeAttendance from './Components/HRMS/Employe/EmployeAttendance';
+import LeaveManagement from './Components/HRMS/Employe/LeaveManagement';
+import EmployeWFH from './Components/HRMS/Employe/EmployeWFH';
+import Payroll from './Components/HRMS/Employe/Payroll';
+import EmployeProfile from './Components/HRMS/Employe/EmployeProfile';
+import EmployeChangePass from './Components/HRMS/Employe/EmployeChangePass';
+import EmployePaySlip from './Components/HRMS/Employe/EmployePaySlip';
 
 import { NetworkProvider } from './Context/NetworkContext';
+import { DeviceLocationProvider } from './Context/DeviceLoc';
+import { MapWebViewProvider } from './Context/MapWebViewContext';
+import { EmployeeDashboardProvider } from './Context/EmployeeDashboardContext';
 import messaging from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
 import 'react-native-gesture-handler';
@@ -261,7 +275,11 @@ export default function App() {
                     }
                   }}
                 >
-                  <MyStack />
+                  <EmployeeDashboardProvider>
+                    <MapWebViewProvider>
+                      <MyStack />
+                    </MapWebViewProvider>
+                  </EmployeeDashboardProvider>
                 </NavigationContainer>
               </View>
             : 
@@ -311,6 +329,17 @@ function MyStack ({ route }){
       <Stack.Screen name="WebViewComp" component={WebViewComp} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="Statements" component={Statements} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="AddAdvance" component={AddAdvance} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      {/* EMPLOYEE */}
+      <Stack.Screen name="HrDashboard" component={HrDashboard} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="EmployeDashboard" component={EmployeDashboard} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="ApplyLeave" component={ApplyLeave} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="EmployeAttendance" component={EmployeAttendance} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="LeaveManagement" component={LeaveManagement} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="EmployeWFH" component={EmployeWFH} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="Payroll" component={Payroll} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="EmployeProfile" component={EmployeProfile} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="EmployeChangePass" component={EmployeChangePass} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="EmployePaySlip" component={EmployePaySlip} options={{ ...TransitionPresets.SlideFromRightIOS }} />
     </Stack.Navigator>
   )
 }

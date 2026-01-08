@@ -279,10 +279,11 @@ export default function Splash({ navigation }) {
   
           if (result.statusCode === 200) {
               await AsyncStorage.setItem('authToken', result?.token);
+              console.log("Employe Login Success Token:", result?.token);
                if (result?.data) {
                  await AsyncStorage.setItem('userData', JSON.stringify(result?.data));
                }
-              navigation.navigate('WebViewComp', { userData: result?.data });
+              navigation.navigate('EmployeDashboard', { userData: result?.data });
               // showToast(result.message);
               setIsLoading(false);
           } else if (result.statusCode === 400) {
