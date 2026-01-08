@@ -570,7 +570,7 @@ export default function EmployeAttendance({ navigation, route }) {
                           <Text style={styles.cell}>{!item.pendingHRS || item.pendingHRS === 0 ? "-" : `${Math.floor(item.pendingHRS / 60)}:${(item.pendingHRS % 60).toString().padStart(2, "0")}`}</Text>                  
                           <Text style={styles.cell}>{!item.overtimeHRS || item.overtimeHRS === 0 ? "-" : `${Math.floor(item.overtimeHRS / 60)}:${(item.overtimeHRS % 60).toString().padStart(2, "0")}`}</Text>
                           <Text style={styles.cell}>{item.workType === "work_from_office" ? "No" : "Yes"} </Text>                   
-                          <Text style={{width: 180,backgroundColor:item.isPresentDay === "present" ? "#4CAF5040" : item.isPresentDay === "secondHalf" ? "#9C27B020" : item.isPresentDay === "absent" ? "#F5492720" : item.isPresentDay === "off" ? "#80808020" : item.isPresentDay === "firstHalf" ? "#FFD23020" : "#444", 
+                          <Text style={{width: 175,backgroundColor:item.isPresentDay === "present" ? "#4CAF5040" : item.isPresentDay === "secondHalf" ? "#9C27B020" : item.isPresentDay === "absent" ? "#F5492720" : item.isPresentDay === "off" ? "#80808020" : item.isPresentDay === "firstHalf" ? "#FFD23020" : "#444", 
                             borderColor:item.isPresentDay === "present" ? "#4CAF50" : item.isPresentDay === "secondHalf" ? "#9C27B0" : item.isPresentDay === "absent" ? "#F54927" : item.isPresentDay === "off" ? "#808080" : item.isPresentDay === "firstHalf" ? "#FFD230" : "#444",
                             color:item.isPresentDay === "present" ? "#4CAF50" : item.isPresentDay === "secondHalf" ? "#9C27B0" : item.isPresentDay === "absent" ? "#F54927" : item.isPresentDay === "off" ? "#808080" : item.isPresentDay === "firstHalf" ? "#FFD230" : "#444",
                             borderWidth:1, borderRadius:5, padding: 5, textAlign:'center'}}>{item.isPresentDay === "present" ? "Present" : item.isPresentDay === "secondHalf" ? "Second Half" : item.isPresentDay === "absent" ? "Absent" : item.isPresentDay === "off" ? "Off" : item.isPresentDay === "firstHalf" ? "First Half" : "-"}
@@ -717,7 +717,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cell: {
-    width: 180, // Adjust width as needed
+    width: 175, // Adjust width as needed
     paddingHorizontal: 5,
     textAlign: 'center',
     fontSize: 14,

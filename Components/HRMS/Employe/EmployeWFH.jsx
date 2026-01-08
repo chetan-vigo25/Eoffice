@@ -175,7 +175,9 @@ export default function EmployeWFH({ navigation }) {
              showToast("Authentication token not found");
              return;
           }
-
+          if (!validateLeaveForm()) {
+            return;
+          }
           const myHeaders = new Headers();
           myHeaders.append("Content-Type", "application/json");
           myHeaders.append("Authorization", "Bearer " + token);
@@ -199,7 +201,7 @@ export default function EmployeWFH({ navigation }) {
             body: raw,
             redirect: "follow"
           };
-          console.log("WFH List---:", raw);
+          // console.log("WFH List---:", raw);
           
           const response = await fetch(`${BASE_URL}/admin/employe/wfhRequest/create`, requestOptions);
           const result = await response.json();

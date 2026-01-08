@@ -55,6 +55,7 @@ import Payroll from './Components/HRMS/Employe/Payroll';
 import EmployeProfile from './Components/HRMS/Employe/EmployeProfile';
 import EmployeChangePass from './Components/HRMS/Employe/EmployeChangePass';
 import EmployePaySlip from './Components/HRMS/Employe/EmployePaySlip';
+import EmployeIcard from './Components/HRMS/Employe/EmployeIcard';
 
 import { NetworkProvider } from './Context/NetworkContext';
 import { DeviceLocationProvider } from './Context/DeviceLoc';
@@ -340,6 +341,7 @@ function MyStack ({ route }){
       <Stack.Screen name="EmployeProfile" component={EmployeProfile} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="EmployeChangePass" component={EmployeChangePass} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="EmployePaySlip" component={EmployePaySlip} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="EmployeIcard" component={EmployeIcard} options={{ ...TransitionPresets.SlideFromRightIOS }} />
     </Stack.Navigator>
   )
 }

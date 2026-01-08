@@ -48,6 +48,11 @@ export default function ClientProfile({ navigation, route }) {
     const logoutHandled = useRef(false);
 
     const pickImages = async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Permission required", "Please allow photo access");
+        return;
+      }
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 1,

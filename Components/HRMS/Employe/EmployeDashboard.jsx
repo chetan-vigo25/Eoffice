@@ -318,7 +318,7 @@ export default function EmployeDashboard({ navigation, route }) {
       myHeaders.append("Content-Type", "application/json");
       myHeaders.append("Authorization", "Bearer " + token);
 
-      const checkInDateTime = moment(data.checkInDateTime).format('YYYY-MM-DD HH:mm:ss');
+      const checkInDateTime = moment(data.checkInDateTime).utc().format('YYYY-MM-DD HH:mm:ss');
 
       const raw = JSON.stringify({
         "id": userData?._id,
@@ -340,13 +340,14 @@ export default function EmployeDashboard({ navigation, route }) {
           "isNearBy": false
         }
       });
-      // console.log("Check-In API Request Data:", raw);
       const requestOptions = {
         method: "POST",
         headers: myHeaders,
         body: raw,
         redirect: "follow"
       };
+      // console.log("Check-In API Request Data:", raw);
+      // return;
 
       const response = await fetch(`${BASE_URL}/admin/employe/attendance/create`, requestOptions);
       const result = await response.json();
@@ -440,8 +441,8 @@ export default function EmployeDashboard({ navigation, route }) {
       myHeaders.append("Content-Type", "application/json");
       myHeaders.append("Authorization", "Bearer " + token);
 
-      const checkInDateTime = moment(data.checkInDateTime).format('YYYY-MM-DD HH:mm:ss');
-      const checkOutDateTime = moment(data.checkOutDateTime).format('YYYY-MM-DD HH:mm:ss');
+      const checkInDateTime = moment(data.checkInDateTime).utc().format('YYYY-MM-DD HH:mm:ss');
+      const checkOutDateTime = moment(data.checkOutDateTime).utc().format('YYYY-MM-DD HH:mm:ss');
 
       const raw = JSON.stringify({
         "_id": attendanceRecordId, // Use the stored attendance record ID
@@ -500,9 +501,10 @@ export default function EmployeDashboard({ navigation, route }) {
     }
   };
 // useEffect(() => {
-//     confirmCheckInOut();
+//     confirmCheckInOut();a
 // },[])
 // console.log("xzxzxzxzx",confirmAttendance);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <StatusBar background='#fff' barStyle='dark-content' />
@@ -521,11 +523,23 @@ export default function EmployeDashboard({ navigation, route }) {
                 <View style={{ flexDirection: 'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal: 10, marginTop:10 }} >
                   <View style={{ flex:1, flexDirection:'row', alignItems:'center', gap:10 }} >
                    <Entypo name="login" size={12} color="#4c72d9" />
-                   <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Poppins-Medium' }}>{moment(confirmAttendance?.checkInTime).format('hh:mm:ss A') || confirmAttendance?.checkInTime}</Text>
+                   <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Poppins-Medium' }}>
+                     {confirmAttendance?.checkInTime 
+                       ? (moment(confirmAttendance.checkInTime).isValid() 
+                           ? moment(confirmAttendance.checkInTime).format('hh:mm:ss A')
+                           : confirmAttendance.checkInTime)
+                       : '-'}
+                   </Text>
                   </View>
                   <View style={{ flex:1, flexDirection:'row', alignItems:'center', gap:10, justifyContent:'flex-end' }} >
                    <Entypo name="login" size={12} color="#4c72d9" />
-                   <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Poppins-Medium' }}>{moment(confirmAttendance?.checkOutTime).format('hh:mm:ss A') || confirmAttendance?.checkOutTime}</Text>
+                   <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Poppins-Medium' }}>
+                     {confirmAttendance?.checkOutTime 
+                       ? (moment(confirmAttendance.checkOutTime).isValid() 
+                           ? moment(confirmAttendance.checkOutTime).format('hh:mm:ss A')
+                           : confirmAttendance.checkOutTime)
+                       : '-'}
+                   </Text>
                   </View>
                 </View>
               ):(
@@ -556,13 +570,18 @@ export default function EmployeDashboard({ navigation, route }) {
               confirmAttendance?.isCheckIn === true && confirmAttendance?.isCheckOut === true?(
                 <Text style={{ textAlign: 'center', color: '#4c72d9', fontSize: 30, fontFamily: 'Poppins-SemiBold', paddingTop: 0 }}>
                   {confirmAttendance?.checkInTime && confirmAttendance?.checkOutTime
-                   ? moment
-                       .utc(
-                         moment(confirmAttendance.checkOutTime).diff(
-                           moment(confirmAttendance.checkInTime)
-                         )
-                       )
-                       .format('HH:mm:ss')
+                   ? (() => {
+                       const checkInMoment = moment(confirmAttendance.checkInTime);
+                       const checkOutMoment = moment(confirmAttendance.checkOutTime);
+                       if (checkInMoment.isValid() && checkOutMoment.isValid()) {
+                         const diffMs = checkOutMoment.diff(checkInMoment);
+                         const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                         const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+                         return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+                       }
+                       return '-';
+                     })()
                    : '-'
                   }
                 </Text>

@@ -53,7 +53,6 @@ export default function Payroll({ navigation, route }) {
         if (storedUserData) {
           const parsedData = JSON.parse(storedUserData);
           setUserData(parsedData);
-          console.log("User Data PayRoll---:", parsedData);
         }
       } catch (error) {
         console.error("Failed to load userData:", error);
