@@ -4,7 +4,7 @@ import SelectDropdown from 'react-native-select-dropdown';
 import { SelectList } from 'react-native-dropdown-select-list';
 import moment from "moment";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import BASE_URL from '../../../Urls/DomainUrl';
+import BASE_URL, { IMAGE_FILEPATH_URL } from '../../../Urls/DomainUrl';
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
@@ -12,7 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 // import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AntDesign, Entypo, Ionicons, FontAwesome, FontAwesome6, Octicons, MaterialIcons } from "@expo/vector-icons";
+import { AntDesign, Entypo, Ionicons, FontAwesome, FontAwesome6, Octicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
@@ -72,6 +72,10 @@ export default function EmployeProfile({ navigation, route }) {
       { id: 4, label: 'Education' },
       { id: 5, label: 'Past employment' },
       { id: 6, label: 'Family Details' },
+      { id: 7, label: 'Emergency Contacts' },
+      { id: 8, label: 'Social Links' },
+      { id: 9, label: 'Documents' },
+      { id: 10, label: 'Bank' },
     ];
 
     const pickImage = async () => {
@@ -89,6 +93,7 @@ export default function EmployeProfile({ navigation, route }) {
       if (!result.canceled) {
         // console.log("test---image",result.assets[0].uri);
         setImages(result.assets[0].uri);
+        uploadImageFile();
       }
     };
     
@@ -130,6 +135,7 @@ export default function EmployeProfile({ navigation, route }) {
           setLoading(false);
         }else{
           showToast(result.message);
+          console.log('image not');
           setLoading(false);
         }
       }catch(error){
@@ -139,7 +145,104 @@ export default function EmployeProfile({ navigation, route }) {
       }
     }
 
-    const employeeDetail = async (id) => {
+    const uploadImageFile = async () => {
+      try{
+        if (!images) {
+          showToast("Please select an image first");
+          return;
+        }
+
+        setLoading(true);
+        let token = await AsyncStorage.getItem("authToken");
+        if (!token) {
+          showToast("Authentication token not found");
+          return;
+        }
+
+        const myHeaders = new Headers();  
+        // Let React Native set correct multipart boundary
+        myHeaders.append("Authorization", "Bearer " + token);
+
+        const formdata = new FormData();
+        formdata.append("filePath", {
+          uri: images,         // images is uri string
+          name: "profile.jpg",
+          type: "image/jpeg",
+        });
+        formdata.append("fileLocation", "/invoiceLayout/");
+        formdata.append("isMultiple", "false");
+        formdata.append("isVideo", "false");
+
+        const requestOptions = {
+          method: "POST",
+          headers: myHeaders,
+          body: formdata,
+          redirect: "follow",
+        };
+
+        const responce = await fetch(`${BASE_URL}/admin/fileUpload`, requestOptions);
+        const result = await responce.json();
+
+        if (result.statusCode === 200) {
+          showToast(result.message || "Profile image uploaded");
+          console.log('image upload');
+          updateImage();
+        } else {
+          showToast(result.message || "Failed to upload image");
+        }
+      } catch (error) {
+        console.log(error);
+        showToast("Something went wrong while uploading image");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const updateImage = async () => {
+      try{
+        setLoading(true);
+        let token = await AsyncStorage.getItem("authToken");
+         if (!token) {
+           showToast("Authentication token not found");
+           return;
+        }
+
+        const myHeaders = new Headers();  
+        myHeaders.append("Content-Type", "application/json");  
+        myHeaders.append("Authorization", "Bearer " + token);
+
+        const raw = JSON.stringify({
+          "_id": "694cdce05bed0d3daeb19ee4",
+          "branchId": "694cc8345bed0d3daeb14b89",
+          "companyId": "691b181a3685f470625c6ae6",
+          "profileImage": images
+        });
+
+        const requestOptions = {
+          method: 'POST',
+          headers: myHeaders,
+          body: raw,
+          redirect: 'follow'
+        };
+
+        const responce = await fetch(`${BASE_URL}/admin/employe/onboarding/update`, requestOptions);
+        const result = await responce.json();
+        if(result.statusCode === 200){
+          showToast(result.message);
+          dispatch(personalInfo());
+          setLoading(false);
+        }else{
+          showToast(result.message);
+          setLoading(false);
+        }
+      }catch(error){
+        console.log(error);
+      }finally{
+        setLoading(false);
+      }
+    }
+
+    const employeeDetail = async () => {
       try{
         setLoading(true);
         let token = await AsyncStorage.getItem("authToken");
@@ -229,12 +332,12 @@ export default function EmployeProfile({ navigation, route }) {
                       <Image
                         source={
                           userData?.profileImage
-                            ? { uri: `https://api.vieasyoffice.com/public/${userData.profileImage}` }
-                            : require('../../../assets/user.png')
+                            ? { uri: `${IMAGE_FILEPATH_URL}/${userData.profileImage}` }
+                            : require('../../../assets/userIcon.jpeg')
                         }
                         style={{ width: '100%', height: '100%' }}
                       />
-                      <TouchableOpacity onPress={pickImage} style={{ width:20, height:20, backgroundColor:'#6a8ff3', position:'absolute', top:0, right:0 }} ></TouchableOpacity>
+                      <TouchableOpacity onPress={deleteImage} style={{ width:20, height:20, backgroundColor:'#6a8ff3', position:'absolute', top:0, right:0 }} ></TouchableOpacity>
                       </View>
                       <View>
                         <Text style={{ fontSize: 16, fontFamily: 'Poppins-SemiBold', color: '#6a8ff3' }}>{userData?.fullName || 'Name'}</Text>
@@ -534,7 +637,7 @@ export default function EmployeProfile({ navigation, route }) {
                       onBoardingData.educationDetails.map((item, index) => {
                         return (
                           <View key={index} style={{ width:'100%', padding:10,backgroundColor:'#f1f1f190', borderRadius:6, marginVertical:0 }} >
-                            <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', }} >Education Details</Text>
+                            <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', }} >Education Details {index +1}</Text>
                             <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
                             <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
                               <View style={{ flex:1 }} >
@@ -699,6 +802,247 @@ export default function EmployeProfile({ navigation, route }) {
                                  <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Mobile</Text>
                                </View>
                                <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >+91 {item.contactNumber.number === null? 'N/A' : item.contactNumber.number}</Text>
+                             </View>
+                           </View>
+                           </View>
+                         </View>
+                       </View>
+                      )
+                    })
+                   )
+                 }
+                 </>
+                }
+                {activeTab === 7 && 
+                 <>
+                 <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', paddingVertical:10 }} >Emergency Contacts</Text>
+                 {
+                   onBoardingData.emergencyContact.length === 0?(
+                     <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
+                      <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', textAlign:'center' }} >No Records found</Text>
+                     </View>
+                   ):(
+                    onBoardingData.emergencyContact.map((item, index)=>{
+                      return(
+                        <View key={index} >
+                         <View style={{ width:'100%', padding:10,backgroundColor:'#f1f1f190', borderRadius:6, marginVertical:0 }} >
+                           <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', }} >Emergency Contacts {index + 1}</Text>
+                           <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Ionicons name="person-outline" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Name</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.name === null? 'N/A' : item.name}</Text>
+                             </View>
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Ionicons name="person-outline" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Relationship</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.relationship === null? 'N/A' : item.relationship}</Text>
+                             </View>
+                           </View>
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center',}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Ionicons name="person-outline" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Email</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.email === null? 'N/A' : item.email}</Text>
+                             </View>
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Ionicons name="call" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Mobile</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >+91 {item.mobile.number === null? 'N/A' : item.mobile.number}</Text>
+                             </View>
+                           </View>
+                           </View>
+                         </View>
+                       </View>
+                      )
+                    })
+                   )
+                 }
+                 </>
+                }
+                {activeTab === 8 && 
+                 <>
+                 <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', paddingVertical:10 }} >Social Links</Text>
+                 {
+                   onBoardingData.socialLinks.length === 0?(
+                     <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
+                      <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', textAlign:'center' }} >No Records found</Text>
+                     </View>
+                   ):(
+                    onBoardingData.socialLinks.map((item, index)=>{
+                      return(
+                        <View key={index} >
+                         <View style={{ width:'100%', padding:10,backgroundColor:'#f1f1f190', borderRadius:6, marginVertical:0 }} >
+                           <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', }} >Social Links {index + 1}</Text>
+                           <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Entypo name="link" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >{item.name === null? 'N/A' : item.name}</Text>
+                               </View>
+                               <Text style={{ fontSize:10, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.link === null? 'N/A' : item.link}</Text>
+                             </View>
+                           </View>
+                           </View>
+                         </View>
+                       </View>
+                      )
+                    })
+                   )
+                 }
+                 </>
+                }
+                {activeTab === 9 && 
+                 <>
+                 <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', paddingVertical:10 }} >Documents</Text>
+                 {
+                   onBoardingData.documentData.length === 0?(
+                     <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
+                      <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', textAlign:'center' }} >No Records found</Text>
+                     </View>
+                   ):(
+                    onBoardingData.documentData.map((item, index)=>{
+                      return(
+                        <View key={index} >
+                         <View style={{ width:'100%', padding:10,backgroundColor:'#f1f1f190', borderRadius:6, marginVertical:0 }} >
+                           <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', }} >Documents {index + 1}</Text>
+                           <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Entypo name="link" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Document Type</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.name === null? 'N/A' : item.name}</Text>
+                             </View>
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Entypo name="link" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >documents Number</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.number === null? 'N/A' : item.number}</Text>
+                             </View>
+                           </View>
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Entypo name="link" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Uploaded  Document</Text>
+                               </View>
+                               <TouchableOpacity style={{ marginLeft:20, width: 50, height: 50, borderRadius: 5, overflow: 'hidden' }}>
+                                 <Image
+                                   source={
+                                     item?.filePath
+                                       ? { uri: `${IMAGE_FILEPATH_URL}/${item.filePath}` }
+                                       : require('../../../assets/user.png')
+                                   }
+                                   style={{ width: '100%', height: '100%' }}
+                                 />
+                               </TouchableOpacity>
+                             </View>
+                           </View>
+                           </View>
+                         </View>
+                       </View>
+                      )
+                    })
+                   )
+                 }
+                 </>
+                }
+                {activeTab === 10 && 
+                 <>
+                 <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', paddingVertical:10 }} >Bank</Text>
+                 {
+                   onBoardingData.bankData.length === 0?(
+                     <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
+                      <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', textAlign:'center' }} >No Records found</Text>
+                     </View>
+                   ):(
+                    onBoardingData.bankData.map((item, index)=>{
+                      return(
+                        <View key={index} >
+                         <View style={{ width:'100%', padding:10,backgroundColor:'#f1f1f190', borderRadius:6, marginVertical:0 }} >
+                           <Text style={{ fontSize:16, fontFamily:"Poppins-SemiBold", color:'#6a8ff3', }} >Bank {index + 1}</Text>
+                           <View style={{ width:'100%', padding:10, backgroundColor:'#fff', borderRadius:6, borderWidth:.5, borderColor:'#e0e0e0', marginVertical:10 }} >
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <Ionicons name="person" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Bank Holder Name</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.bankholderName === null? 'N/A' : item.bankholderName}</Text>
+                             </View>
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <FontAwesome name="building" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Bank Name</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.bankName === null? 'N/A' : item.bankName}</Text>
+                             </View>
+                           </View>
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <FontAwesome name="building" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Branch Name</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.branchName === null? 'N/A' : item.branchName}</Text>
+                             </View>
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <FontAwesome name="building" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Account Number</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.accountNumber === null? 'N/A' : item.accountNumber}</Text>
+                             </View>
+                           </View>
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                               <FontAwesome name="building" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >IFSC Code</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.ifscCode === null? 'N/A' : item.ifscCode}</Text>
+                             </View>
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <FontAwesome name="building" size={12} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Account Type</Text>
+                               </View>
+                               <Text style={{ fontSize:12, fontFamily:"Poppins-Medium", color:'#444', paddingLeft:20 }} >{item.accountType === null? 'N/A' : item.accountType}</Text>
+                             </View>
+                           </View>
+                           <View style={{ flexDirection:'row', gap:5, alignItems:'center', marginBottom:10}} >
+                             <View style={{ flex:1 }} >
+                               <View style={{ flexDirection:'row', alignItems:'center', gap:5 }} >
+                                 <MaterialCommunityIcons name="file-plus" size={14} color="#6a8ff3" />
+                                 <Text style={{ fontSize:12, fontFamily:"Poppins-SemiBold", color:'#444' }} >Uploaded Document</Text>
+                               </View>
+                               <TouchableOpacity style={{ marginLeft:20, width: 50, height: 50, borderRadius: 5, overflow: 'hidden' }}>
+                                 {
+                                   !item.filePath || item.filePath.length === 0 ? (
+                                     <MaterialCommunityIcons name="file-plus" size={55} color="#6a8ff3" />
+                                   ) : (
+                                     <Image
+                                       source={{
+                                         uri: `${IMAGE_FILEPATH_URL}/${item.filePath}`,
+                                       }}
+                                       style={{ width: '100%', height: '100%' }}
+                                     />
+                                   )
+                                 }
+                               </TouchableOpacity>
                              </View>
                            </View>
                            </View>

@@ -82,7 +82,7 @@ export default function EmployeWFH({ navigation }) {
       loadUserData();
     }, []);
 
-      const rowsPerPage = 12;
+      const rowsPerPage = 10;
       const [page, setPage] = useState(0);
       const combinedData = [...manualRecords, ...wfhRequestListData];
       const totalPages = Math.ceil(combinedData.length / rowsPerPage);
@@ -305,40 +305,111 @@ export default function EmployeWFH({ navigation }) {
           myHeaders.append("Content-Type", "application/json");
           myHeaders.append("Authorization", "Bearer " + token);
 
-          const raw = JSON.stringify({
-            "branchId": userData?.branchId,
-            "companyId": userData?.companyId,
-            "directorId": "",
-            "employeId": userData?._id,
-            "endDate": "",
-            "isPagination": true,
-            "sort": true,
-            "startDate": "",
-            "status": "",
-            "text": ""
-          });
+          let allData = [];
+          let currentPage = 1;
+          let hasNextPage = true;
+          const limit = 50; // Fetch more items per API call for efficiency
+          
+          // Fetch all pages until no more data
+          while (hasNextPage) {
+            const raw = JSON.stringify({
+              "branchId": userData?.branchId,
+              "companyId": userData?.companyId,
+              "directorId": "",
+              "employeId": userData?._id,
+              "endDate": "",
+              "isPagination": true,
+              "page": currentPage,
+              "limit": limit,
+              "sort": true,
+              "startDate": "",
+              "status": "",
+              "text": ""
+            });
 
-          const requestOptions = {
-            method: "POST",
-            headers: myHeaders,
-            body: raw,
-            redirect: "follow"
-          };
+            const requestOptions = {
+              method: "POST",
+              headers: myHeaders,
+              body: raw,
+              redirect: "follow"
+            };
+            
+            const response = await fetch(`${BASE_URL}/admin/employe/wfhRequest/list`, requestOptions);
+            const result = await response.json();
+            
+            if(result.statusCode === 200){
+              const pageData = result.data.docs || result.data || [];
+              
+              if (pageData.length === 0) {
+                hasNextPage = false;
+              } else {
+                allData = [...allData, ...pageData];
+                
+                // Check if there are more pages using API response
+                hasNextPage = result.data?.hasNextPage !== false;
+                
+                // If we got less data than limit, it's likely the last page
+                if (pageData.length < limit) {
+                  hasNextPage = false;
+                }
+                
+                // If totalPages is available, use it to determine if more pages exist
+                if (result.data?.totalPages) {
+                  hasNextPage = currentPage < result.data.totalPages;
+                }
+                
+                currentPage++;
+              }
+            } else {
+              console.log("WFH List Error---:", result.message);
+              // If first page fails, try without pagination parameters
+              if (currentPage === 1) {
+                // Try fetching all data at once
+                const rawAll = JSON.stringify({
+                  "branchId": userData?.branchId,
+                  "companyId": userData?.companyId,
+                  "directorId": "",
+                  "employeId": userData?._id,
+                  "endDate": "",
+                  "isPagination": false,
+                  "sort": true,
+                  "startDate": "",
+                  "status": "",
+                  "text": ""
+                });
+
+                const requestOptionsAll = {
+                  method: "POST",
+                  headers: myHeaders,
+                  body: rawAll,
+                  redirect: "follow"
+                };
+                
+                const responseAll = await fetch(`${BASE_URL}/admin/employe/wfhRequest/list`, requestOptionsAll);
+                const resultAll = await responseAll.json();
+                
+                if (resultAll.statusCode === 200) {
+                  allData = resultAll.data.docs || resultAll.data || [];
+                  hasNextPage = false;
+                } else {
+                  showToast(resultAll.message || "Failed to fetch WFH requests");
+                  hasNextPage = false;
+                }
+              } else {
+                hasNextPage = false;
+              }
+            }
+          }
           
-          const response = await fetch(`${BASE_URL}/admin/employe/wfhRequest/list`, requestOptions);
-          const result = await response.json();
-          if(result.statusCode === 200){
-            // console.log("WFH List---:", result?.data?.docs);
-            setWfhRequestListData(result.data.docs || []);
-            setFilteredWfhData(result.data.docs || []);
-            setLoading(false);
-          }else{
-            console.log("WFH List Error---:", result.message);
-            setLoading(false);
-          }     
+          // console.log("✅ All WFH Request Data loaded:", allData.length, "records");
+          setWfhRequestListData(allData);
+          setFilteredWfhData(allData);
+          setLoading(false);
         }catch(error){
-          
-        }finally{}
+          console.error("Failed to load WFH request data:", error);
+          showToast("Error loading WFH requests: " + error.message);
+          setLoading(false);
+        }
       }
 
       const filterWfhEmployeeData = (data, start, end, status) => {

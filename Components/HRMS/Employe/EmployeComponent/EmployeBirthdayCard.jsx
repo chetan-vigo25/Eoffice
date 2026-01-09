@@ -11,47 +11,45 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEmployeeDashboard } from '../../../../Context/EmployeeDashboardContext';
 import moment from 'moment';
-import { IMAGE_FILEPATH_URL } from '../../../../Urls/DomainUrl';
+import IMAGE_FILEPATH_URL from '../../../../Urls/DomainUrl';
 
-const EmployeeLeaveCard = ({ onApplyLeave, navigation }) => {
+const EmployeBirthdayCard = ({ onApplyLeave, navigation }) => {
   const { dashboardData, loading, error } = useEmployeeDashboard();
 
  useEffect(() => {
      if (dashboardData) {
-      //  console.log('Dashboard Data:', dashboardData);
+    //    console.log('Dashboard Data:', dashboardData);
      }
  }, [dashboardData])
 
-const employeesOnLeave = dashboardData?.todayOnLeave || [];
+const employeesTodayBirthday = dashboardData?.todayBirthday || [];
 
 // Filter employees on leave today
   return (
     <View style={styles.cardContainer}>
       {/* Card Header */}
       <View style={styles.header}>
-        <Text style={styles.headerText}>Employees on Leave Today</Text>
-        <TouchableOpacity onPress={()=> navigation.navigate('LeaveManagement')} style={styles.applyButton}>
-          <Text style={styles.applyButtonText}>Apply Leave</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerText}>Today Birthday</Text>
+          <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>{employeesTodayBirthday.length}</Text>
       </View>
 
       <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
-        {employeesOnLeave.length === 0 ? (
+        {employeesTodayBirthday.length === 0 ? (
           <Text style={styles.noEmployeesText}>No employees on leave today</Text>
         ) : (
-          employeesOnLeave.map((emp) => (
+            employeesTodayBirthday.map((emp) => (
             <View key={emp._id} style={styles.employeeContainer}>
               <View style={styles.avatarContainer}>
                 {
-                    emp.employeProfileImage ? (
-                      <Image source={{ uri: `${IMAGE_FILEPATH_URL}/${emp.employeProfileImage}` }} style={{ height: 42, width: 42, borderRadius: 21 }} />
+                    emp.profileImage ? (
+                      <Image source={{ uri: `${IMAGE_FILEPATH_URL}/${emp.profileImage}` }} style={{ height: 42, width: 42, borderRadius: 21 }} />
                     ) : (
-                      <Text style={styles.avatarText}>{emp.employename.charAt(0)}</Text>
+                      <Text style={styles.avatarText}>{emp.fullName.charAt(0)}</Text>
                     )
                 }
               </View>
               <View style={styles.employeeInfo}>
-                <Text style={styles.employeeName}>{emp.employename}</Text>
+                <Text style={styles.employeeName}>{emp.fullName}</Text>
               </View>
             </View>
           ))
@@ -61,7 +59,7 @@ const employeesOnLeave = dashboardData?.todayOnLeave || [];
   );
 };
 
-export default EmployeeLeaveCard;
+export default EmployeBirthdayCard;
 
 const styles = StyleSheet.create({
   cardContainer: {
@@ -75,7 +73,7 @@ const styles = StyleSheet.create({
     elevation: 1,
     borderWidth: 0.5,
     borderColor: '#E0E0E0',
-    marginBottom: 0,
+    marginBottom: 10,
   },
   header: {
     flexDirection: 'row',

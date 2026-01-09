@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IMAGE_FILEPATH_URL } from '../../../../Urls/DomainUrl';
 
 export default function EmployeHeader({ navigation }) {
   const [userData, setUserData] = useState(null);
@@ -32,8 +33,8 @@ export default function EmployeHeader({ navigation }) {
         <Image
           source={
             userData?.profileImage
-              ? { uri: `https://api.vieasyoffice.com/public/${userData.profileImage}` }
-              : require('../../../../assets/user.png')
+              ? { uri: `${IMAGE_FILEPATH_URL}/${userData.profileImage}` }
+              : require('../../../../assets/userIcon.jpeg')
           }
           style={{ width: '100%', height: '100%' }}
         />

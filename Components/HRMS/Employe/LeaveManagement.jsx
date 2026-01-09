@@ -80,7 +80,7 @@ export default function LeaveManagement({ navigation }) {
         { type: "Paternity Leave", total: 30, used: 10, available: 30, },
       ];
 
-      const rowsPerPage = 9;
+      const rowsPerPage = 10;
       const [page, setPage] = useState(0);
       const combinedData = [...manualRecords, ...leaveRequestListData];
       const totalPages = Math.ceil(combinedData.length / rowsPerPage);
@@ -188,36 +188,106 @@ export default function LeaveManagement({ navigation }) {
         myHeaders.append("Content-Type", "application/json");
         myHeaders.append("Authorization", "Bearer " + token);
 
-        const raw = JSON.stringify({
-          "branchId": userData?.branchId,
-          "companyId": userData?.companyId,
-          "employeId": userData?._id,
-          "isPagination": false,
-          "leaveTypeId": "",
-          "sort": true,
-          "status": "",
-          "text": "",
-        });
+        let allData = [];
+        let currentPage = 1;
+        let hasNextPage = true;
+        const limit = 50; // Fetch more items per API call for efficiency
+        
+        // Fetch all pages until no more data
+        while (hasNextPage) {
+          const raw = JSON.stringify({
+            "branchId": userData?.branchId,
+            "companyId": userData?.companyId,
+            "employeId": userData?._id,
+            "isPagination": true,
+            "leaveTypeId": "",
+            "page": currentPage,
+            "limit": limit,
+            "sort": true,
+            "status": "",
+            "text": "",
+          });
 
-        const requestOptions = {
-          method: "POST",
-          headers: myHeaders,
-          body: raw,
-          redirect: "follow"
-        };
+          const requestOptions = {
+            method: "POST",
+            headers: myHeaders,
+            body: raw,
+            redirect: "follow"
+          };
 
-        const response = await fetch(`${BASE_URL}/admin/employe/leaveRequest/list?page=1&limit=${page}`, requestOptions);
-        const result = await response.json();
-        if (result.statusCode === 200) {
-          console.log("Leave Request API Success:", result);
-          setLeaveRequestListData(result.data.docs || []);
-        }else{
-          console.error("Leave Request API Error:", result.message);
+          const response = await fetch(`${BASE_URL}/admin/employe/leaveRequest/list?page=${currentPage}&limit=${limit}`, requestOptions);
+          const result = await response.json();
+          
+          if (result.statusCode === 200) {
+            const pageData = result.data.docs || result.data || [];
+            
+            if (pageData.length === 0) {
+              hasNextPage = false;
+            } else {
+              allData = [...allData, ...pageData];
+              
+              // Check if there are more pages using API response
+              hasNextPage = result.data?.hasNextPage !== false;
+              
+              // If we got less data than limit, it's likely the last page
+              if (pageData.length < limit) {
+                hasNextPage = false;
+              }
+              
+              // If totalPages is available, use it to determine if more pages exist
+              if (result.data?.totalPages) {
+                hasNextPage = currentPage < result.data.totalPages;
+              }
+              
+              currentPage++;
+            }
+          } else {
+            console.error("Leave Request API Error:", result.message);
+            // If first page fails, try without pagination parameters
+            if (currentPage === 1) {
+              // Try fetching all data at once
+              const rawAll = JSON.stringify({
+                "branchId": userData?.branchId,
+                "companyId": userData?.companyId,
+                "employeId": userData?._id,
+                "isPagination": false,
+                "leaveTypeId": "",
+                "sort": true,
+                "status": "",
+                "text": "",
+              });
+
+              const requestOptionsAll = {
+                method: "POST",
+                headers: myHeaders,
+                body: rawAll,
+                redirect: "follow"
+              };
+              
+              const responseAll = await fetch(`${BASE_URL}/admin/employe/leaveRequest/list`, requestOptionsAll);
+              const resultAll = await responseAll.json();
+              
+              if (resultAll.statusCode === 200) {
+                allData = resultAll.data.docs || resultAll.data || [];
+                hasNextPage = false;
+              } else {
+                showToast(resultAll.message || "Failed to fetch leave requests");
+                hasNextPage = false;
+              }
+            } else {
+              hasNextPage = false;
+            }
+          }
         }
+        
+        // console.log("✅ All Leave Request Data loaded:", allData.length, "records");
+        setLeaveRequestListData(allData);
+        setLoading(false);
         }catch(error){
           console.error("Failed to load leave request data:", error);
+          showToast("Error loading leave requests: " + error.message);
+          setLoading(false);
         }
-        setLoading(false);
       };
 
       const validateLeaveForm = () => {

@@ -1,395 +1,10 @@
-// import React, { useState } from 'react';
-// import {
-//   View,
-//   Text,
-//   TouchableOpacity,
-//   Modal,
-//   StyleSheet,
-//   ScrollView,
-// } from 'react-native';
 
-// const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-// const MONTHS = [
-//   'January', 'February', 'March', 'April', 'May', 'June',
-//   'July', 'August', 'September', 'October', 'November', 'December',
-// ];
-
-// // Sample event data (for testing)
-// const events = [
-//   { type: 'birthday', name: 'Aarav Sharma', date: '2025-12-23' }, 
-//   { type: 'holiday', name: 'Independence Day', date: '2026-02-01' }, 
-//   { type: 'holiday', name: 'Happy New Year', date: '2026-01-01' },
-// ];
-
-// const CustomCalendar = ({ onDateSelect, navigation }) => {
-//   const today = new Date();
-//   // helper to format a Date as YYYY-MM-DD in local timezone (prevents UTC shift)
-//   const formatDateLocal = (d) => {
-//     const year = d.getFullYear();
-//     const month = String(d.getMonth() + 1).padStart(2, '0');
-//     const day = String(d.getDate()).padStart(2, '0');
-//     return `${year}-${month}-${day}`;
-//   };
-
-//   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-//   const [currentYear, setCurrentYear] = useState(today.getFullYear());
-//   const [selectedDate, setSelectedDate] = useState(today);
-//   const [modalVisible, setModalVisible] = useState(false);
-//   const [eventDetail, setEventDetail] = useState(null);
-
-//   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-//   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-
-//   const changeMonth = (direction) => {
-//     if (direction === 'next') {
-//       if (currentMonth === 11) {
-//         setCurrentMonth(0);
-//         setCurrentYear(currentYear + 1);
-//       } else {
-//         setCurrentMonth(currentMonth + 1);
-//       }
-//     } else {
-//       if (currentMonth === 0) {
-//         setCurrentMonth(11);
-//         setCurrentYear(currentYear - 1);
-//       } else {
-//         setCurrentMonth(currentMonth - 1);
-//       }
-//     }
-//   };
-
-//   const handleDatePress = (day) => {
-//     const selected = new Date(currentYear, currentMonth, day);
-
-//     // Normalize the selected date using local timezone (avoid UTC shift)
-//     const selectedDateString = formatDateLocal(selected); // Get the date part (YYYY-MM-DD)
-
-//     // Check if there's an event on the selected date
-//     const event = events.find((event) => event.date === selectedDateString);
-//     if (event) {
-//       setEventDetail(event);
-//       setModalVisible(true);
-//     } else {
-//       setEventDetail(null);  // If no event, hide the modal
-//       onDateSelect?.(selected);
-//     }
-//     setSelectedDate(selected);
-//   };
-
-//   const isToday = (day) =>
-//     day === today.getDate() &&
-//     currentMonth === today.getMonth() &&
-//     currentYear === today.getFullYear();
-
-//   const isSelected = (day) =>
-//     selectedDate &&
-//     day === selectedDate.getDate() &&
-//     currentMonth === selectedDate.getMonth() &&
-//     currentYear === selectedDate.getFullYear();
-
-//   const isEventDate = (day) => {
-//     const date = new Date(currentYear, currentMonth, day);
-
-//     // Normalize the date using local timezone (avoid UTC shift)
-//     const dateString = formatDateLocal(date);  // Get YYYY-MM-DD
-//     return events.some((event) => event.date === dateString);
-//   };
-
-//   const renderEventModal = () => {
-//     if (!eventDetail) return null;
-//     return (
-//       <Modal
-//         visible={modalVisible}
-//         transparent={true}
-//         animationType="fade"
-//         onRequestClose={() => setModalVisible(false)}
-//       >
-//         <View style={styles.modalOverlay}>
-//           <View style={styles.modalCard}>
-//             {/* Icon circle (overlapping) */}
-//             <View style={[styles.modalIconWrap, eventDetail?.type === 'birthday' ? styles.birthdayBg : styles.holidayBg]}>
-//               <Text style={styles.modalIcon}>{eventDetail?.type === 'birthday' ? '🎂' : '🏖️'}</Text>
-//             </View>
-
-//             <Text style={styles.modalTitle}>{eventDetail?.type === 'birthday' ? 'Happy Birthday' : 'Holiday'}</Text>
-//             <Text style={styles.modalName}>{eventDetail?.name}</Text>
-//             <Text style={styles.modalDate}>{eventDetail ? new Date(eventDetail.date).toLocaleDateString() : ''}</Text>
-
-//             <Text style={styles.modalDesc}>
-//               {eventDetail?.type === 'birthday'
-//                 ? `Send your best wishes to ${eventDetail.name}.` 
-//                 : `Details for the holiday — mark your calendar and enjoy the day!`}
-//             </Text>
-
-//             <View style={styles.modalActions}>
-//               {/* <TouchableOpacity
-//                 style={[styles.actionButton, styles.primaryButton]}
-//                 onPress={() => {
-//                   // Placeholder: integrate add-to-calendar action if needed
-//                   setModalVisible(false);
-//                 }}
-//               >
-//                 <Text style={styles.actionText}>Add to Calendar</Text>
-//               </TouchableOpacity> */}
-
-//               <TouchableOpacity
-//                 style={[styles.actionButton, styles.secondaryButton]}
-//                 onPress={() => setModalVisible(false)}
-//               >
-//                 <Text style={styles.secondaryText}>Close</Text>
-//               </TouchableOpacity>
-//             </View>
-//           </View>
-//         </View>
-//       </Modal>
-//     );
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       {/* Header */}
-//       <View style={styles.header}>
-//         <TouchableOpacity onPress={() => changeMonth('prev')}>
-//           <Text style={styles.navText}>‹</Text>
-//         </TouchableOpacity>
-
-//         <Text style={styles.monthText}>
-//           {MONTHS[currentMonth]} {currentYear}
-//         </Text>
-
-//         <TouchableOpacity onPress={() => changeMonth('next')}>
-//           <Text style={styles.navText}>›</Text>
-//         </TouchableOpacity>
-//       </View>
-
-//       {/* Week Days */}
-//       <View style={styles.weekRow}>
-//         {WEEK_DAYS.map((day) => (
-//           <Text key={day} style={styles.weekDay}>
-//             {day}
-//           </Text>
-//         ))}
-//       </View>
-
-//       {/* Dates */}
-//       <View style={styles.grid}>
-//         {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-//           <View key={`empty-${i}`} style={styles.dayCell} />
-//         ))}
-
-//         {Array.from({ length: daysInMonth }, (_, i) => {
-//           const day = i + 1;
-
-//           return (
-//             <TouchableOpacity
-//               key={day}
-//               style={[
-//                 styles.dayCell,
-//                 isSelected(day) && styles.selectedDay,
-//                 isToday(day) && styles.todayDay,
-//                 isEventDate(day) && styles.eventDay,  // Highlight event days
-//               ]}
-//               onPress={() => handleDatePress(day)}
-//             >
-//               <Text
-//                 style={[
-//                   styles.dayText,
-//                   (isSelected(day) || isToday(day)) && styles.activeText,
-//                   isEventDate(day) && styles.eventText,  // Event text styling
-//                 ]}
-//               >
-//                 {day}
-//               </Text>
-//             </TouchableOpacity>
-//           );
-//         })}
-//       </View>
-//       {renderEventModal()}
-//     </View>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     backgroundColor: '#fff',
-//     borderRadius: 16,
-//     padding: 10,
-//     marginTop: 16,
-//     elevation: 1,
-//     borderWidth: 0.5,
-//     borderColor: '#E0E0E0',
-//   },
-//   header: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     alignItems: 'center',
-//     marginBottom: 12,
-//   },
-//   navText: {
-//     fontSize: 28,
-//     fontWeight: 'bold',
-//     color: '#333',
-//   },
-//   monthText: {
-//     fontSize: 18,
-//     fontWeight: '600',
-//   },
-//   weekRow: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     marginBottom: 8,
-//   },
-//   weekDay: {
-//     width: '14.28%',
-//     textAlign: 'center',
-//     color: '#999',
-//     fontWeight: '600',
-//   },
-//   grid: {
-//     flexDirection: 'row',
-//     flexWrap: 'wrap',
-//   },
-//   dayCell: {
-//     width: '14.28%',
-//     height: 30,
-//     aspectRatio: 1,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     borderRadius: 50,
-//   },
-//   dayText: {
-//     fontSize: 16,
-//     color: '#333',
-//   },
-//   todayDay: {
-//     borderWidth: 1.5,
-//     borderColor: '#4A90E2',
-//   },
-//   selectedDay: {
-//     backgroundColor: '#4A90E2',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-//   activeText: {
-//     color: '#fff',
-//     fontWeight: 'bold',
-//   },
-//   eventDay: {
-//     backgroundColor: '#FFCC00', // Highlight event days
-//   },
-//   eventText: {
-//     color: '#fff', // White text for event days
-//     fontWeight: 'bold',
-//   },
-//   modalOverlay: {
-//     flex: 1,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     backgroundColor: 'rgba(0,0,0,0.45)',
-//     padding: 20,
-//   },
-//   modalCard: {
-//     width: '100%',
-//     maxWidth: 420,
-//     backgroundColor: '#fff',
-//     borderRadius: 16,
-//     paddingTop: 40,
-//     paddingBottom: 20,
-//     paddingHorizontal: 20,
-//     alignItems: 'center',
-//     shadowColor: '#000',
-//     shadowOffset: { width: 0, height: 6 },
-//     shadowOpacity: 0.12,
-//     shadowRadius: 12,
-//     elevation: 10,
-//   },
-//   modalIconWrap: {
-//     width: 88,
-//     height: 88,
-//     borderRadius: 44,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     position: 'absolute',
-//     top: -44,
-//   },
-//   modalIcon: {
-//     fontSize: 36,
-//   },
-//   birthdayBg: {
-//     backgroundColor: '#FF6B6B',
-//   },
-//   holidayBg: {
-//     backgroundColor: '#4A90E2',
-//   },
-//   modalTitle: {
-//     fontSize: 20,
-//     fontWeight: '700',
-//     marginTop: 10,
-//     color: '#222',
-//   },
-//   modalName: {
-//     fontSize: 16,
-//     fontWeight: '600',
-//     color: '#333',
-//     marginTop: 6,
-//   },
-//   modalDate: {
-//     fontSize: 14,
-//     color: '#666',
-//     marginTop: 4,
-//   },
-//   modalDesc: {
-//     fontSize: 14,
-//     color: '#555',
-//     textAlign: 'center',
-//     marginTop: 12,
-//     marginBottom: 16,
-//   },
-//   modalActions: {
-//     flexDirection: 'row',
-//     justifyContent: 'center',
-//     width: '100%',
-//     gap: 12,
-//   },
-//   actionButton: {
-//     flex: 1,
-//     minWidth: 120,
-//     paddingVertical: 10,
-//     borderRadius: 10,
-//     alignItems: 'center',
-//   },
-//   primaryButton: {
-//     backgroundColor: '#6a8ff3',
-//   },
-//   actionText: {
-//     color: '#fff',
-//     fontWeight: '700',
-//   },
-//   secondaryButton: {
-//     backgroundColor: '#fff',
-//     borderWidth: 1,
-//     borderColor: '#ddd',
-//   },
-//   secondaryText: {
-//     color: '#6a8ff3',
-//     fontWeight: '700',
-//   },
-// });
-
-// export default CustomCalendar;
-
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Modal, TouchableOpacity } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useEmployeeDashboard } from '../../../../Context/EmployeeDashboardContext';
-
-const events = [
-  { type: 'birthday', name: 'Aarav Sharma', date: '2025-12-23' },
-  { type: 'birthday', name: 'Chetan Jangid', date: '2026-01-05' },
-  { type: 'holiday', name: 'Republic Day', date: '2026-01-26' },
-  { type: 'holiday', name: 'Independence day', date: '2026-08-15' },
-];
+import moment from 'moment';
+import { Entypo } from '@expo/vector-icons';
 
 // Locale
 LocaleConfig.locales['in'] = {
@@ -416,46 +31,134 @@ const CustomCalendar = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [dayEvents, setDayEvents] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
+  
+   useEffect(() => {
+       if (dashboardData) {
+        //  console.log('Dashboard Data eventData:', dashboardData.holidayData);
+       }
+   }, [dashboardData])
+  
+  const employeesEvents = dashboardData?.eventData || [];
+  const holidayData = dashboardData?.holidayData || [];
 
   // ✅ DEFINE getMarkedDates
   const getMarkedDates = () => {
     const marked = {};
-
-    events.forEach(event => {
-      marked[event.date] = {
-        marked: true,
-        dotColor: event.type === 'birthday' ? 'green' : 'orange'
-      };
+  
+    // Employee Events (Green)
+    employeesEvents.forEach(event => {
+      const start = moment.utc(event.startDate).startOf('day');
+      const end = moment.utc(event.endDate).startOf('day');
+  
+      for (let date = start.clone(); date.isSameOrBefore(end); date.add(1, 'day')) {
+        const formattedDate = date.format('YYYY-MM-DD');
+  
+        if (!marked[formattedDate]) {
+          marked[formattedDate] = { dots: [] };
+        }
+  
+        marked[formattedDate].dots.push({
+          key: `event-${event._id}`,
+          color: '#00adf5',
+        });
+      }
     });
-
-    // highlight selected date
+  
+    // Holidays (Red)
+    holidayData.forEach(holiday => {
+      const formattedDate = moment.utc(holiday.date).local().format('YYYY-MM-DD');
+  
+      if (!marked[formattedDate]) {
+        marked[formattedDate] = { dots: [] };
+      }
+  
+      marked[formattedDate].dots.push({
+        key: `holiday-${holiday._id}`,
+        color: '#FF9800',
+      });
+    });
+  
+    // Selected date highlight
     if (selectedDate) {
       marked[selectedDate] = {
         ...marked[selectedDate],
         selected: true,
-        selectedColor: '#00adf5'
+        selectedColor: '#00adf5',
       };
     }
-
+  
+    // ✅ Highlight Sundays
+    const startOfMonth = moment().startOf('month');
+    const endOfMonth = moment().endOf('month');
+  
+    for (
+      let date = startOfMonth.clone();
+      date.isSameOrBefore(endOfMonth);
+      date.add(1, 'day')
+    ) {
+      if (date.day() === 0) { // 0 = Sunday
+        const formattedDate = date.format('YYYY-MM-DD');
+        if (!marked[formattedDate]) {
+          marked[formattedDate] = {};
+        }
+        marked[formattedDate].customStyles = {
+          container: {
+            backgroundColor: '#FFE0E0', // light red for Sunday
+            borderRadius: 6,
+          },
+          text: {
+            color: '#D32F2F', // red text for Sunday
+            fontWeight: 'bold',
+          },
+        };
+      }
+    }
+  
     return marked;
   };
 
   const onDayPress = day => {
     setSelectedDate(day.dateString);
-
-    const filteredEvents = events.filter(
-      event => event.date === day.dateString
-    );
-
-    setDayEvents(filteredEvents);
+    const filteredEvents = employeesEvents.filter(event => {
+      const start = moment.utc(event.startDate).format('YYYY-MM-DD');
+      const end = moment.utc(event.endDate).format('YYYY-MM-DD');
+      return day.dateString >= start && day.dateString <= end;
+    });
+    const filteredHolidays = holidayData.filter(holiday => {
+      const holidayDate = moment.utc(holiday.date).local().format('YYYY-MM-DD');
+      return holidayDate === day.dateString;
+    });
+    setDayEvents([
+      ...filteredHolidays.map(h => ({ ...h, type: 'holiday' })),
+      ...filteredEvents.map(e => ({ ...e, type: 'event' })),
+    ]);
     setModalVisible(true);
   };
 
   return (
-    <View>
+    <View style={{ }} >
+      <View style={{ width:'100%',}} >
+        <View style={{ width:'100%', flexDirection:'row', gap:10, justifyContent:'space-between', alignItems:'center', marginBottom:10 }} >
+          <View style={{ flex:1, padding:10, flexDirection:'row', backgroundColor:'#2196F320', borderRadius:5, justifyContent:'space-between', alignItems:'center'}} >
+            <View style={{ flexDirection:'row', alignItems:'center', gap:5 }}>
+            <View style={{ width:10, height:10, backgroundColor:'#2196F3', borderRadius:50 }} ></View>
+            <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:'#444' }} >Events</Text>
+            </View>
+            <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:'#444' }} >{employeesEvents.length || 0}</Text>
+          </View>
+          <View style={{ flex:1, padding:10, flexDirection:'row', backgroundColor:'#FF980020', borderRadius:5, justifyContent:'space-between', alignItems:'center'}} >
+            <View style={{ flexDirection:'row', alignItems:'center', gap:5 }}>
+            <View style={{ width:10, height:10, backgroundColor:'#FF9800', borderRadius:50 }} ></View>
+            <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:'#444' }} >Holidays</Text>
+            </View>
+            <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:'#444' }} >{holidayData.length || 0}</Text>
+          </View>
+        </View>
+      </View>
       <Calendar
         onDayPress={onDayPress}
         markedDates={getMarkedDates()}
+        markingType="multi-dot"
         style={{
           borderWidth: 1,
           borderColor: '#e0e0e0',
@@ -483,18 +186,47 @@ const CustomCalendar = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.dateTitle}>{selectedDate}</Text>
+            <Text style={styles.dateTitle}>On this date: {selectedDate}</Text>
 
             {dayEvents.length > 0 ? (
-              dayEvents.map((event, index) => (
-                <Text key={index} style={styles.eventText}>
-                  {event.type === 'birthday' ? '🎂' : '🎉'} {event.name}
-                </Text>
+              dayEvents.map(item => (
+                <View key={item._id} style={{ marginBottom: 15 }}>
+                  <Text style={{fontSize: 14, color: '#444', fontFamily:'Poppins-Medium'}}>{item.type === 'holiday' ? '🏖️ Holiday:' : '🎉 Event:'}</Text>
+                  {
+                    item.type === 'event' ? (
+                      <Text style={{ fontSize: 14, color: '#444', fontFamily:'Poppins-SemiBold', marginBottom: 4 }}>
+                        {item.title}
+                      </Text>
+                    ):(
+                      <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                        {/* 📅 {moment.utc(item.date).format('DD MMM YYYY')} */}
+                      </Text>
+                    )
+                  }
+                  {!!item.description && (
+                    <Text style={{ fontSize: 12, color: '#999', fontFamily:'Poppins-Medium', marginBottom:5, textTransform:'capitalize' }}>
+                      {item.description}
+                    </Text>
+                  )}
+                  {!!item.location && (
+                    <View style={{ flexDirection:'row', alignItems:'center', }} >
+                      <Entypo name="location-pin" size={18} color="#00adf5" />
+                      <Text style={{ fontSize: 14, fontFamily:'Poppins-Medium', color: '#444', textTransform:'capitalize' }}>{item.location} </Text>
+                    </View>
+                  )}
+                  {/* {item.type === 'holiday' ?(
+                      <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                        📅 {moment(item.date).format('DD MMM YYYY')}
+                      </Text>
+                  ):(
+                    <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                      📅 {moment.utc(item.startDate).format('DD MMM YYYY')} - {moment.utc(item.endDate).format('DD MMM YYYY')}
+                    </Text>
+                  )} */}
+                </View>
               ))
             ) : (
-              <Text style={styles.noEventText}>
-                No events or holidays on this date
-              </Text>
+              <Text style={styles.noEventText}>No events or holidays on this date</Text>
             )}
 
             <TouchableOpacity

@@ -62,7 +62,7 @@ export default function EmployeAttendance({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
 
-  const rowsPerPage = 9;
+  const rowsPerPage = 10;
 
   // Leave type mapping
   const leaveTypeMap = {
@@ -110,43 +110,109 @@ export default function EmployeAttendance({ navigation, route }) {
         myHeaders.append("Content-Type", "application/json");
         myHeaders.append("Authorization", "Bearer " + token);
         
-        // Always pass null for dates - filter client-side instead
-        const raw = JSON.stringify({
-          "branchId": userData?.branchId,
-          "companyId": userData?.companyId,
-          "employeId": userData?._id,
-          "endDate": null,
-          "isPagination": true,
-          "isPresentDay": [],
-          "shift": "",
-          "sort": true,
-          "startDate": null,
-          "status": "",
-          "text": "",
-          "workType": ""
-        });
-
-        const requestOptions = {
-          method: "POST",
-          headers: myHeaders,
-          body: raw,
-          redirect: "follow"
-        };
+        let allData = [];
+        let currentPage = 1;
+        let hasNextPage = true;
+        const limit = 50; // Fetch more items per API call for efficiency
         
-        const response = await fetch(`${BASE_URL}/admin/employe/attendance/list`, requestOptions);
-        // console.log("🔹 Response Status:", response.status);
-        
-        const result = await response.json();
+        // Fetch all pages until no more data
+        while (hasNextPage) {
+          const raw = JSON.stringify({
+            "branchId": userData?.branchId,
+            "companyId": userData?.companyId,
+            "employeId": userData?._id,
+            "endDate": null,
+            "isPagination": true,
+            "isPresentDay": [],
+            "page": currentPage,
+            "limit": limit,
+            "shift": "",
+            "sort": true,
+            "startDate": null,
+            "status": "",
+            "text": "",
+            "workType": ""
+          });
 
-        if (result.statusCode === 200) {
-          const allData = result.data.docs || result.data || [];
-          // console.log("✅ All Attendance Data loaded:", allData.length, "records");
-          setAllAttendanceData(allData);
-          filterAttendanceData(allData, startDate, endDate);
-        } else {
-          console.error("❌ API Error:", result.message);
-          ToastAndroid.show(result.message || "Failed to fetch attendance", ToastAndroid.SHORT);
-        }          
+          const requestOptions = {
+            method: "POST",
+            headers: myHeaders,
+            body: raw,
+            redirect: "follow"
+          };
+          
+          const response = await fetch(`${BASE_URL}/admin/employe/attendance/list`, requestOptions);
+          const result = await response.json();
+
+          if (result.statusCode === 200) {
+            const pageData = result.data.docs || result.data || [];
+            
+            if (pageData.length === 0) {
+              hasNextPage = false;
+            } else {
+              allData = [...allData, ...pageData];
+              
+              // Check if there are more pages using API response
+              hasNextPage = result.data?.hasNextPage !== false;
+              
+              // If we got less data than limit, it's likely the last page
+              if (pageData.length < limit) {
+                hasNextPage = false;
+              }
+              
+              // If totalPages is available, use it to determine if more pages exist
+              if (result.data?.totalPages) {
+                hasNextPage = currentPage < result.data.totalPages;
+              }
+              
+              currentPage++;
+            }
+          } else {
+            console.error("❌ API Error:", result.message);
+            // If first page fails, try without pagination parameters
+            if (currentPage === 1) {
+              // Try fetching all data at once
+              const rawAll = JSON.stringify({
+                "branchId": userData?.branchId,
+                "companyId": userData?.companyId,
+                "employeId": userData?._id,
+                "endDate": null,
+                "isPagination": false,
+                "isPresentDay": [],
+                "shift": "",
+                "sort": true,
+                "startDate": null,
+                "status": "",
+                "text": "",
+                "workType": ""
+              });
+
+              const requestOptionsAll = {
+                method: "POST",
+                headers: myHeaders,
+                body: rawAll,
+                redirect: "follow"
+              };
+              
+              const responseAll = await fetch(`${BASE_URL}/admin/employe/attendance/list`, requestOptionsAll);
+              const resultAll = await responseAll.json();
+              
+              if (resultAll.statusCode === 200) {
+                allData = resultAll.data.docs || resultAll.data || [];
+                hasNextPage = false;
+              } else {
+                ToastAndroid.show(resultAll.message || "Failed to fetch attendance", ToastAndroid.SHORT);
+                hasNextPage = false;
+              }
+            } else {
+              hasNextPage = false;
+            }
+          }
+        }
+        
+        // console.log("✅ All Attendance Data loaded:", allData.length, "records");
+        setAllAttendanceData(allData);
+        filterAttendanceData(allData, startDate, endDate);
       } catch (error) {
         console.error("❌ Network Error:", error);
         ToastAndroid.show("Network request failed: " + error.message, ToastAndroid.SHORT);

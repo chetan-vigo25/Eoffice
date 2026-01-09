@@ -259,8 +259,8 @@ export default function ClientProfile({ navigation, route }) {
     // Handle your logout logic (redirect, reset user, etc.) 
   };
 
-    const { city, country, pinCode, state, street } = personalInfoData?.addresses?.primary || {};
-    const fullAddress = `${street || "Street not available"}, ${city || "City not available"}, ${state || "State not available"} ${pinCode || "PinCode not available"}, ${country || "Country not available"}`;
+  const { city, country, pinCode, state, street } = personalInfoData?.addresses?.primary || {};
+  const fullAddress = `${street || "Street not available"}, ${city || "City not available"}, ${state || "State not available"} ${pinCode || "PinCode not available"}, ${country || "Country not available"}`;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor:Style.headerBgColor }}>

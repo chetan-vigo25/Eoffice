@@ -282,7 +282,7 @@ export default function Splash({ navigation }) {
               console.log("Employe Login Success Token:", result?.token);
                if (result?.data) {
                  await AsyncStorage.setItem('userData', JSON.stringify(result?.data));
-                //  console.log("Employe Login Success Data:", result?.data);
+                 console.log("Employe Login Success Data:", result?.data);
                }
               navigation.navigate('EmployeDashboard', { userData: result?.data });
               // showToast(result.message);

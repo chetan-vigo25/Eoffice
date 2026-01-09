@@ -8,7 +8,9 @@ import { Entypo } from '@expo/vector-icons';
 import CustomCalendar from './EmployeComponent/CustomCalendar';
 import EmployeeLeaveCard from './EmployeComponent/EmployeeLeaveCard';
 import DashboardCards from './EmployeComponent/QuickAccessCard';
+import EmployeBirthdayCard from './EmployeComponent/EmployeBirthdayCard';
 import EmployeHeader from './EmployeComponent/EmployeHeader';
+import { useEmployeeDashboard } from '../../../Context/EmployeeDashboardContext';
 
 import BASE_URL from '../../../Urls/DomainUrl';
 
@@ -43,7 +45,7 @@ function showToast(message, onOk = null) {
 
 export default function EmployeDashboard({ navigation, route }) {
   const { userData } = route.params || {};
-
+  const { dashboardData, loading, error } = useEmployeeDashboard();
   const [expanded, setExpanded] = useState(false);
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState(null);
@@ -504,7 +506,12 @@ export default function EmployeDashboard({ navigation, route }) {
 //     confirmCheckInOut();a
 // },[])
 // console.log("xzxzxzxzx",confirmAttendance);
-
+  useEffect(() => {
+       if (dashboardData) {
+        //  console.log('Dashboard Data eventData:', dashboardData.holidayData);
+       }
+   }, [dashboardData])
+   const todayOnLeave = dashboardData?.todayOnLeave.length || [];
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <StatusBar background='#fff' barStyle='dark-content' />
@@ -515,7 +522,7 @@ export default function EmployeDashboard({ navigation, route }) {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10 }}>
               <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>{time}</Text>
               <View style={{ backgroundColor: '#fff', paddingHorizontal:10, paddingVertical:4, borderRadius: 5 }} >
-                <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>On Leave: 100</Text>
+                <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>On Leave: {todayOnLeave}</Text>
               </View>
             </View>
             {
@@ -642,6 +649,7 @@ export default function EmployeDashboard({ navigation, route }) {
         </View>
         <DashboardCards navigation={navigation} />
         <EmployeeLeaveCard navigation={navigation} />
+        <EmployeBirthdayCard navigation={navigation} />
         <CustomCalendar navigation={navigation} />
       </ScrollView>
     </SafeAreaView>
