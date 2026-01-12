@@ -201,7 +201,8 @@ export default function EmployeWFH({ navigation }) {
             body: raw,
             redirect: "follow"
           };
-          // console.log("WFH List---:", raw);
+          console.log("WFH List---:", raw);
+          // return;
           
           const response = await fetch(`${BASE_URL}/admin/employe/wfhRequest/create`, requestOptions);
           const result = await response.json();
@@ -214,10 +215,9 @@ export default function EmployeWFH({ navigation }) {
             showToast(result.message);
             setLoading(false);
             wfhEmployeeList();
-            set
-            return true;
+            setWfhModal(false);
           }else{
-            console.log("WFH List Error---:", result.message);
+            showToast(result.message);
             setLoading(false);
           }
         }catch(error){
@@ -253,9 +253,9 @@ export default function EmployeWFH({ navigation }) {
           "companyId": userData?.companyId,
           "directorId": "",
           "employeId": userData?._id,
-          "endDate": wfhDate,
+          "endDate": moment(wfhDate, 'DD-MM-YYYY').format('YYYY-MM-DD'),
           "reason": wfhReason,
-          "startDate": wfhDate,
+          "startDate":  moment(wfhDate, 'DD-MM-YYYY').format('YYYY-MM-DD'),
           "status": "pending",
           "wfhManagerId": wfhType,
           "worktodo": workToDo
@@ -268,7 +268,8 @@ export default function EmployeWFH({ navigation }) {
           redirect: "follow"
         };
 
-        console.log("WFH RAW DATA---", raw);
+        // console.log("WFH RAW DATA---", raw);
+        // return;
 
         const response = await fetch(`${BASE_URL}/admin/employe/wfhRequest/update`, requestOptions);
         const result = await response.json();

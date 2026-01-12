@@ -13,7 +13,7 @@ import * as FileSystem from 'expo-file-system';
 import { UserContext } from '../../../Context/UserProvider';
 // import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AntDesign, Entypo, Ionicons, FontAwesome, FontAwesome6, Octicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { AntDesign, Entypo, Ionicons, FontAwesome, FontAwesome6, Octicons, MaterialIcons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 
 function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
@@ -46,6 +46,7 @@ export default function EmployeProfile({ navigation, route }) {
     const [onBoardingData, setOnBoardingData] = useState([]);
     const [onBoardingId, setOnBoardingId] = useState(null);
     const [images, setImages] = useState(null);
+    const [empData, setEmpData] = useState(null);
 
     const tabs = [
       { id: 1, label: 'Primary Detail' },
@@ -60,139 +61,23 @@ export default function EmployeProfile({ navigation, route }) {
       { id: 10, label: 'Bank' },
     ];
 
-    const pickImage = async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert("Permission required", "Please allow photo access");
-        return;
-      }
+    useEffect(() => {
+      const loadUserData = async () => {
+        try {
+          const storedUserData = await AsyncStorage.getItem('userData');
     
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 1,
-      });
-    
-      if (!result.canceled) {
-        // const imageUri = result.assets[0].uri;
-        // console.log("Picked image:", imageUri);
-
-        const pickedImage = result.assets[0];
-
-    // Get file info to check size
-       const fileInfo = await FileSystem.getInfoAsync(pickedImage.uri);
-       const fileSizeInMB = fileInfo.size / (1024 * 1024); // Convert bytes to MB
-   
-       if (fileSizeInMB > 2) {
-         Alert.alert("File too large", "Please select an image smaller than 2 MB");
-         return;
-       }
-    
-        setImages(pickedImage);       // for preview
-        // uploadFile(pickedImage); // ✅ pass uri directly
-        await uploadFile(pickedImage);
-      }
-    };
-
-    const uploadFile = async (image) => {
-      if (!image) {
-        showToast("Please select an image.");
-        return;
-      }
-    
-      try {
-         let token = await AsyncStorage.getItem("authToken");
-         if(!token) {
-          showToast("Authentication token not found");
-          return;
+          if (storedUserData) {
+            const parsedData = JSON.parse(storedUserData);
+            console.log("User Data---:", parsedData);
+            setOnBoardingId(parsedData?.onboardingId);
+          }
+        } catch (error) {
+          console.error("Failed to load userData:", error);
         }
-        const formData = new FormData();
-        formData.append("filePath", {
-          uri: image.uri,
-          name: "profile.jpg",
-          type: "image/jpeg", 
-        });
-
-        formData.append("isMultiple", "false");
-        formData.append("isVideo", "false");
+      };
     
-        const requestOptions = {
-          method: "POST",
-          headers: {
-            "Authorization": "Bearer " + token,
-            "Content-Type": "multipart/form-data",
-          },
-          body: formData,
-        };
-      console.log("requestOptions", formData)
-    
-        const response = await fetch(`${BASE_URL}/admin/fileUpload`, requestOptions);
-        const result = await response.json();
-    
-        if (result.statusCode === 200) {
-          // showToast(result.message);
-          console.log("Uploaded profile:", result);
-          uploadImage(result.data);
-        } else {
-          showToast(result.message || "Upload failed.");
-        }
-      } catch (error) {
-        console.error("Upload error:", error);
-        showToast("Something went wrong.");
-      }
-    };
-
-    const uploadImage = async (data) => {
-      try{
-        let token = await AsyncStorage.getItem("authToken");
-         if (!token) {
-           showToast("Authentication token not found");
-           return;
-        }
-
-        const myHeaders = new Headers();  
-        myHeaders.append("Content-Type", "application/json");  
-        myHeaders.append("Authorization", "Bearer " + token);
-
-        const raw = JSON.stringify({
-          "_id": userData?._id,
-          "imagePath": data
-          
-        });
-
-        const requestOptions = {
-          method: 'POST',
-          headers: myHeaders,
-          body: raw,
-          redirect: 'follow'
-        };
-
-        console.log('raw', data);
-        // return;
-
-        const responce = await fetch(`${BASE_URL}/admin/profileImage/update`, requestOptions);
-        const result = await responce.json();
-        if(result.statusCode === 200){
-          showToast(result.message);
-          console.log("pass image")
-          const updatedUser = {
-            ...userData,
-            profileImage: imagePath,
-          };
-    
-          setUserData(updatedUser);
-    
-          // ✅ 2. Update AsyncStorage
-          await AsyncStorage.setItem("userData", JSON.stringify(updatedUser));
-        }else{
-          showToast(result.message);
-          console.log("failed image")
-        }
-      }catch(error){
-        console.log(error);
-      }finally{
-        setLoading(false);
-      }
-    }
+      loadUserData();
+    }, []);
 
     const employeeDetail = async () => {
       try{
@@ -289,7 +174,9 @@ export default function EmployeProfile({ navigation, route }) {
                           }
                           style={{ width: '100%', height: '100%' }}
                         />
-                      <TouchableOpacity onPress={pickAndUploadImage} style={{ width:20, height:20, backgroundColor:'#6a8ff3', position:'absolute', top:0, right:0 }} ></TouchableOpacity>
+                      <TouchableOpacity onPress={pickAndUploadImage} style={{ width:20, height:20, backgroundColor:'#00000060', justifyContent:'center', alignItems:'center', position:'absolute', top:0, right:0, borderRadius:50 }} >
+                        <Feather name="edit" size={16} color="#fff" />
+                      </TouchableOpacity>
                       </View>
                       <View>
                         <Text style={{ fontSize: 16, fontFamily: 'Poppins-SemiBold', color: '#6a8ff3' }}>{userData?.fullName || 'Name'}</Text>

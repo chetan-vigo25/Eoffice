@@ -266,7 +266,7 @@ export default function LeaveManagement({ navigation }) {
               
               const responseAll = await fetch(`${BASE_URL}/admin/employe/leaveRequest/list`, requestOptionsAll);
               const resultAll = await responseAll.json();
-              
+
               if (resultAll.statusCode === 200) {
                 allData = resultAll.data.docs || resultAll.data || [];
                 hasNextPage = false;
@@ -347,10 +347,10 @@ export default function LeaveManagement({ navigation }) {
           "companyId": userData?.companyId,
           "directorId": null,
           "employeId": userData?._id,
-          "endDate": endDate,
+          "endDate": moment(endDate, 'DD/MM/YYYY').format('YYYY-MM-DD'),
           "leaveTypeId": leaveType,
           "reason": reason,
-          "startDate": startDate,
+          "startDate": moment(startDate, 'DD/MM/YYYY').format('YYYY-MM-DD'),
           ...(selectedDays === 'Single' ? {"subType": selDayType || "" }:  
           {"endDateBreakDown": endDateBreakDown, "startDateBreakDown": startDateBreakDown}),
           "type": selectedDays,
@@ -431,22 +431,23 @@ export default function LeaveManagement({ navigation }) {
           "companyId": userData?.companyId,
           "directorId": null,
           "employeId": userData?._id,
-          "endDate": endDate,
+          "endDate": moment(endDate, 'DD/MM/YYYY').format('YYYY-MM-DD'),
           "leaveTypeId": leaveType,
           "reason": reason,
-          "startDate": startDate,
+          "startDate": moment(startDate, 'DD/MM/YYYY').format('YYYY-MM-DD'),
           ...(selectedDays === 'Single' ? {"subType": selDayType || "" }:  
           {"endDateBreakDown": endDateBreakDown, "startDateBreakDown": startDateBreakDown}),
           "type": selectedDays,
         });
-
+        // console.log("Update Leave Request Payload:", raw);
+        // return;
         const requestOptions = {
           method: "POST",
           headers: myHeaders,
           body: raw,
           redirect: "follow"
         };
-
+        console.log("Update Leave Request Payload:", raw);
         const response = await fetch(`${BASE_URL}/admin/employe/leaveRequest/update`, requestOptions);
         const result = await response.json();
         if (result.statusCode === 200) {
@@ -890,9 +891,9 @@ export default function LeaveManagement({ navigation }) {
                                   <Text style={styles.cell}>{ item.requestDays}</Text>
                                   <Text style={styles.cell}>{ item.reason}</Text>
                                   <Text style={styles.cell}>{ moment(item.startDate).format('YYYY-MM-DD')}</Text>
-                                  <Text style={styles.cell}>{ item.subType}</Text>
+                                  <Text style={styles.cell}>{ item.type === 'Single'? item.subType : item.startDateBreakDown}</Text>
                                   <Text style={styles.cell}>{ moment(item.endDate).format('YYYY-MM-DD')}</Text>
-                                  <Text style={styles.cell}>{ item.subType}</Text>
+                                  <Text style={styles.cell}>{ item.type === 'Single'? item.subType : item.endDateBreakDown}</Text>
                                   <Text style={styles.cell}>{ moment(item.updatedAt).format('YYYY-MM-DD hh:mm a')}</Text>
                                   <Text style={styles.cell}>{ item.updatedBy === null? '-': item.updatedBy}</Text>
                                   <Text style={styles.cell}>{ item.remark === null? '-': item.remark}</Text>
