@@ -14,17 +14,11 @@ export const EmployeeDashboardProvider = ({ children }) => {
     const loadUserData = async () => {
       try {
         const storedUserData = await AsyncStorage.getItem('userData');
-  
-        if (storedUserData) {
-          const parsedData = JSON.parse(storedUserData);
-          setUserData(parsedData);
-          // console.log("User Data---:", parsedData);
-        }
+        if (storedUserData) setUserData(JSON.parse(storedUserData));
       } catch (error) {
         console.error("Failed to load userData:", error);
       }
     };
-  
     loadUserData();
   }, []);
 
