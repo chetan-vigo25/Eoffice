@@ -522,7 +522,7 @@ export default function EmployeDashboard({ navigation, route }) {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10 }}>
               <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>{time}</Text>
               <View style={{ backgroundColor: '#fff', paddingHorizontal:10, paddingVertical:4, borderRadius: 5 }} >
-                <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>On Leave: {todayOnLeave}</Text>
+                <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>On Leave: {todayOnLeave || 0}</Text>
               </View>
             </View>
             {

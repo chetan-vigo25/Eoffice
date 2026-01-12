@@ -29,9 +29,14 @@ export const EmployeeDashboardProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    if (!userData) return; // ⛔ wait until userData exists
+  
     const fetchDashboard = async () => {
       try {
+        setLoading(true);
+  
         const token = await AsyncStorage.getItem('authToken');
+  
         const response = await fetch(
           `${BASE_URL}/admin/employe/hrmsDashboard`,
           {
@@ -41,35 +46,34 @@ export const EmployeeDashboardProvider = ({ children }) => {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              branchId: userData?.branchId,
-              companyId: userData?.companyId,
+              branchId: userData.branchId,
+              companyId: userData.companyId,
               departmentId: "",
               designationId: "",
-              employeId: userData?._id,
+              employeId: userData._id,
             }),
           }
         );
-
+  
         const result = await response.json();
-        if(result.statusCode === 200){
+  
+        if (result.statusCode === 200) {
           setDashboardData(result.data);
-        }else{
+        } else {
           setError(result.message);
         }
       } catch (err) {
-        setError(err);
+        setError(err.message || "Something went wrong");
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchDashboard();
-  }, []);
+  }, [userData]);
 
   return (
-    <EmployeeDashboardContext.Provider
-      value={{ dashboardData, loading, error }}
-    >
+    <EmployeeDashboardContext.Provider value={{ dashboardData, loading, error }} >
       {children}
     </EmployeeDashboardContext.Provider>
   );

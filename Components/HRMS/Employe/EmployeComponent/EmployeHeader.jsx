@@ -1,25 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IMAGE_FILEPATH_URL } from '../../../../Urls/DomainUrl';
+import { UserContext } from '../../../../Context/UserProvider';
 
 export default function EmployeHeader({ navigation }) {
-  const [userData, setUserData] = useState(null);
+  // const [userData, setUserData] = useState(null);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const jsonValue = await AsyncStorage.getItem('userData');
-        if (jsonValue != null) {
-          setUserData(JSON.parse(jsonValue));
-        }
-      } catch (e) {
-        console.error('Failed to load user data from AsyncStorage', e);
-      }
-    };
+  const { userData, isLoading } = useContext(UserContext);
 
-    fetchUserData();
-  }, []);
 
   return (
     <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>

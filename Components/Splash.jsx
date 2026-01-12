@@ -284,7 +284,12 @@ export default function Splash({ navigation }) {
                  await AsyncStorage.setItem('userData', JSON.stringify(result?.data));
                  console.log("Employe Login Success Data:", result?.data);
                }
-              navigation.navigate('EmployeDashboard', { userData: result?.data });
+               if(result?.data?.isHRMS === true){
+                navigation.navigate('EmployeDashboard', { userData: result?.data });
+               }else{
+                navigation.navigate('WebViewComp', { userData: result?.data });
+               }
+              // navigation.navigate('EmployeDashboard', { userData: result?.data });
               // showToast(result.message);
               setIsLoading(false);
           } else if (result.statusCode === 400) {
@@ -694,6 +699,9 @@ export default function Splash({ navigation }) {
                 </View>
               </TouchableOpacity>
             )}
+          </View>
+          <View style={{ width:'100%', alignSelf:'center', bottom:20, position:'absolute' }} >
+              <Text style={{ color: '#000', fontSize:10, fontFamily:"Poppins-Medium", textAlign:'center' }} >By continuing, you agree to our <Text onPress={() => navigation.navigate('TermCondition')} style={{ color: "#999", fontSize:10, fontFamily:'Poppins-Medium', textAlign:'center' }} >Term</Text> & <Text onPress={() => navigation.navigate('Privacy')} style={{ color: "#999", fontSize:10, fontFamily:'Poppins-Medium', textAlign:'center' }} >Privacy Policy</Text> </Text>
           </View>
         </ScrollView>
       </View>

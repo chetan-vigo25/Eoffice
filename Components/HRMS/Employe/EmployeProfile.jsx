@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { StyleSheet, View, SafeAreaView, Text, StatusBar, Button, ScrollView, Modal, FlatList, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, LayoutAnimation, UIManager, Platform } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import { SelectList } from 'react-native-dropdown-select-list';
@@ -10,6 +10,7 @@ import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { UserContext } from '../../../Context/UserProvider';
 // import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AntDesign, Entypo, Ionicons, FontAwesome, FontAwesome6, Octicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -38,32 +39,13 @@ function showToast(message, onOk = null) {
 }
 
 export default function EmployeProfile({ navigation, route }) {
-
-    const [userData, setUserData] = useState(null);
+    const { userData, pickAndUploadImage, isLoading } = useContext(UserContext);
     const [activeTab, setActiveTab] = useState(1);
     const [logoutModalVisible, setLogoutModalVisible] = useState(false);
     const [loading, setLoading] = useState(false);
     const [onBoardingData, setOnBoardingData] = useState([]);
     const [onBoardingId, setOnBoardingId] = useState(null);
     const [images, setImages] = useState(null);
-
-    useEffect(() => {
-      const loadUserData = async () => {
-        try {
-          const storedUserData = await AsyncStorage.getItem('userData');
-    
-          if (storedUserData) {
-            const parsedData = JSON.parse(storedUserData);
-            setUserData(parsedData);
-            setOnBoardingId(parsedData?.onboardingId);
-            // console.log("User Data Profile---:", parsedData);
-          }
-        } catch (error) {
-          console.error("Failed to load userData:", error);
-        }
-      };
-      loadUserData();
-    }, []);
 
     const tabs = [
       { id: 1, label: 'Primary Detail' },
@@ -87,120 +69,80 @@ export default function EmployeProfile({ navigation, route }) {
     
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8
+        quality: 1,
       });
     
       if (!result.canceled) {
-        // console.log("test---image",result.assets[0].uri);
-        setImages(result.assets[0].uri);
-        uploadImageFile();
+        // const imageUri = result.assets[0].uri;
+        // console.log("Picked image:", imageUri);
+
+        const pickedImage = result.assets[0];
+
+    // Get file info to check size
+       const fileInfo = await FileSystem.getInfoAsync(pickedImage.uri);
+       const fileSizeInMB = fileInfo.size / (1024 * 1024); // Convert bytes to MB
+   
+       if (fileSizeInMB > 2) {
+         Alert.alert("File too large", "Please select an image smaller than 2 MB");
+         return;
+       }
+    
+        setImages(pickedImage);       // for preview
+        // uploadFile(pickedImage); // ✅ pass uri directly
+        await uploadFile(pickedImage);
       }
     };
-    
-    const deleteImage = async () => {
-      try{
-        setLoading(true);
-          let token = await AsyncStorage.getItem("authToken");
-         if (!token) {
-           showToast("Authentication token not found");
-           return;
-        }
 
-        if(!userData?.profileImage){
-          showToast("Image not found");
-          return;
-        }
-
-        const myHeaders = new Headers();  
-        myHeaders.append("Content-Type", "application/json");  
-        myHeaders.append("Authorization", "Bearer " + token);
-
-        const formdata = new FormData();
-        formdata.append("fileURL", userData?.profileImage);
-        formdata.append("useS3", "false");
-
-        const requestOptions = {
-          method: 'POST',
-          headers: myHeaders,
-          body: formdata,
-          redirect: 'follow'
-        }
-
-        const responce = await fetch(`${BASE_URL}/admin/file/delete`, requestOptions);
-        const result = await responce.json();
-
-        if(result.statusCode === 200){
-          showToast(result.message);
-          console.log(result.message);
-          setLoading(false);
-        }else{
-          showToast(result.message);
-          console.log('image not');
-          setLoading(false);
-        }
-      }catch(error){
-        console.log(error);
-      }finally{
-        setLoading(false);
+    const uploadFile = async (image) => {
+      if (!image) {
+        showToast("Please select an image.");
+        return;
       }
-    }
-
-    const uploadImageFile = async () => {
-      try{
-        if (!images) {
-          showToast("Please select an image first");
-          return;
-        }
-
-        setLoading(true);
-        let token = await AsyncStorage.getItem("authToken");
-        if (!token) {
+    
+      try {
+         let token = await AsyncStorage.getItem("authToken");
+         if(!token) {
           showToast("Authentication token not found");
           return;
         }
-
-        const myHeaders = new Headers();  
-        // Let React Native set correct multipart boundary
-        myHeaders.append("Authorization", "Bearer " + token);
-
-        const formdata = new FormData();
-        formdata.append("filePath", {
-          uri: images,         // images is uri string
+        const formData = new FormData();
+        formData.append("filePath", {
+          uri: image.uri,
           name: "profile.jpg",
-          type: "image/jpeg",
+          type: "image/jpeg", 
         });
-        formdata.append("fileLocation", "/invoiceLayout/");
-        formdata.append("isMultiple", "false");
-        formdata.append("isVideo", "false");
 
+        formData.append("isMultiple", "false");
+        formData.append("isVideo", "false");
+    
         const requestOptions = {
           method: "POST",
-          headers: myHeaders,
-          body: formdata,
-          redirect: "follow",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "multipart/form-data",
+          },
+          body: formData,
         };
-
-        const responce = await fetch(`${BASE_URL}/admin/fileUpload`, requestOptions);
-        const result = await responce.json();
-
+      console.log("requestOptions", formData)
+    
+        const response = await fetch(`${BASE_URL}/admin/fileUpload`, requestOptions);
+        const result = await response.json();
+    
         if (result.statusCode === 200) {
-          showToast(result.message || "Profile image uploaded");
-          console.log('image upload');
-          updateImage();
+          // showToast(result.message);
+          console.log("Uploaded profile:", result);
+          uploadImage(result.data);
         } else {
-          showToast(result.message || "Failed to upload image");
+          showToast(result.message || "Upload failed.");
         }
       } catch (error) {
-        console.log(error);
-        showToast("Something went wrong while uploading image");
-      } finally {
-        setLoading(false);
+        console.error("Upload error:", error);
+        showToast("Something went wrong.");
       }
     };
 
-    const updateImage = async () => {
+    const uploadImage = async (data) => {
       try{
-        setLoading(true);
         let token = await AsyncStorage.getItem("authToken");
          if (!token) {
            showToast("Authentication token not found");
@@ -212,10 +154,9 @@ export default function EmployeProfile({ navigation, route }) {
         myHeaders.append("Authorization", "Bearer " + token);
 
         const raw = JSON.stringify({
-          "_id": "694cdce05bed0d3daeb19ee4",
-          "branchId": "694cc8345bed0d3daeb14b89",
-          "companyId": "691b181a3685f470625c6ae6",
-          "profileImage": images
+          "_id": userData?._id,
+          "imagePath": data
+          
         });
 
         const requestOptions = {
@@ -225,15 +166,26 @@ export default function EmployeProfile({ navigation, route }) {
           redirect: 'follow'
         };
 
-        const responce = await fetch(`${BASE_URL}/admin/employe/onboarding/update`, requestOptions);
+        console.log('raw', data);
+        // return;
+
+        const responce = await fetch(`${BASE_URL}/admin/profileImage/update`, requestOptions);
         const result = await responce.json();
         if(result.statusCode === 200){
           showToast(result.message);
-          dispatch(personalInfo());
-          setLoading(false);
+          console.log("pass image")
+          const updatedUser = {
+            ...userData,
+            profileImage: imagePath,
+          };
+    
+          setUserData(updatedUser);
+    
+          // ✅ 2. Update AsyncStorage
+          await AsyncStorage.setItem("userData", JSON.stringify(updatedUser));
         }else{
           showToast(result.message);
-          setLoading(false);
+          console.log("failed image")
         }
       }catch(error){
         console.log(error);
@@ -329,15 +281,15 @@ export default function EmployeProfile({ navigation, route }) {
                 <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', justifyContent:'center', alignItems:'center', marginBottom:0 }} >
                     <View style={{flex:9, flexDirection:'row', alignItems:'center', gap:10, }} >
                       <View style={{ width: 70, height: 70, borderRadius: 6, overflow: 'hidden', }} >
-                      <Image
-                        source={
-                          userData?.profileImage
-                            ? { uri: `${IMAGE_FILEPATH_URL}/${userData.profileImage}` }
-                            : require('../../../assets/userIcon.jpeg')
-                        }
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                      <TouchableOpacity onPress={deleteImage} style={{ width:20, height:20, backgroundColor:'#6a8ff3', position:'absolute', top:0, right:0 }} ></TouchableOpacity>
+                        <Image
+                          source={
+                            userData?.profileImage
+                              ? { uri: `${IMAGE_FILEPATH_URL}/${userData.profileImage}` }
+                              : require('../../../assets/userIcon.jpeg')
+                          }
+                          style={{ width: '100%', height: '100%' }}
+                        />
+                      <TouchableOpacity onPress={pickAndUploadImage} style={{ width:20, height:20, backgroundColor:'#6a8ff3', position:'absolute', top:0, right:0 }} ></TouchableOpacity>
                       </View>
                       <View>
                         <Text style={{ fontSize: 16, fontFamily: 'Poppins-SemiBold', color: '#6a8ff3' }}>{userData?.fullName || 'Name'}</Text>
@@ -1062,11 +1014,27 @@ export default function EmployeProfile({ navigation, route }) {
             </TouchableOpacity>
           </View> */}
         </View>
+        {isLoading && (
+          <View style={styles.loaderOverlay}>
+            <ActivityIndicator size="large" color="#fff" />
+          </View>
+        )}
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
+  loaderOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
   modalView: {
     backgroundColor: 'white',
     borderTopStartRadius: 20,

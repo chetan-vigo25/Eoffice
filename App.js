@@ -61,6 +61,7 @@ import { NetworkProvider } from './Context/NetworkContext';
 import { DeviceLocationProvider } from './Context/DeviceLoc';
 import { MapWebViewProvider } from './Context/MapWebViewContext';
 import { EmployeeDashboardProvider } from './Context/EmployeeDashboardContext';
+import { UserProvider } from './Context/UserProvider';
 import messaging from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
 import 'react-native-gesture-handler';
@@ -278,7 +279,9 @@ export default function App() {
                 >
                   <EmployeeDashboardProvider>
                     <MapWebViewProvider>
-                      <MyStack />
+                      <UserProvider>
+                        <MyStack />
+                      </UserProvider>
                     </MapWebViewProvider>
                   </EmployeeDashboardProvider>
                 </NavigationContainer>
