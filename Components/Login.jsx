@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { SafeAreaView, View, Text, Image, Animated, ToastAndroid, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { SafeAreaView, View, Text, Image, Animated, Platform, ToastAndroid, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 
 import { useDispatch, useSelector } from "react-redux";
 import { login } from "../Redux/Reducer/Auth/Auth.reducers";
@@ -10,7 +10,11 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 // import Button from '../Layout/Button.json';
 
 function showToast(message) {
-  ToastAndroid.show(message, ToastAndroid.SHORT);
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('', message);
+  }
 }
 
 export default function Login({navigation}) {
@@ -79,7 +83,7 @@ export default function Login({navigation}) {
   // }, [user, navigation]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#eee" }}>
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
         <Animated.View
           style={{
@@ -159,131 +163,3 @@ export default function Login({navigation}) {
     </SafeAreaView>
   );
 }
-
-
-// import React from 'react';
-// import { View, Text, TouchableOpacity, StyleSheet, Icon } from 'react-native';
-
-// const data = [
-//   {
-//     title: 'Attendance',
-//     // value: '98', 
-//     icon: '📅',  
-//     backgroundColor: '#4CAF5020',
-//     name: 'EmployeAttendance',
-//   },
-//   {
-//     title: 'Leave',
-//     // value: '3 Days',
-//     icon: '🚶‍♂️',    
-//     backgroundColor: '#FF980020',
-//     name: 'LeaveManagement',
-//   },
-//   {
-//     title: 'WFH',
-//     // value: '7 Days',  
-//     icon: '🏠',      
-//     backgroundColor: '#2196F320',
-//     name: 'EmployeWFH',
-//   },
-//   {
-//     title: 'Payroll',
-//     // value: '$3500', 
-//     icon: '💵',    
-//     backgroundColor: '#9C27B020',
-//     name: 'Payroll',
-//   }
-// ];
-
-// const Card = ({ title, value, icon, backgroundColor, onPress={onPress} }) => {
-//   return (
-//     <TouchableOpacity onPress={onPress} style={[styles.card, { backgroundColor }]}>
-//       <View style={styles.cardContent}>
-//         <Text style={styles.cardIcon}>{icon}</Text>
-//         <Text style={styles.cardTitle}>{title}</Text>
-//         <Text style={styles.cardValue}>{value}</Text>
-//       </View>
-//     </TouchableOpacity>
-//   );
-// };
-
-// const DashboardCards = ({ navigation }) => {
-//   // Show friendly message when there are no cards to render
-//   if (!data || data.length === 0) {
-//     return (
-//       <View style={styles.noDataContainer}>
-//         <Text style={styles.noDataText}>No records found</Text>
-//       </View>
-//     );
-//   }
-
-//   return (
-//     <View style={styles.cardsContainer}>
-//       {data.map((item, index) => (
-//         <Card
-//           key={index}
-//           title={item.title}
-//           value={item.value}
-//           icon={item.icon}
-//           backgroundColor={item.backgroundColor}
-//           onPress={() => navigation.navigate(item.name)} 
-//         />
-//       ))}
-//     </View>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   cardsContainer: {
-//     flexDirection: 'row',
-//     flexWrap: 'wrap',
-//     justifyContent: 'space-between',
-//     marginTop: 20,
-//     padding: 0,
-//   },
-//   card: {
-//     width: '48%', // Cards will take up 48% of the container width
-//     marginBottom: 15,
-//     borderRadius: 10,
-//     padding: 10,
-//     // elevation: 2, // For Android shadow effect
-//     shadowColor: '#000', // iOS shadow color
-//     shadowOffset: { width: 0, height: 2 },
-//     shadowOpacity: 0.3,
-//     shadowRadius: 4,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     backgroundColor: '#fff',
-//     // overflow: 'hidden',
-//   },
-//   cardContent: {
-//     alignItems: 'center',
-//   },
-//   cardIcon: {
-//     fontSize: 32,
-//     marginBottom: 0,
-//   },
-//   cardTitle: {
-//     fontSize: 18,
-//     fontFamily: 'Poppins-Medium',
-//     color: '#6a8ff3',
-//     marginBottom: 0,
-//   },
-//   cardValue: {
-//     fontSize: 24,
-//     fontWeight: 'bold',
-//     color: '#fff',
-//   },
-//   noDataContainer: {
-//     width: '100%',
-//     padding: 20,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-//   noDataText: {
-//     color: '#666',
-//     fontSize: 16,
-//   },
-// });
-
-// export default DashboardCards;

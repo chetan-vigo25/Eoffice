@@ -18,7 +18,7 @@ const EmployeeLeaveCard = ({ onApplyLeave, navigation }) => {
 
  useEffect(() => {
      if (dashboardData) {
-      //  console.log('Dashboard Data:', dashboardData);
+      //  console.log('Dashboard Data todayOnLeave:', dashboardData?.todayOnLeave);
      }
  }, [dashboardData])
 
@@ -30,9 +30,7 @@ const employeesOnLeave = dashboardData?.todayOnLeave || [];
       {/* Card Header */}
       <View style={styles.header}>
         <Text style={styles.headerText}>Employees on Leave Today</Text>
-        <TouchableOpacity onPress={()=> navigation.navigate('LeaveManagement')} style={styles.applyButton}>
-          <Text style={styles.applyButtonText}>Apply Leave</Text>
-        </TouchableOpacity>
+        <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold" }}>{employeesOnLeave.length}</Text>
       </View>
 
       <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
@@ -86,7 +84,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 14,
     color: '#333',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: 'Lato-SemiBold',
   },
   applyButton: {
     backgroundColor: '#4A90E2',
@@ -146,6 +144,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     marginTop: 0,
-    fontFamily: 'Poppins-Medium',
+    fontFamily: 'Lato-Medium',
   },
 });

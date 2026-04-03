@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, View, Text, StatusBar, Button, ScrollView, FlatList, Modal, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, Platform } from "react-native";
+import { StyleSheet, View, Text, StatusBar, Button, ScrollView, FlatList, Modal, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, Platform } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SelectList } from 'react-native-dropdown-select-list';
@@ -8,6 +8,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import moment from "moment";
 import EmployeHeader from './EmployeComponent/EmployeHeader';
 import BASE_URL from '../../../Urls/DomainUrl';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AntDesign, FontAwesome5, FontAwesome6 } from "@expo/vector-icons";
 
@@ -60,6 +61,8 @@ export default function LeaveManagement({ navigation }) {
     const [leaveListData, setLeaveListData] = useState([]);
     const [leaveRequestListData, setLeaveRequestListData] = useState([]);
     const [errors, setErrors] = useState({});
+    const [loadingLeaveList, setLoadingLeaveList] = useState(true);
+    const [loadingLeaveRequest, setLoadingLeaveRequest] = useState(true);
 
     // Day type options for multiple leave (firstHalf disabled by default)
     const multipleLeaveDefaultDayTypes = [
@@ -101,6 +104,12 @@ export default function LeaveManagement({ navigation }) {
         'Action',
       ];
 
+      // useEffect(() => {
+      //   if (userData) {
+      //     leaveList();
+      //   }
+      // }, [userData]);
+
       useEffect(() => {
         const loadUserData = async () => {
           try {
@@ -109,6 +118,8 @@ export default function LeaveManagement({ navigation }) {
             if (storedUserData) {
               const parsedData = JSON.parse(storedUserData);
               setUserData(parsedData);
+              leaveRequestData(parsedData);
+              leaveList(parsedData);
               // console.log("User Data---:", parsedData);
             }
           } catch (error) {
@@ -119,9 +130,9 @@ export default function LeaveManagement({ navigation }) {
         loadUserData();
       }, []);
 
-      const leaveList = async () => {
+      const leaveList = async (userDataParam) => {
+        setLoadingLeaveList(true);
         try{
-          setLoading(true);
           let token = await AsyncStorage.getItem("authToken");
          if (!token) {
            showToast("Authentication token not found");
@@ -132,9 +143,9 @@ export default function LeaveManagement({ navigation }) {
         myHeaders.append("Authorization", "Bearer " + token);
 
         const raw = JSON.stringify({
-          "branchId": userData?.branchId,
-          "companyId": userData?.companyId,
-          "employeId": userData?._id,
+          "branchId": userDataParam?.branchId,
+          "companyId": userDataParam?.companyId,
+          "employeId": userDataParam?._id,
           "isPagination": false,
           "leaveTypeId": "",
           "sort": true,
@@ -164,20 +175,20 @@ export default function LeaveManagement({ navigation }) {
             return acc;
           }, {});
           setLeaveTypeMap(leaveMapping);
-          setLoading(false);
+          setLoadingLeaveList(false);
         }else{
           console.error("Leave List API Error:", result.message);
-          setLoading(false);
+          setLoadingLeaveList(false);
         }       
         }catch(error){
           console.error("Failed to load Leave assign data:", error);
-          setLoading(false);
+          setLoadingLeaveList(false);
         }
       };
 
-      const leaveRequestData = async () => {
+      const leaveRequestData = async (userDataParam) => {
+        setLoadingLeaveRequest(true);
         try{
-          setLoading(true);
           let token = await AsyncStorage.getItem("authToken");
          if (!token) {
            showToast("Authentication token not found");
@@ -196,9 +207,9 @@ export default function LeaveManagement({ navigation }) {
         // Fetch all pages until no more data
         while (hasNextPage) {
           const raw = JSON.stringify({
-            "branchId": userData?.branchId,
-            "companyId": userData?.companyId,
-            "employeId": userData?._id,
+            "branchId": userDataParam?.branchId,
+            "companyId": userDataParam?.companyId,
+            "employeId": userDataParam?._id,
             "isPagination": true,
             "leaveTypeId": "",
             "page": currentPage,
@@ -282,11 +293,11 @@ export default function LeaveManagement({ navigation }) {
         
         // console.log("✅ All Leave Request Data loaded:", allData.length, "records");
         setLeaveRequestListData(allData);
-        setLoading(false);
+        setLoadingLeaveRequest(false);
         }catch(error){
           console.error("Failed to load leave request data:", error);
           showToast("Error loading leave requests: " + error.message);
-          setLoading(false);
+          setLoadingLeaveRequest(false);
         }
       };
 
@@ -509,12 +520,6 @@ export default function LeaveManagement({ navigation }) {
         setModalVisible(true);
       };
       
-     useEffect(() => {
-       if (userData) {
-         leaveList();
-         leaveRequestData();
-       }
-     }, [userData]);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#6a8ff3' }}>
        <StatusBar backgroundColor={'#6a8ff3'} barStyle='light-content' />
@@ -522,15 +527,15 @@ export default function LeaveManagement({ navigation }) {
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
               <AntDesign name="arrowleft" size={24} color="#fff" />
            </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Leave Management</Text>
+          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Leave Management</Text>
         </View>
         <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20 }} >
-            <EmployeHeader navigation={navigation} />
+            {/* <EmployeHeader navigation={navigation} /> */}
             <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
                 <View style={styles.cardContainer}>
                   {/* Card Header */}
                   <View style={styles.header}>
-                    <Text style={{ color: '#444', fontSize: 16, fontFamily: 'Poppins-SemiBold' }}>Leave Summary</Text>
+                    <Text style={{ color: '#444', fontSize: 16, fontFamily: 'Lato-SemiBold' }}>Leave Summary</Text>
                     <TouchableOpacity onPress={()=> setModalVisible(true)} style={styles.applyButton}>
                       <Text style={styles.applyButtonText}>+ Add Leave Request</Text>
                     </TouchableOpacity>
@@ -543,20 +548,20 @@ export default function LeaveManagement({ navigation }) {
                        setModalVisible(!modalVisible);
                        resetFormFields();
                      }}>
-                     <View style={{ flex:1, justifyContent:'center',  backgroundColor:'#ffffff80', padding:10 }} >
+                     <View style={{ flex:1, justifyContent:'center',  backgroundColor:'#00000060', padding:10 }} >
                        <View style={{ width:'100%', backgroundColor:'#fff', padding:20, borderRadius:10, shadowOffset: { width: 0, height: 5, }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, }} >
-                        <Text style={{ color:'#444', fontSize:16, fontFamily:'Poppins-SemiBold', marginBottom:10 }} >
+                        <Text style={{ color:'#444', fontSize:16, fontFamily:'Lato-SemiBold', marginBottom:10 }} >
                           {isEditMode ? 'Edit Leave Request' : 'Apply Leave'}
                         </Text>
                         {!isEditMode && (
                           <>
-                            <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >Available Leaves</Text>
+                            <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >Available Leaves</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:10 }} >
                               <View style={{ flexDirection:'row', gap:10, justifyContent:'space-between', marginBottom:10 }} >
                                 {
                                   leaveListData.map((leave, index) => (
                                     <View key={index} style={{ backgroundColor: '#6a8ff3', paddingHorizontal:10, paddingVertical:4, borderRadius: 5 }} >
-                                      <Text style={{ color: '#fff', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>{leave.leaveTypeData.name} : {leave.availableLeaves}</Text>
+                                      <Text style={{ color: '#fff', fontSize: 14, fontFamily: "Lato-SemiBold" }}>{leave.leaveTypeData.name} : {leave.availableLeaves}</Text>
                                     </View>
                                   ))
                                 }
@@ -564,7 +569,7 @@ export default function LeaveManagement({ navigation }) {
                             </ScrollView>
                           </>
                         )}
-                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >Single or Multiple Days</Text>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >Single or Multiple Days</Text>
                           <View style={{ width:'100%', marginBottom:10,}} >
                             <SelectList 
                                 setSelected={(val) => {setSelectedDays(val)
@@ -575,13 +580,13 @@ export default function LeaveManagement({ navigation }) {
                                 placeholder='Select Days'
                             />
                             {errors.selectedDays && (
-                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', marginTop: 5 }}>
+                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', marginTop: 5 }}>
                                 {errors.selectedDays}
                               </Text>
                             )}
                           </View>
                           <View>
-                          <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >Leave Type</Text>
+                          <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >Leave Type</Text>
                            <View style={{ width:'100%', marginBottom:10,}} >
                             <SelectList 
                                 setSelected={(val) => {
@@ -593,7 +598,7 @@ export default function LeaveManagement({ navigation }) {
                                 placeholder='Select Leave Type'
                             />
                             {errors.leaveType && (
-                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', marginTop: 5 }}>
+                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', marginTop: 5 }}>
                                 {errors.leaveType}
                               </Text>
                             )}
@@ -604,9 +609,9 @@ export default function LeaveManagement({ navigation }) {
                                 selectedDays === 'Single' ? (
                                     <View>
                                      <View>
-                                      <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >Select Date</Text>
+                                      <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >Select Date</Text>
                                         <View style={{ width:'100%', marginBottom:0, height:45, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:.8, borderRadius:8, borderColor: '#444', marginBottom:0 }} >
-                                          <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', color:'#868686', paddingTop:5 }} >{selectDate? selectDate : 'Select Date'}</Text>
+                                          <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', color:'#868686', paddingTop:5 }} >{selectDate? selectDate : 'Select Date'}</Text>
                                           <TouchableOpacity onPress={()=> setSelectedDateVisible(true)} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                                             <Text style={{ fontSize:20,}} >📅</Text>
                                           </TouchableOpacity>
@@ -640,13 +645,13 @@ export default function LeaveManagement({ navigation }) {
                                           is24Hour={false}
                                         />
                                         {errors.selectDate && (
-                                          <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', }}>
+                                          <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', }}>
                                             {errors.selectDate}
                                           </Text>
                                         )}
                                       </View>
                                       <View style={{ marginTop:10 }} >
-                                      <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >Day Type</Text>
+                                      <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >Day Type</Text>
                                        <View style={{ width:'100%', marginBottom:0,}} >
                                         <SelectList 
                                             setSelected={(val) => {setSelDayType(val)
@@ -657,7 +662,7 @@ export default function LeaveManagement({ navigation }) {
                                             placeholder='Select Days'
                                         />
                                         {errors.selDayType && (
-                                          <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', }}>
+                                          <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', }}>
                                             {errors.selDayType}
                                           </Text>
                                         )}
@@ -667,9 +672,9 @@ export default function LeaveManagement({ navigation }) {
                                 ) : (
                                     <View>
                                         <View>
-                                         <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >From Date</Text>
+                                         <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >From Date</Text>
                                            <View style={{ width:'100%', marginBottom:0, height:45, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:.8, borderRadius:8, borderColor: '#444', }} >
-                                             <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', color:'#868686', paddingTop:5 }} >{fromDate? fromDate : 'From Date'}</Text>
+                                             <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', color:'#868686', paddingTop:5 }} >{fromDate? fromDate : 'From Date'}</Text>
                                              <TouchableOpacity onPress={()=> setFromDateVisible(true)} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                                                <Text style={{ fontSize:20,}} >📅</Text>
                                              </TouchableOpacity>
@@ -688,13 +693,13 @@ export default function LeaveManagement({ navigation }) {
                                              is24Hour={false}
                                            />
                                            {errors.fromDate && (
-                                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', marginTop: 5 }}>
+                                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', marginTop: 5 }}>
                                                 {errors.fromDate}
                                               </Text>
                                            )}
                                          </View>
                                          <View style={{ marginTop:10 }} >
-                                         <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >Day Type</Text>
+                                         <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >Day Type</Text>
                                           <View style={{ width:'100%', marginBottom:10,}} >
                                            <SelectList 
                                                setSelected={(val) => {setFromDateType(val)
@@ -705,16 +710,16 @@ export default function LeaveManagement({ navigation }) {
                                                placeholder='Select Days'
                                            />
                                            {errors.fromDateType && (
-                                             <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', }}>
+                                             <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', }}>
                                                {errors.fromDateType}  
                                              </Text>
                                            )}
                                           </View>
                                          </View>
                                         <View>
-                                         <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >To Date</Text>
+                                         <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >To Date</Text>
                                            <View style={{ width:'100%', marginBottom:0, height:45, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:.8, borderRadius:8, borderColor: '#444', }} >
-                                             <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', color:'#868686', paddingTop:5 }} >{toDate? toDate : 'To Date'}</Text>
+                                             <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', color:'#868686', paddingTop:5 }} >{toDate? toDate : 'To Date'}</Text>
                                              <TouchableOpacity onPress={()=> {
                                                if (!fromDate) {
                                                  showToast("Please select From Date first");
@@ -748,13 +753,13 @@ export default function LeaveManagement({ navigation }) {
                                              is24Hour={false}
                                            />
                                             {errors.toDate && (
-                                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', marginTop: 5 }}>      
+                                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', marginTop: 5 }}>      
                                                 {errors.toDate}       
                                               </Text> 
                                             )}
                                          </View>
                                          <View style={{ marginTop:10 }} >
-                                         <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >Day Type</Text>
+                                         <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >Day Type</Text>
                                           <View style={{ width:'100%', marginBottom:0,}} >
                                            <SelectList 
                                                setSelected={(val) => {setToDateType(val)
@@ -765,7 +770,7 @@ export default function LeaveManagement({ navigation }) {
                                                placeholder='Select Days'
                                            />
                                             {errors.toDateType && (
-                                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', }}>      
+                                              <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', }}>      
                                                 {errors.toDateType}       
                                               </Text> 
                                             )}
@@ -776,12 +781,12 @@ export default function LeaveManagement({ navigation }) {
                             }
                          </View>
                           <View>
-                           <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5 }} >Reason</Text>
+                           <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5 }} >Reason</Text>
                            <View style={{ width:'100%', height:45, backgroundColor:'#fff', borderWidth:.8, borderColor: '#444', borderRadius:8, marginBottom:0, padding:5,  }}>
-                              <TextInput value={reason} onChangeText={value=> { setReason(value),setErrors(prev => ({ ...prev, reason: null }));}} placeholder="Reason" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#fff', borderRadius:5, padding:5, color:"#074173", fontFamily:'Poppins-Mediumkk' }} />
+                              <TextInput value={reason} onChangeText={value=> { setReason(value),setErrors(prev => ({ ...prev, reason: null }));}} placeholder="Reason" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#fff', borderRadius:5, padding:5, color:"#074173", fontFamily:'Lato-Mediumkk' }} />
                            </View>
                            {errors.reason && (
-                             <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Poppins-Regular', marginTop: 5 }}>
+                             <Text style={{ color: 'red', fontSize: 12, fontFamily: 'Lato-Regular', marginTop: 5 }}>
                                {errors.reason}
                              </Text>
                            )}
@@ -791,10 +796,10 @@ export default function LeaveManagement({ navigation }) {
                               setModalVisible(!modalVisible);
                               resetFormFields();
                             }} style={{ flex:1, height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#6a8ff320', borderWidth:1, borderColor:'#6a8ff3', borderRadius:6 }} >
-                              <Text style={{ color:'#6a8ff3', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Cancel</Text>
+                              <Text style={{ color:'#6a8ff3', fontSize:16, fontFamily:"Lato-SemiBold" }} >Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity onPress={isEditMode ? updateleaveRequest : applyleaveRequest} style={{ flex:1, height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#6a8ff3', borderWidth:1, borderColor:'#6a8ff3', borderRadius:6 }} >
-                              <Text style={{ color:'#fff', fontSize:16, fontFamily:"Poppins-SemiBold" }} >
+                              <Text style={{ color:'#fff', fontSize:16, fontFamily:"Lato-SemiBold" }} >
                                 {isEditMode ? 'Update' : 'Submit'}
                               </Text>
                             </TouchableOpacity>
@@ -804,14 +809,14 @@ export default function LeaveManagement({ navigation }) {
                    </Modal>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ padding: 10 }}>
                     {
-                      loading ? (
+                      loadingLeaveList ? (
                         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center',}}>
                           <ActivityIndicator size="large" color="#007BFF" />
                         </View>
                       ):(
                           leaveListData === null || leaveListData.length === 0 ? (
                             <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 100, width: Dimensions.get('window').width - 80 }}>
-                              <Text style={{ fontSize: 14, fontFamily: 'Poppins-SemiBold', color: '#868686' }}>No Leave Data Available</Text>
+                              <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: '#868686' }}>No Leave Data Available</Text>
                             </View>
                           ) : (
                             leaveListData.map((leave, index) => {
@@ -854,90 +859,90 @@ export default function LeaveManagement({ navigation }) {
                     }
                   </ScrollView>
                 </View>
-                <View style={styles.container}>
-                    <ScrollView horizontal style={{ marginBottom: 10 }}>
-                    <View>
-                      <View style={styles.row}>
-                        {headers.map((header, index) => (
-                          <Text key={index} style={[styles.cell, styles.headerCell]}>
-                            {header}
-                          </Text>
-                        ))}
+                {
+                  loadingLeaveRequest ? (<ActivityIndicator size="large" color="#0000ff" />) : currentData.length === 0 ? (
+                    <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
+                         <View style={{ width:100, height:100 }} >
+                          <Image
+                            source={require('../../../assets/Images/notFound.png')}
+                            style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+                          />
+                        </View>
+                        <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
+                        <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
                       </View>
+                  ) : (
+                    <View style={styles.container}>
+                        <ScrollView horizontal style={{ marginBottom: 10 }}>
+                        <View>
+                          <View style={styles.row}>
+                            {headers.map((header, index) => (
+                              <Text key={index} style={[styles.cell, styles.headerCell]}>
+                                {header}
+                              </Text>
+                            ))}
+                          </View>
+                                <FlatList
+                                  data={currentData}
+                                  keyExtractor={(item) => item._id.toString()}
+                                  renderItem={({ item, index }) => (
+                                    <View
+                                      style={[
+                                        styles.row,
+                                        index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                                      ]}
+                                    >
+                                      <Text style={styles.cell}>{ page * rowsPerPage + index + 1}</Text>
+                                      <Text style={styles.cell}>{ item.employeData.fullName}</Text>
+                                      <Text style={styles.cell}>{ item.requestDays}</Text>
+                                      <Text style={styles.cell}>{ item.reason}</Text>
+                                      <Text style={styles.cell}>{ moment(item.startDate).format('YYYY-MM-DD')}</Text>
+                                      <Text style={styles.cell}>{ item.type === 'Single'? item.subType : item.startDateBreakDown}</Text>
+                                      <Text style={styles.cell}>{ moment(item.endDate).format('YYYY-MM-DD')}</Text>
+                                      <Text style={styles.cell}>{ item.type === 'Single'? item.subType : item.endDateBreakDown}</Text>
+                                      <Text style={styles.cell}>{ moment(item.updatedAt).format('YYYY-MM-DD hh:mm a')}</Text>
+                                      <Text style={styles.cell}>{ item.updatedBy === null? '-': item.updatedBy}</Text>
+                                      <Text style={styles.cell}>{ item.remark === null? '-': item.remark}</Text>
+                                      <Text style={{width:140, textAlign: 'center', fontSize: 14, fontFamily: 'Lato-Medium', color:item.status === 'Pending' ? '#FFD230' : item.status === 'Approved' ? '#4CAF50' : '#F54927'}}>{item.status === 'Pending' ? 'Pending' : item.status === 'Approved' ? 'Approved' : 'Rejected'}</Text>
+                                      <Text style={styles.cell}>
+                                          <FontAwesome5 onPress={item.status === 'Pending' ? () => openEditModal(item) : ()=> showToast('No Action')} name="edit" size={18} color={item.status === 'Pending' ? '#6a8ff3' : '#444'} />
+                                      </Text>
+                                    </View>
+                                  )}
+                                />
+                        </View>
+                      </ScrollView>
+        
+                      <View style={styles.pagination}>
+                       <TouchableOpacity
+                         onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
+                         style={[styles.pageButton, page === 0 && styles.disabledButton]}
+                       >
+                         <Text style={styles.pageText}>Previous</Text>
+                       </TouchableOpacity>
     
-                      {
-                        loading ? (
-                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center',}}>
-                            <ActivityIndicator size="large" color="#007BFF" />
-                          </View>    
-                        ):(
-                          currentData.length === 0 ? (
-                            <View style={styles.noDataContainer}>
-                              <Text style={{fontSize: 14, fontFamily:'Poppins-SemiBold', color: '#868686'}}>Records not found</Text>
-                            </View>
-                          ) : (
-                            <FlatList
-                              data={currentData}
-                              keyExtractor={(item) => item._id.toString()}
-                              renderItem={({ item, index }) => (
-                                <View
-                                  style={[
-                                    styles.row,
-                                    index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                                  ]}
-                                >
-                                  <Text style={styles.cell}>{ page * rowsPerPage + index + 1}</Text>
-                                  <Text style={styles.cell}>{ item.employeData.fullName}</Text>
-                                  <Text style={styles.cell}>{ item.requestDays}</Text>
-                                  <Text style={styles.cell}>{ item.reason}</Text>
-                                  <Text style={styles.cell}>{ moment(item.startDate).format('YYYY-MM-DD')}</Text>
-                                  <Text style={styles.cell}>{ item.type === 'Single'? item.subType : item.startDateBreakDown}</Text>
-                                  <Text style={styles.cell}>{ moment(item.endDate).format('YYYY-MM-DD')}</Text>
-                                  <Text style={styles.cell}>{ item.type === 'Single'? item.subType : item.endDateBreakDown}</Text>
-                                  <Text style={styles.cell}>{ moment(item.updatedAt).format('YYYY-MM-DD hh:mm a')}</Text>
-                                  <Text style={styles.cell}>{ item.updatedBy === null? '-': item.updatedBy}</Text>
-                                  <Text style={styles.cell}>{ item.remark === null? '-': item.remark}</Text>
-                                  <Text style={{width:140, textAlign: 'center', fontSize: 14, fontFamily: 'Poppins-Medium', color:item.status === 'Pending' ? '#FFD230' : item.status === 'Approved' ? '#4CAF50' : '#F54927'}}>{item.status === 'Pending' ? 'Pending' : item.status === 'Approved' ? 'Approved' : 'Rejected'}</Text>
-                                  <Text style={styles.cell}>
-                                      <FontAwesome5 onPress={item.status === 'Pending' ? () => openEditModal(item) : ()=> showToast('No Action')} name="edit" size={18} color={item.status === 'Pending' ? '#6a8ff3' : '#444'} />
-                                  </Text>
-                                </View>
-                              )}
-                            />
-                          )
-                        )
-                      }
+                       <Text style={{ marginHorizontal: 10 }}>
+                         Page {page + 1} of {totalPages}
+                       </Text>
+    
+                       <TouchableOpacity
+                         onPress={() =>
+                           setPage((prev) => Math.min(prev + 1, totalPages - 1))
+                         }
+                         style={[
+                           styles.pageButton,
+                           page === totalPages - 1 && styles.disabledButton,
+                         ]}
+                       >
+                         <Text style={styles.pageText}>Next</Text>
+                       </TouchableOpacity>
+                      </View>
                     </View>
-                  </ScrollView>
-    
-                  <View style={styles.pagination}>
-                   <TouchableOpacity
-                     onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-                     style={[styles.pageButton, page === 0 && styles.disabledButton]}
-                   >
-                     <Text style={styles.pageText}>Previous</Text>
-                   </TouchableOpacity>
-
-                   <Text style={{ marginHorizontal: 10 }}>
-                     Page {page + 1} of {totalPages}
-                   </Text>
-
-                   <TouchableOpacity
-                     onPress={() =>
-                       setPage((prev) => Math.min(prev + 1, totalPages - 1))
-                     }
-                     style={[
-                       styles.pageButton,
-                       page === totalPages - 1 && styles.disabledButton,
-                     ]}
-                   >
-                     <Text style={styles.pageText}>Next</Text>
-                   </TouchableOpacity>
-                  </View>
-                </View>
+                  )
+                }
             </ScrollView>
             {/* <TouchableOpacity style={{ width:'100%', height:45, backgroundColor:'#6a8ff3', borderRadius:6, justifyContent:'center', alignItems:'center', }} >
-                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Request Leave</Text>
+                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Lato-SemiBold" }} >Request Leave</Text>
             </TouchableOpacity> */}
         </View>
     </SafeAreaView>
@@ -1047,7 +1052,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 5,
         textAlign: 'center',
         fontSize: 14,
-        fontFamily: 'Poppins-Medium',
+        fontFamily: 'Lato-Medium',
       },
       headerCell: {
         fontWeight: 'bold',
@@ -1055,7 +1060,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         paddingVertical: 8,
         margin: 0,
-        fontFamily: 'Poppins-SemiBold',
+        fontFamily: 'Lato-SemiBold',
       },
       evenRow: {
         backgroundColor: '#fff',

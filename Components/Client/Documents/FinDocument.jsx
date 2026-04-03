@@ -16,26 +16,11 @@ import { AntDesign, Feather, Ionicons, Entypo, MaterialIcons } from "@expo/vecto
 import Style from "../../../Style/Style";
 import BASE_URL from "../../../Urls/DomainUrl";
 
-function showToast(message, onOk = null) {
+function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
-    if (onOk) {
-      setTimeout(onOk, 2000);
-    }
   } else {
-    Alert.alert(
-      '',
-      message,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onOk) onOk();
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    Alert.alert('', message); // iOS fallback
   }
 }
 
@@ -58,10 +43,10 @@ export default function FinDocument({ navigation }) {
   const [selectedItem_id, setSelectedItem_id] = useState('');
   const [refresh, setRefresh] = useState(false);
   const [originalDocData, setOriginalDocData] = useState({});
-   const[selectedType, setSelectedType] = useState(null);
-   const [quarterData, setQuarterData] = useState([]);
-   const [monthsData, setMonthsData] = useState([]);
-   const logoutHandled = useRef(false);
+  const[selectedType, setSelectedType] = useState(null);
+  const [quarterData, setQuarterData] = useState([]);
+  const [monthsData, setMonthsData] = useState([]);
+  const logoutHandled = useRef(false);
 
   const onChange = (event, selectedDate) => {
     if (event === 'dismissed') {
@@ -103,7 +88,6 @@ export default function FinDocument({ navigation }) {
   
     if (!result.canceled) {
       const newImage = result.assets[0];
-  
       const updatedImages = [...images];
       updatedImages[replaceIndex] = newImage; // replace image at index
       setImages(updatedImages);
@@ -146,18 +130,15 @@ export default function FinDocument({ navigation }) {
     
     fetch(`${BASE_URL}/client/document/documentType`, requestOptions)
      .then((response) => response.json())
-      .then((result) => {
+      .then(async(result) => {
         if(result.statusCode === 200){
-          // console.log("financial",result?.data?.docs);
+          // console.log("financial",result);
           setDocType(result?.data?.docs);
-        }else if (result.statusCode === 401) {
-          if (!logoutHandled.current) {
-            logoutHandled.current = true; // Flag to prevent multiple logouts
-            showToast("Session expired. Please log in again.", () => {
-              dispatch(logout()); // Dispatch logout action when OK is pressed
-              navigation.navigate('Autologin'); // Navigate to autologin page
-            });
-          }
+        }else if(result.statusCode === 401){
+            dispatch(logout());
+            await AsyncStorage.removeItem('token');
+            await AsyncStorage.clear();
+            navigation.navigate('Splash');
         }else{
           showToast(result.message)
         }
@@ -172,12 +153,12 @@ export default function FinDocument({ navigation }) {
       return;
     }
     try {
-      if (logoutHandled.current) return;
-       let token = await AsyncStorage.getItem("token");
-       if(!token) {
-        navigation.navigate('Splash');
-        return;
-      }
+     if (logoutHandled.current) return;
+      let token = await AsyncStorage.getItem("token");
+      if(!token) {
+       navigation.navigate('Splash');
+       return;
+     }
       const formData = new FormData();
   
       images.forEach((img, index) => {
@@ -205,18 +186,16 @@ export default function FinDocument({ navigation }) {
       const result = await response.json();
   
       if (result.statusCode === 200) {
-        // showToast(result.message);
+        showToast(result.message);
         // console.log("Uploaded data finance:", result);
         setFileData(result.data);
         uploadDoc(result.data);
-      }else if (result.statusCode === 401) {
-        if (!logoutHandled.current) {
-          logoutHandled.current = true; // Flag to prevent multiple logouts
-          showToast("Session expired. Please log in again.", () => {
-            dispatch(logout()); // Dispatch logout action when OK is pressed
-            navigation.navigate('Autologin'); // Navigate to autologin page
-          });
-        }
+      }else if(result.statusCode === 401){
+        showToast("Session expired, please login again");
+        dispatch(logout());
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.clear();
+        navigation.navigate('Splash');
       } else {
         console.log("Upload failed:", result.message);
         showToast(result.message || "Upload failed.");
@@ -229,11 +208,11 @@ export default function FinDocument({ navigation }) {
 
   const uploadDoc = async (data) => {
     if (logoutHandled.current) return;
-     let token = await AsyncStorage.getItem("token");
-     if(!token) {
-      navigation.navigate('Splash');
-      return;
-    }
+      let token = await AsyncStorage.getItem("token");
+      if(!token) {
+       navigation.navigate('Splash');
+       return;
+     }
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -268,9 +247,10 @@ export default function FinDocument({ navigation }) {
       body: raw,
       redirect: "follow"
     };
+
     fetch(`${BASE_URL}/client/document/update`, requestOptions)
      .then((response) => response.json())
-      .then((result) => {
+      .then(async(result) => {
         if(result.statusCode === 200){
           // console.log(result);
           setImages([]);
@@ -281,14 +261,12 @@ export default function FinDocument({ navigation }) {
           setMonthsData([]);
           dispatch(personalInfo());
           showToast(result.message);
-        }else if (result.statusCode === 401) {
-          if (!logoutHandled.current) {
-            logoutHandled.current = true; // Flag to prevent multiple logouts
-            showToast("Session expired. Please log in again.", () => {
-              dispatch(logout()); // Dispatch logout action when OK is pressed
-              navigation.navigate('Autologin'); // Navigate to autologin page
-            });
-          }
+        }else if(result.statusCode === 401){
+          showToast("Session expired, please login again");
+          dispatch(logout());
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.clear();
+          navigation.navigate('Autologin');
         }else{
           console.log(result.message || "Document upload failed.");
         }
@@ -296,53 +274,45 @@ export default function FinDocument({ navigation }) {
       .catch((error) => console.error(error));
   }
 
-  const downloadFile = async (fileUrl) => {
-    if (!fileUrl) {
-      showToast("No file found to download.");
-      return;
-    }
-  
-    // Check if token exists
-    let token = await AsyncStorage.getItem("token");
-    if (!token) {
-      showToast("Session expired. Please log in again.");
-      navigation.navigate('Splash'); // Navigate to the login screen
-      return;
-    }
-  
-    try {
-      const filename = fileUrl.split('/').pop();
-      const fileUri = FileSystem.documentDirectory + filename;
-  
-      const downloadResumable = FileSystem.createDownloadResumable(
-        fileUrl,
-        fileUri
-      );
-  
-      const { uri } = await downloadResumable.downloadAsync();
-  
-      if (Platform.OS === 'android') {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status === 'granted') {
-          const asset = await MediaLibrary.createAssetAsync(uri);
-          await MediaLibrary.createAlbumAsync('Documents', asset, false);
-          showToast("Download complete and saved to Documents folder.");
-        } else {
-          showToast("Permission denied to save the file.");
-        }
-      } else if (Platform.OS === 'ios') {
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(uri); // Share and allow saving to Files
-        } else {
-          showToast("Sharing not available on this device.");
-        }
-      }
-    } catch (e) {
-      console.error("Download error:", e);
-      showToast("Download failed.");
-    }
-  };
+ const downloadFile = async (fileUrl) => {
+     if (!fileUrl) {
+       showToast("No file found to download.");
+       return;
+     }
+   
+     try {
+       if (logoutHandled.current) return;
+         let token = await AsyncStorage.getItem("token");
+     
+         if (!token) {
+           dispatch(logout());
+           showToast("Please login to download documents.");
+           navigation.navigate('Autologin'); // or Login screen
+           return;
+       }
+       const filename = fileUrl.split('/').pop();
+       const downloadResumable = FileSystem.createDownloadResumable(
+         fileUrl,
+         FileSystem.documentDirectory + filename
+       );
+   
+       const { uri } = await downloadResumable.downloadAsync();
+   
+       // Request permission to save to media library
+       const { status } = await MediaLibrary.requestPermissionsAsync();
+       if (status === 'granted') {
+         const asset = await MediaLibrary.createAssetAsync(uri);
+         await MediaLibrary.createAlbumAsync('Documents', asset, false);
+         showToast("Download complete and saved to Documents folder.");
+       } else {
+         showToast("Permission denied to save the file.");
+       }
+   
+     } catch (e) {
+       console.error("Download error:", e);
+       showToast("Download failed.");
+     }
+   };
  
   useEffect(()=>{
     getDocType();
@@ -448,7 +418,7 @@ export default function FinDocument({ navigation }) {
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
-        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
+        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
              <AntDesign name="arrowleft" size={24} color="#fff" />
           </TouchableOpacity>
@@ -470,10 +440,10 @@ export default function FinDocument({ navigation }) {
       <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
         <Animated.View style={{flex:1, transform: [{ scale }] }}>
           <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom:10 }} >
-            <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.headerBgColor }}>Financial Documents</Text>
+            <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.headerBgColor }}>Financial Documents</Text>
               <TouchableOpacity onPress={()=> setModalVisible(true)} style={{ flexDirection:'row', gap:10, backgroundColor:Style.headerBgColor, paddingHorizontal:10, height:40, justifyContent:'center', alignItems:'center', borderRadius:6 }} >
                 <Feather name="upload" size={20} color="#fff" />
-                <Text style={{ color:'#fff', fontFamily:'Poppins-Medium', fontSize:12, }} >Documents</Text>
+                <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Documents</Text>
               </TouchableOpacity>
           </View>
            <Modal
@@ -492,7 +462,7 @@ export default function FinDocument({ navigation }) {
                  </View>
                   <View style={{ padding:10 }}>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
+                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
                      {Array.isArray(docType) && docType.length > 0 ? (
                       <SelectDropdown
                         data={docType}
@@ -537,7 +507,7 @@ export default function FinDocument({ navigation }) {
                       </View>
                     )}
                    </TouchableOpacity>
-                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
+                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
                     <SelectDropdown
                       data={yearRanges}
                       onSelect={(selectedYearRange, index) => {
@@ -578,7 +548,7 @@ export default function FinDocument({ navigation }) {
                      
                     <View style={{ width:'100%', gap:10, flexDirection:'row', justifyContent:'space-between', }} >
                       <View style={{ flex:1 }} >
-                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                         <SelectDropdown
                           data={["Quaterly", "Monthly", "Yearly"]}
                           onSelect={(selectedType, index) => {
@@ -724,7 +694,7 @@ export default function FinDocument({ navigation }) {
                     </View>
                   </View>
                       <TouchableOpacity onPress={uploadFile} style={{ width:'90%', height:45, justifyContent:'center', alignItems:'center', alignSelf:'center', backgroundColor:Style.headerBgColor, borderRadius:6, position:'absolute', bottom:20,  }} >
-                         <Text style={{ color:'#fff', fontFamily:'Poppins-Medium', fontSize:12, }} >Upload</Text>
+                         <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Upload</Text>
                       </TouchableOpacity>
                  </View>
                </View>
@@ -767,13 +737,13 @@ export default function FinDocument({ navigation }) {
                                   {
                                    item.filePath.map((fpath, index)=>{
                                      return(
-                                       <Text key={index} style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.secondryTextColor }}>{fpath.split('/').pop()}</Text>
+                                       <Text key={index} style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>{fpath.split('/').pop()}</Text>
                                      )
                                    })
                                   }
                                  <View style={{ flexDirection:'row', alignItems:'center', paddingVertical:5 }}>
-                                    <Text style={{ fontSize:16, fontFamily:'Poppins-SemiBold', color:Style.secondryTextColor }}>FY : </Text>
-                                    <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.placeHolderTextColor }}>{item.yearRange}</Text>
+                                    <Text style={{ fontSize:16, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>FY : </Text>
+                                    <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.placeHolderTextColor }}>{item.yearRange}</Text>
                                  </View>
                               </View>
                            )
@@ -794,13 +764,13 @@ export default function FinDocument({ navigation }) {
                     <View style={styles.modalBackground}>
                       <View style={styles.modalContainer}>
                         <View style={styles.modalHeader}>
-                          <Text style={styles.modalTitle}>Updata Documents</Text>
+                          <Text style={styles.modalTitle}>Update Documents</Text>
                           <TouchableOpacity onPress={handleClose1} style={styles.closeButton}>
                             <Ionicons name="close-sharp" size={32} color='#fff' />
                           </TouchableOpacity>
                         </View>
                          <View style={{ padding:10 }}>
-                           <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                           <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                             <SelectDropdown
                               data={docType || []}
                               defaultValue={
@@ -837,7 +807,7 @@ export default function FinDocument({ navigation }) {
                               dropdownStyle={styles.dropdownMenuStyle}
                             />
                           </TouchableOpacity>
-                          <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                          <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                           <SelectDropdown
                             data={yearRanges}
                             defaultValue={fiscalYear}
@@ -879,7 +849,7 @@ export default function FinDocument({ navigation }) {
 
                              <View style={{ width:'100%', gap:10, flexDirection:'row', justifyContent:'space-between', }} >
                       <View style={{ flex:1 }} >
-                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                         <SelectDropdown
                           data={["Quaterly", "Monthly", "Yearly"]}
                           defaultValue={selectedType}
@@ -1018,7 +988,7 @@ export default function FinDocument({ navigation }) {
                             </View>
                            </View>
                            <TouchableOpacity onPress={uploadFile} style={{ width:'90%', height:45, justifyContent:'center', alignItems:'center', alignSelf:'center', backgroundColor:Style.headerBgColor, borderRadius:6, position:'absolute', bottom:20,  }} >
-                              <Text style={{ color:'#fff', fontFamily:'Poppins-Medium', fontSize:12, }} >Submit</Text>
+                              <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Submit</Text>
                            </TouchableOpacity>
                         </View>
                       </View>
@@ -1090,7 +1060,7 @@ const styles = StyleSheet.create({
       padding: 0,
       borderRadius: 5,
       flex:1,
-      marginTop:60
+      marginTop:0
     },
     modalHeader: {
       width: '100%',

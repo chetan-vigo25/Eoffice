@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, ScrollView, Text, StyleSheet, ImageBackground, SafeAreaView, Linking, Image, TouchableOpacity, Alert, Platform, StatusBar, ToastAndroid, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, ImageBackground, SafeAreaView, Platform, Linking, Image, TouchableOpacity, Alert, StatusBar, ToastAndroid, ActivityIndicator } from 'react-native';
 import LottieView from 'lottie-react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -9,7 +9,7 @@ function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert('', message);
   }
 }
 
@@ -25,7 +25,7 @@ export default function TransferSuccess({ navigation, route }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.paySuccessbgColor }}>
-        <StatusBar translucent={false} barStyle='light-content' backgroundColor={ Style.paySuccessbgColor } />
+        <StatusBar barStyle='light-content' backgroundColor={ Style.paySuccessbgColor } />
         <ScrollView contentContainerStyle={{ justifyContent:'center' }} showsVerticalScrollIndicator={false} style={{ flex:1, padding:20, }}>
             <View>
                <LottieView
@@ -38,8 +38,8 @@ export default function TransferSuccess({ navigation, route }) {
                     source={require('../../../assets/success.json')} 
                   />
                 <View style={{ alignItems:'center' }}>
-                   <Text style={{ fontSize:18, color:'#cfcfcf', fontFamily:'Poppins_Medium' }}>Payment Success!</Text>
-                   <Text style={{ fontSize:20, color:'#fff', fontFamily:'Poppins-SemiBold' }} >INR {reciptData?.grandTotal}</Text>
+                   <Text style={{ fontSize:18, color:'#cfcfcf', fontFamily:'Lato-Medium' }}>Payment Success!</Text>
+                   <Text style={{ fontSize:20, color:'#fff', fontFamily:'Lato-SemiBold' }} >INR {reciptData?.grandTotal}</Text>
                 </View>
             </View>
             <View style={{ width:'100%', backgroundColor:Style.basicbgColor, marginTop:10, borderRadius:10, padding:10, borderWidth:1, borderColor:Style.secondaryButtonColor }}>

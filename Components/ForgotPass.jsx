@@ -57,7 +57,7 @@ export default function ForgotPass({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Style.primaryBgColor }}>
-      <StatusBar translucent={false} barStyle='dark-content' backgroundColor={Style.primaryBgColor} />
+      <StatusBar barStyle='dark-content' backgroundColor={Style.primaryBgColor} />
       <ScrollView style={{ flex: 1, padding: 20 }}>
         <View style={{ width: "100%", height: 200, justifyContent: "center", alignItems: "center", }} >
           <Image source={require("../assets/Eofficelogo.png")} resizeMode="contain" style={{ width: "100%", height: 100 }} />
@@ -66,22 +66,6 @@ export default function ForgotPass({ navigation }) {
           <View style={{ width: "100%", backgroundColor: Style.basicbgColor,borderRadius: 20, padding: 20, paddingVertical: 30, }}  >
             {/* Content of the second view */}
             <View>
-              {/* <Text style={{ fontSize: 22, fontWeight: 600, paddingVertical: 5 }}>Forgot Password</Text>
-              <View style={{ width: '100%' }}>
-                <View style={{ flexDirection:'row', alignItems:'center' }} >
-                  <Text style={{ fontSize: 12, fontWeight: 500 }}>Enter your username</Text>
-                  <Text style={{ fontSize: 16, fontWeight: 800, color:'red' }}> *</Text>
-                </View>
-                <View style={{ width: "100%", height: 40, borderWidth: 1, borderRadius: 5, borderColor: Style.headerBgColor, marginTop: 2 }}>
-                  <TextInput
-                    placeholder="Username"
-                    value={userName}
-                    onChangeText={value => setUserName(value)}
-                    placeholderTextColor="#808080"
-                    style={{ flex: 1, backgroundColor: Style.basicbgColor, borderRadius: 5, padding: 5 }}
-                  />
-                </View>
-              </View> */}
               <View style={{ width: '100%', marginTop: 10 }}>
                 <View style={{ flexDirection:'row', alignItems:'center' }} >
                   <Text style={{ fontSize: 12, fontWeight: 500 }}>Enter your E-mail</Text>

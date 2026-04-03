@@ -9,32 +9,16 @@ import moment from "moment";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import * as Sharing from 'expo-sharing';
 
 import { AntDesign, Feather, Ionicons, Entypo, MaterialIcons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 import BASE_URL from "../../../Urls/DomainUrl";
 
-function showToast(message, onOk = null) {
+function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
-    if (onOk) {
-      setTimeout(onOk, 2000);
-    }
   } else {
-    Alert.alert(
-      '',
-      message,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onOk) onOk();
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    Alert.alert('', message); // iOS fallback
   }
 }
 
@@ -56,6 +40,7 @@ export default function RegDocument({ navigation }) {
   const [refresh, setRefresh] = useState(false);
   const [originalDocData, setOriginalDocData] = useState({});
   const logoutHandled = useRef(false);
+  
 
   const pickImages = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -130,19 +115,16 @@ export default function RegDocument({ navigation }) {
     
     fetch(`${BASE_URL}/client/document/documentType`, requestOptions)
      .then((response) => response.json())
-      .then((result) => {
+      .then(async(result) => {
         if(result.statusCode === 200){
           setDocType(result?.data?.docs);
-        }else if (result.statusCode === 401) {
-          if (!logoutHandled.current) {
-            logoutHandled.current = true; // Flag to prevent multiple logouts
-            showToast("Session expired. Please log in again.", () => {
-              dispatch(logout()); // Dispatch logout action when OK is pressed
-              navigation.navigate('Autologin'); // Navigate to autologin page
-            });
-          }
-        }else{
-          console.log(result.message)
+        } else if(result.statusCode === 401){
+            dispatch(logout());
+            await AsyncStorage.removeItem('token');
+            await AsyncStorage.clear();
+            navigation.navigate('Splash');
+        } else{
+          showToast(result.message)
         }
       })
       .catch((error) => console.error(error));
@@ -158,12 +140,12 @@ export default function RegDocument({ navigation }) {
       return;
     }
     try {
-      if (logoutHandled.current) return;
-       let token = await AsyncStorage.getItem("token");
-       if(!token) {
-        navigation.navigate('Splash');
-        return;
-      }
+       if (logoutHandled.current) return;
+        let token = await AsyncStorage.getItem("token");
+        if(!token) {
+         navigation.navigate('Splash');
+         return;
+       }
       const formData = new FormData();
   
       images.forEach((img, index) => {
@@ -195,14 +177,12 @@ export default function RegDocument({ navigation }) {
         // console.log("Uploaded data:", result);
         setFileData(result.data);
         uploadDoc(result.data);
-      }else if (result.statusCode === 401) {
-        if (!logoutHandled.current) {
-          logoutHandled.current = true; // Flag to prevent multiple logouts
-          showToast("Session expired. Please log in again.", () => {
-            dispatch(logout()); // Dispatch logout action when OK is pressed
-            navigation.navigate('Autologin'); // Navigate to autologin page
-          });
-        }
+      }else if(result.statusCode === 401){
+        dispatch(logout());
+          showToast('Session expired, please login again');
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.clear();
+          navigation.navigate('Splash');
       } else {
         console.log("Upload failed:", result.message);
         showToast(result.message || "Upload failed.");
@@ -254,7 +234,7 @@ export default function RegDocument({ navigation }) {
 
     fetch(`${BASE_URL}/client/document/update`, requestOptions)
      .then((response) => response.json())
-      .then((result) => {
+      .then(async(result) => {
         if(result.statusCode === 200){
           // console.log(result);
           setImages([]);
@@ -262,14 +242,12 @@ export default function RegDocument({ navigation }) {
           setDocNo('');
           dispatch(personalInfo());
           showToast(result.message);
-        }else if (result.statusCode === 401) {
-          if (!logoutHandled.current) {
-            logoutHandled.current = true; // Flag to prevent multiple logouts
-            showToast("Session expired. Please log in again.", () => {
-              dispatch(logout()); // Dispatch logout action when OK is pressed
-              navigation.navigate('Autologin'); // Navigate to autologin page
-            });
-          }
+        }else if(result.statusCode === 401){
+          dispatch(logout());
+          showToast('Session expired, please login again');
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.clear();
+          navigation.navigate('Autologin');
         }else{
           showToast(result.message || "Document upload failed.");
         }
@@ -277,53 +255,46 @@ export default function RegDocument({ navigation }) {
       .catch((error) => console.error(error));
   }
 
-   const downloadFile = async (fileUrl) => {
+ const downloadFile = async (fileUrl) => {
   if (!fileUrl) {
     showToast("No file found to download.");
     return;
   }
 
-  // Check if token exists
-  let token = await AsyncStorage.getItem("token");
-  if (!token) {
-    showToast("Session expired. Please log in again.");
-    navigation.navigate('Splash'); // Navigate to the login screen
-    return;
-  }
-
   try {
-    const filename = fileUrl.split('/').pop();
-    const fileUri = FileSystem.documentDirectory + filename;
+    if (logoutHandled.current) return;
+    let token = await AsyncStorage.getItem("token");
 
+    if (!token) {
+      dispatch(logout());
+      showToast("Please login to download documents.");
+      navigation.navigate('Autologin'); // or Login screen
+      return;
+    }
+
+    const filename = fileUrl.split('/').pop();
     const downloadResumable = FileSystem.createDownloadResumable(
       fileUrl,
-      fileUri
+      FileSystem.documentDirectory + filename
     );
 
     const { uri } = await downloadResumable.downloadAsync();
 
-    if (Platform.OS === 'android') {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status === 'granted') {
-        const asset = await MediaLibrary.createAssetAsync(uri);
-        await MediaLibrary.createAlbumAsync('Documents', asset, false);
-        showToast("Download complete and saved to Documents folder.");
-      } else {
-        showToast("Permission denied to save the file.");
-      }
-    } else if (Platform.OS === 'ios') {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(uri); // Share and allow saving to Files
-      } else {
-        showToast("Sharing not available on this device.");
-      }
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+    if (status === 'granted') {
+      const asset = await MediaLibrary.createAssetAsync(uri);
+      await MediaLibrary.createAlbumAsync('Documents', asset, false);
+      showToast("Download complete and saved to Documents folder.");
+    } else {
+      showToast("Permission denied to save the file.");
     }
+
   } catch (e) {
     console.error("Download error:", e);
     showToast("Download failed.");
   }
 };
+
 
   useEffect(()=>{
     getDocType();
@@ -374,11 +345,11 @@ export default function RegDocument({ navigation }) {
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
-        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
+        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', }}>
           <TouchableOpacity onPress={()=> navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
              <AntDesign name="arrowleft" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={{color: '#fff',fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Registration Documents</Text>
+          <Text style={{color: '#fff',fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Registration Documents</Text>
         </View>
         <View style={{flexDirection: 'row',alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
           <View style={{flex: 8, flexDirection: 'row', alignItems: 'center', backgroundColor:Style.basicbgColor,borderRadius: 50, height: 50, elevation: 4 }}>
@@ -396,10 +367,10 @@ export default function RegDocument({ navigation }) {
       <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
         <Animated.View style={{flex:1, transform: [{ scale }] }}>
           <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom:10 }} >
-            <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.headerBgColor }}>Registration Documents</Text>
+            <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.headerBgColor }}>Registration Documents</Text>
               <TouchableOpacity onPress={()=> setModalVisible(true)} style={{ flexDirection:'row', gap:10, backgroundColor:Style.headerBgColor, paddingHorizontal:10, height:40, justifyContent:'center', alignItems:'center', borderRadius:6 }} >
                 <Feather name="upload" size={20} color="#fff" />
-                <Text style={{ color:'#fff', fontFamily:'Poppins-Medium', fontSize:12, }} >Documents</Text>
+                <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Documents</Text>
               </TouchableOpacity>
           </View>
            <Modal
@@ -417,7 +388,7 @@ export default function RegDocument({ navigation }) {
                    </TouchableOpacity>
                  </View>
                   <View style={{ padding:10 }}>
-                    <TouchableOpacity style={{ width:'100%', height:50, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                    <TouchableOpacity style={{ width:'100%', height:50, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                     {Array.isArray(docType) && docType.length > 0 ? (
                       <SelectDropdown
                         data={docType}
@@ -505,7 +476,7 @@ export default function RegDocument({ navigation }) {
                     </View>
                   </View>
                       <TouchableOpacity onPress={uploadFile} style={{ width:'90%', height:45, justifyContent:'center', alignItems:'center', alignSelf:'center', backgroundColor:Style.headerBgColor, borderRadius:6, position:'absolute', bottom:20,  }} >
-                         <Text style={{ color:'#fff', fontFamily:'Poppins-Medium', fontSize:12, }} >Upload</Text>
+                         <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Upload</Text>
                       </TouchableOpacity>
                  </View>
                </View>
@@ -548,13 +519,13 @@ export default function RegDocument({ navigation }) {
                                  {
                                   item.filePath.map((fpath, index)=>{
                                     return(
-                                      <Text key={index} style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.secondryTextColor }}>{fpath.split('/').pop()}</Text>
+                                      <Text key={index} style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>{fpath.split('/').pop()}</Text>
                                     )
                                   })
                                  }
                                  <View style={{ flexDirection:'row', alignItems:'center', paddingVertical:5 }}>
-                                    <Text style={{ fontSize:16, fontFamily:'Poppins-SemiBold', color:Style.headerBgColor }}>Doc No. : </Text>
-                                    <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.secondryTextColor }}>{item.number}</Text>
+                                    <Text style={{ fontSize:16, fontFamily:'Lato-SemiBold', color:Style.headerBgColor }}>Doc No. : </Text>
+                                    <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>{item.number}</Text>
                                  </View>
                               </View>
                            )
@@ -581,7 +552,7 @@ export default function RegDocument({ navigation }) {
                            </TouchableOpacity>
                          </View>
                           <View style={{ padding:10 }}>
-                            <TouchableOpacity style={{ width:'100%', height:50, backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                            <TouchableOpacity style={{ width:'100%', height:50, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between' }} >
                              <SelectDropdown
                                data={docType || []}
                                defaultValue={
@@ -589,7 +560,7 @@ export default function RegDocument({ navigation }) {
                                }
                                onSelect={(selecteddocType, index) => {
                                  setDocName(selecteddocType.name);
-                                //  showToast(`Selected: ${selecteddocType.name}`);89
+                                //  showToast(`Selected: ${selecteddocType.name}`);
                                }}
                                renderButton={(selecteddocType, isOpened) => (
                                  <View style={styles.dropdownButtonStyle}>
@@ -618,7 +589,7 @@ export default function RegDocument({ navigation }) {
                                dropdownStyle={styles.dropdownMenuStyle}
                              />
                            </TouchableOpacity>
-                            <View style={{ width:'100%', height:50,  backgroundColor:"#fff", borderRadius:6, marginBottom:20, }}>
+                            <View style={{ width:'100%', height:50, backgroundColor:"#fff", borderRadius:6, marginBottom:20, }}>
                                 <TextInput value={docNo} onChangeText={value => setDocNo(value)} placeholder="Enter Document Number" style={{ flex: 1, backgroundColor: '#fff', color:Style.headerBgColor, borderRadius: 5, padding: 5, paddingLeft:15 }} />
                             </View>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
@@ -643,9 +614,9 @@ export default function RegDocument({ navigation }) {
                               )}
                             </View>
                           </View>
-                              <TouchableOpacity onPress={uploadFile} style={{ width:'90%', height:45, justifyContent:'center', alignItems:'center', alignSelf:'center', backgroundColor:Style.headerBgColor, borderRadius:6, position:'absolute', bottom:20,  }} >
-                                 <Text style={{ color:'#fff', fontFamily:'Poppins-Medium', fontSize:12, }} >Upload</Text>
-                              </TouchableOpacity>
+                          <TouchableOpacity onPress={uploadFile} style={{ width:'90%', height:45, justifyContent:'center', alignItems:'center', alignSelf:'center', backgroundColor:Style.headerBgColor, borderRadius:6, position:'absolute', bottom:20,  }} >
+                             <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Upload</Text>
+                          </TouchableOpacity>
                          </View>
                        </View>
                    </Modal>
@@ -716,7 +687,7 @@ const styles = StyleSheet.create({
       padding: 0,
       borderRadius: 5,
       flex:1,
-      marginTop:60,
+      marginTop:0,
     },
     modalHeader: {
       width: '100%',

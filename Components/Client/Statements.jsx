@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Alert, StyleSheet, Linking, UIManager, Platform, ToastAndroid, ActivityIndicator, RefreshControl } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Modal, StyleSheet, Linking, UIManager, Platform, ToastAndroid, ActivityIndicator, RefreshControl } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
@@ -18,29 +18,18 @@ function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert('', message);
   }
 }
 
-export default function AdvancedList({ navigation }) {
+export default function Statements({ navigation }) {
  
-  const [scale] = useState(new Animated.Value(0)); 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [deparement, setDepartment] = useState('');
-  const [statusD, setStatusD] = useState('');
-  const [expanded, setExpanded] = useState(false);
-  const [modalHeight, setModalHeight] = useState(250);
+  const [scale] = useState(new Animated.Value(0));
   const [loading, setLoading] = useState(false);
   const [advanceData, setAdvanceData] = useState([]);
-  const [modalVisible1, setModalVisible1] = useState(false);
-  const [modalVisible2, setModalVisible2] = useState(false);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredData, setFilteredData] = useState([]);
   const [refresh, setRefresh] = useState(false);
-
-  const statusData = ['Paid', 'Unpaid']
 
   useEffect(() => {
     Animated.timing(scale, {
@@ -62,8 +51,8 @@ export default function AdvancedList({ navigation }) {
       "sort": true,
       "status": "",
       "isPagination": true,
-      "startDate": startDate,
-      "endDate": endDate,
+      "startDate": "",
+      "endDate": "",
     });
     
     const requestOptions = {
@@ -131,13 +120,13 @@ export default function AdvancedList({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-     <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
+     <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
         <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
              <AntDesign name="arrowleft" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={{color: '#fff',fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Statements</Text>
+          <Text style={{color: '#fff',fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Statements</Text>
         </View>
         <View style={{flexDirection: 'row',alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
           <View style={{flex: 8, flexDirection: 'row', alignItems: 'center', backgroundColor:Style.basicbgColor,borderRadius: 50, height: 50, elevation: 4 }}>
@@ -167,34 +156,34 @@ export default function AdvancedList({ navigation }) {
                         return(
                             <View key={index} style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, marginBottom:10, padding:10 }} >
                               <View style={{ width:"100%", justifyContent:'space-between', alignItems:'center' }} >
-                                 {/* <Text style={{ fontSize:16, fontFamily:'Poppins-Medium', color:Style.headerBgColor }}>Advance {item.receiptNumber ? item.receiptNumber : "No receipt"} </Text> */}
+                                 {/* <Text style={{ fontSize:16, fontFamily:'Lato-Medium', color:Style.headerBgColor }}>Advance {item.receiptNumber ? item.receiptNumber : "No receipt"} </Text> */}
                                   <TouchableOpacity onPress={() => downloadPDF(item)} style={{  width:30, height:30, justifyContent:'center', alignItems:'center', alignSelf:'flex-end', borderRadius:5 }} >
                                       <Image source={require('../../assets/pdfDownload.png')} style={{ width:30, height:30 }} />
                                   </TouchableOpacity>
                               </View>
                               <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center' }} >
-                                  <Text style={{flex:6, fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor }}>{item.naration ? item.naration : 'no naration!'}</Text>
+                                  <Text style={{flex:6, fontSize:12, fontFamily:'Lato-Medium', color:Style.secondryTextColor }}>{item.naration ? item.naration : 'no naration!'}</Text>
                                   <View style={{ flex:4 }} ></View>
                               </View>
                                <View style={{ flexDirection:'row', paddingVertical:5, alignItems:'center', }} >
-                                  <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.secondryTextColor }}>Rs : </Text>
-                                  <Text style={{ fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.secondryTextColor }}>{item.amount}/-</Text>
+                                  <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>Rs : </Text>
+                                  <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>{item.amount}/-</Text>
                                </View>
                                <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center' }} >
                                  <View style={{flex:1, flexDirection:'row', alignItems:'center' }}>
-                                    <Text style={{ fontSize:12, fontFamily:'Poppins-SemiBold', color:Style.secondryTextColor }}>Status: </Text>
-                                    <Text style={{ fontSize:12, fontFamily:'Poppins-SemiBold', color:item.status ==='Paid'?'#85BD2A': '#E51E1E' }}>{item.status==='Paid'?'Paid': 'Failed'}</Text>
+                                    <Text style={{ fontSize:12, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>Status: </Text>
+                                    <Text style={{ fontSize:12, fontFamily:'Lato-SemiBold', color:item.status ==='Paid'?'#85BD2A': '#E51E1E' }}>{item.status==='Paid'?'Paid': 'Failed'}</Text>
                                  </View>
                                  <View style={{flex:1, flexDirection:'row', justifyContent:'flex-end', alignItems:"center" }}>
-                                    <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor }}>Date : </Text>
-                                    <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor }}>{moment(item.createdAt).format('DD/MM/YYYY')}</Text>
+                                    <Text style={{ fontSize:12, fontFamily:'Lato-Medium', color:Style.secondryTextColor }}>Date : </Text>
+                                    <Text style={{ fontSize:12, fontFamily:'Lato-Medium', color:Style.secondryTextColor }}>{moment(item.createdAt).format('DD/MM/YYYY')}</Text>
                                  </View>
                                </View>
                             </View>
                          )
                       })
                     ):(
-                      <Text style={{ fontSize: 18, fontFamily:'Poppins-SemiBold', color: Style.secondryTextColor, textAlign: 'center', paddingVertical: 20 }}>
+                      <Text style={{ fontSize: 18, fontFamily:'Lato-SemiBold', color: Style.secondryTextColor, textAlign: 'center', paddingVertical: 20 }}>
                           No Data Found
                       </Text>
                     )
@@ -204,9 +193,12 @@ export default function AdvancedList({ navigation }) {
           </ScrollView>
         </Animated.View>
         <TouchableOpacity onPress={()=> navigation.navigate('AddAdvance')} style={{ width:'100%', height:45, backgroundColor:Style.headerBgColor, borderRadius:6, justifyContent:'center', alignItems:'center', marginTop:10 }} >
-          <Text style={{ fontSize:16, fontFamily:'Poppins-Medium', color:'#fff' }} >+ Add Advance</Text>
+          <Text style={{ fontSize:16, fontFamily:'Lato-Medium', color:'#fff' }} >+ Add Advance</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
+
+
+

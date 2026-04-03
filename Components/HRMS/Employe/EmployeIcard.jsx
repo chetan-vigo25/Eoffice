@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, SafeAreaView, Text, StatusBar, Button, ScrollView, Modal, FlatList, Platform, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
+import { StyleSheet, View, Text, StatusBar, Button, ScrollView, Modal, FlatList, Platform, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import { SelectList } from 'react-native-dropdown-select-list';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,6 +12,7 @@ import { WebView } from 'react-native-webview';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 
@@ -56,7 +57,7 @@ export default function EmployeIcard({ navigation, route }) {
         if (storedUserData) {
           const parsedData = JSON.parse(storedUserData);
           setUserData(parsedData);
-          console.log("User Data---:", parsedData);
+          // console.log("User Data---:", parsedData);
         }
       } catch (error) {
         console.error("Failed to load userData:", error);
@@ -183,12 +184,12 @@ export default function EmployeIcard({ navigation, route }) {
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
               <AntDesign name="arrowleft" size={24} color="#fff" />
            </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Employee Icard</Text>
+          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Employee Icard</Text>
         </View>
         <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20 }} >
             <EmployeHeader navigation={navigation} />
             <TouchableOpacity onPress={downloadIcardPDF} style={{ width:'50%', alignSelf:'flex-end', backgroundColor:'#6a8ff3', padding:10, borderRadius:5, marginVertical:10 }} >
-                <Text style={{ color:'#fff', fontSize:14, textAlign:'center', fontFamily:'Poppins-SemiBold' }} >Download</Text>
+                <Text style={{ color:'#fff', fontSize:14, textAlign:'center', fontFamily:'Lato-SemiBold' }} >Download</Text>
             </TouchableOpacity>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flex:1, }} >
               {
@@ -220,7 +221,7 @@ export default function EmployeIcard({ navigation, route }) {
                   :
                   (
                     <View style={{ flex:1, justifyContent:'center', alignItems:'center',}} >
-                      <Text style={{ fontSize:16, color:'#000', fontFamily:'Poppins-Regular' }} >No i-card Available</Text>
+                      <Text style={{ fontSize:16, color:'#000', fontFamily:'Lato-Regular' }} >No i-card Available</Text>
                     </View>
                   )
                 )

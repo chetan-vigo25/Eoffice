@@ -1,12 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { StatusBar, ScrollView, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ToastAndroid, ActivityIndicator, LayoutAnimation, UIManager, Platform } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ToastAndroid, ActivityIndicator, LayoutAnimation, UIManager, Platform } from "react-native";
 import Style from "../../../Style/Style";
+import { useDispatch, useSelector } from 'react-redux';
+import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
 import moment from "moment";
 
 import { AntDesign, Feather } from "@expo/vector-icons";
+import { ScrollView } from "react-native-gesture-handler";
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
 
 export default function MyDocuments({ navigation }) {
+
+const dispatch = useDispatch();
+const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
  
+const [expanded, setExpanded] = useState(false);
+const toggleExpand = () => {
+  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  setExpanded(!expanded);
+};
+
   const [scale] = useState(new Animated.Value(0)); 
 
   useEffect(() => {
@@ -19,15 +35,15 @@ export default function MyDocuments({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-      <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
+      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
-           <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
+           <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', paddingTop:30  }}>
              <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start',}}>
                 <AntDesign name="arrowleft" size={24} color="#fff" />
              </TouchableOpacity>
-             <Text style={{ color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>My Documents</Text>
+             <Text style={{ color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>My Documents</Text>
            </View>
-           {/* <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
+           <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
              <View style={{flex: 8, flexDirection: 'row', alignItems: 'center', backgroundColor:Style.basicbgColor,borderRadius: 50, height: 50, elevation: 4,}}>
                <TextInput placeholder="Search" style={{flex: 9,fontSize: 18,padding: 10,paddingLeft: 20,}} />
                <TouchableOpacity style={{ flex: 1.5, justifyContent: 'center', alignItems: 'center' }}>
@@ -37,12 +53,12 @@ export default function MyDocuments({ navigation }) {
              <TouchableOpacity onPress={()=> navigation.navigate('Notifikation')}  style={{ flex:1.5, width: 50, height: 50, borderRadius: 50, justifyContent: 'center',alignItems:"flex-end"}}>
                 <Feather name="bell" size={28} color="#fff" />
              </TouchableOpacity>
-           </View> */}
+           </View>
         </Animated.View>
         <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
            <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1,}}>
                <Animated.View style={{ transform: [{ scale }] }}>
-                   <TouchableOpacity onPress={()=> navigation.navigate('RegDocument')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5, paddingVertical:8, borderWidth: .5, borderColor: '#e0e0e0' }} >
+                   <TouchableOpacity onPress={()=> navigation.navigate('RegDocument')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5, paddingVertical:8 }} >
                        <View style={{ flex:1.5, alignItems:'center', justifyContent:'center' }} >
                           <AntDesign name="book" size={22} color={Style.headerBgColor} />
                        </View>
@@ -50,7 +66,7 @@ export default function MyDocuments({ navigation }) {
                           <Text style={{ color:Style.headerBgColor, fontSize: 12, fontWeight: '500', }}>Registration Documents</Text>
                        </View>
                    </TouchableOpacity>
-                   <TouchableOpacity onPress={()=> navigation.navigate('FinDocument')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5, paddingVertical:8, borderWidth: .5, borderColor:'#e0e0e0' }} >
+                   <TouchableOpacity onPress={()=> navigation.navigate('FinDocument')} style={{ width:'100%', borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5, paddingVertical:8 }} >
                        <View style={{ flex:1.5, alignItems:'center', justifyContent:'center' }} >
                          <AntDesign name="book" size={22} color={Style.headerBgColor} />
                        </View>

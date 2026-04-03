@@ -9,6 +9,7 @@ import * as Device from 'expo-device';
 
 // import Login from './Components/Login';
 import Splash from './Components/Splash';
+
 import ClientDash from './Components/Client/ClientDash';
 import PersonalInfo from './Components/Client/PersonalInfo/PersonalInfo';
 import PersonalDetail from './Components/Client/PersonalInfo/PersonalDetail';
@@ -16,9 +17,13 @@ import OwnerDetail from './Components/Client/PersonalInfo/OwnerDetail';
 import ContactDetail from './Components/Client/PersonalInfo/ContactDetail';
 import BankDetail from './Components/Client/PersonalInfo/BankDetail';
 import DigitalSign from './Components/Client/PersonalInfo/DigitalSign';
+import ClientBranch from './Components/Client/PersonalInfo/ClientBranch';
+import ClientService from './Components/Client/PersonalInfo/ClientService';
+
 import TaskManagement from './Components/Client/Task/TaskManagement';
 import TaskSummary from './Components/Client/Task/TaskSummary';
 import InvoiceList from './Components/Client/Invoice/InvoiceList';
+import InvoiceDetail from './Components/Client/Invoice/InvoiceDetail';
 import TransactionList from './Components/Client/Transaction/TransactionList';
 import TransDetail from './Components/Client/Transaction/TransDetail';
 import TransferSuccess from './Components/Client/Transaction/TransferSuccess';
@@ -38,12 +43,12 @@ import ClientMessage from './Components/Client/ClientMessage';
 import Privacy from './Components/Privacy';
 import TermCondition from './Components/TermCondition';
 import VisitHistory from './Components/Client/VisitHistory';
-import EmployeeLogin from "./Components/Client/EmployeeLogin"
 import WebViewComp from './Components/Client/WebViewComp';
 import NoInternetScreen from './Components/Client/NoInternetScreen';
 import Statements from './Components/Client/Statements';
 import AddAdvance from './Components/Client/AddAdvance';
 import Autologin from './Components/AutoLogin';
+import StatementsTrans from './Components/Client/Transaction/StatementsTrans';
 {/* EMPLOYEE */}
 import HrDashboard from './Components/HRMS/HR/HrDashboard';
 import EmployeDashboard from './Components/HRMS/Employe/EmployeDashboard';
@@ -60,6 +65,7 @@ import EmployeIcard from './Components/HRMS/Employe/EmployeIcard';
 import { NetworkProvider } from './Context/NetworkContext';
 import { DeviceLocationProvider } from './Context/DeviceLoc';
 import { MapWebViewProvider } from './Context/MapWebViewContext';
+import { ContactsProvider } from './Context/Contact';
 import { EmployeeDashboardProvider } from './Context/EmployeeDashboardContext';
 import { UserProvider } from './Context/UserProvider';
 import messaging from '@react-native-firebase/messaging';
@@ -250,49 +256,73 @@ export default function App() {
     return null;
   }
    
-  return (
-    <SafeAreaProvider style={{ flex:1 }}>
-       <NetworkProvider>
-          <StatusBar translucent={false} backgroundColor={statusBarBg} barStyle='dark-content' />
-        <SafeAreaView
-          style={{ flex: 1, backgroundColor:'transparent' }}
-          edges={['left','right','bottom']}
-        >
+//   return (
+//     <SafeAreaProvider style={{ flex:1 }}>
+//        <NetworkProvider>
+//           <StatusBar translucent={false} backgroundColor={statusBarBg} barStyle='dark-content' />
+//         <SafeAreaView
+//           style={{ flex: 1, backgroundColor:'transparent' }}
+//           edges={['left','right','bottom']}
+//         >
+//          {
+//             isConnected ? 
+//               <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0, backgroundColor: statusBarBg }}>
+//                 <NavigationContainer
+//                   ref={navigationRef}
+//                   key={refreshKey}
+//                   onStateChange={(state) => {
+//                     const routeName = getActiveRouteName(state);
+//                     if (routeName === 'Splash') {
+//                       setStatusBarBg('#ffffff');
+//                     } else if (routeName === 'ClientDash') {
+//                       setStatusBarBg("#ebf1fd");
+//                     } else if (routeName === 'WebViewComp') {
+//                       setStatusBarBg('#074173');
+//                     } else {
+//                       setStatusBarBg(Style.headerBgColor);
+//                     }
+//                   }}
+//                 >
+//                   <EmployeeDashboardProvider>
+//                     <MapWebViewProvider>
+//                       <UserProvider>
+//                         <MyStack />
+//                       </UserProvider>
+//                     </MapWebViewProvider>
+//                   </EmployeeDashboardProvider>
+//                 </NavigationContainer>
+//               </View>
+//             : 
+//               <NoInternetScreen onRetry={handleRetry} isRetrying={isRetrying} />
+//           }
+//          </SafeAreaView>
+//        </NetworkProvider>
+//     </SafeAreaProvider>
+//   );
+// }
+
+
+return (
+  <SafeAreaProvider style={{ flex:1 }}>
+     <ContactsProvider>
+      <NetworkProvider>
+        <StatusBar backgroundColor={'#074173'} barStyle='dark-content' />
          {
-            isConnected ? 
-              <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0, backgroundColor: statusBarBg }}>
-                <NavigationContainer
-                  ref={navigationRef}
-                  key={refreshKey}
-                  onStateChange={(state) => {
-                    const routeName = getActiveRouteName(state);
-                    if (routeName === 'Splash') {
-                      setStatusBarBg('#ffffff');
-                    } else if (routeName === 'ClientDash') {
-                      setStatusBarBg("#ebf1fd");
-                    } else if (routeName === 'WebViewComp') {
-                      setStatusBarBg('#074173');
-                    } else {
-                      setStatusBarBg(Style.headerBgColor);
-                    }
-                  }}
-                >
-                  <EmployeeDashboardProvider>
-                    <MapWebViewProvider>
-                      <UserProvider>
-                        <MyStack />
-                      </UserProvider>
-                    </MapWebViewProvider>
-                  </EmployeeDashboardProvider>
-                </NavigationContainer>
-              </View>
-            : 
-              <NoInternetScreen onRetry={handleRetry} isRetrying={isRetrying} />
-          }
-         </SafeAreaView>
-       </NetworkProvider>
-    </SafeAreaProvider>
-  );
+           isConnected ? 
+             <NavigationContainer key={refreshKey} >
+              <EmployeeDashboardProvider>
+                  <UserProvider>
+                    <MyStack />
+                  </UserProvider>
+              </EmployeeDashboardProvider>
+             </NavigationContainer>
+           : 
+             <NoInternetScreen onRetry={handleRetry} isRetrying={isRetrying} />
+         }
+      </NetworkProvider>
+     </ContactsProvider>
+  </SafeAreaProvider>
+);
 }
 
 function MyStack ({ route }){
@@ -307,9 +337,12 @@ function MyStack ({ route }){
       <Stack.Screen name="ContactDetail" component={ContactDetail} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="BankDetail" component={BankDetail} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="DigitalSign" component={DigitalSign} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="ClientBranch" component={ClientBranch} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="ClientService" component={ClientService} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="TaskManagement" component={TaskManagement} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="TaskSummary" component={TaskSummary} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="InvoiceList" component={InvoiceList} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="InvoiceDetail" component={InvoiceDetail} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="TransactionList" component={TransactionList} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="TransDetail" component={TransDetail} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="TransferSuccess" component={TransferSuccess} options={{ ...TransitionPresets.SlideFromRightIOS }} />
@@ -329,12 +362,11 @@ function MyStack ({ route }){
       <Stack.Screen name="Privacy" component={Privacy} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="TermCondition" component={TermCondition} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="VisitHistory" component={VisitHistory} options={{ ...TransitionPresets.SlideFromRightIOS }} />
-      <Stack.Screen name="EmployeeLogin" component={EmployeeLogin} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="WebViewComp" component={WebViewComp} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="Statements" component={Statements} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="AddAdvance" component={AddAdvance} options={{ ...TransitionPresets.SlideFromRightIOS }} />
-      {/* EMPLOYEE */}
-      <Stack.Screen name="HrDashboard" component={HrDashboard} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="StatementsTrans" component={StatementsTrans} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      {/* EMPLOYEE SCREEN */}
       <Stack.Screen name="EmployeDashboard" component={EmployeDashboard} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="ApplyLeave" component={ApplyLeave} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="EmployeAttendance" component={EmployeAttendance} options={{ ...TransitionPresets.SlideFromRightIOS }} />
@@ -348,24 +380,23 @@ function MyStack ({ route }){
     </Stack.Navigator>
   )
 }
-
 function MyTabs({ route }) {
   const insets = useSafeAreaInsets();
   const userData = route?.params?.userData;
-  return (
-      <Tab.Navigator screenOptions={{ tabBarLabelStyle:{ fontSize:10, paddingBottom:0, paddingTop:20 }, headerShown:false, tabBarStyle:{ backgroundColor:'#fff', height: 0 }, tabBarShowLabel:false, tabBarActiveTintColor: '#175a93', tabBarInactiveTintColor: "grey",}}>
-          <Tab.Screen name="ClientDash" component={ClientDash} options={{'tabBarLabel':"EmpDasboard", 'tabBarIcon': ( ({focused, color}) => (
-             <Image source={focused?require('./assets/home-active.png'):require('./assets/home-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
-          ))}} initialParams={{ userData }} />
-          <Tab.Screen name="ClientMessage" component={ClientMessage} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
-             <Image source={focused?require('./assets/contactActive.png'):require('./assets/contactInactve.png')} style={{width:focused?22:22, height:focused?22:22}} />
-          ))}}/>
-          <Tab.Screen name="Events" component={Events} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
-             <Image source={focused?require('./assets/calendarActive.png'):require('./assets/calendar-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
-          ))}} initialParams={{ userData }} />
-          <Tab.Screen name="ClientProfile" component={ClientProfile} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
-             <Image source={focused?require('./assets/userActive.png'):require('./assets/userInactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
-          ))}}/>
-      </Tab.Navigator>  
-  );
-}
+   return (
+       <Tab.Navigator screenOptions={{ tabBarLabelStyle:{ fontSize:10, paddingBottom:0, paddingTop:20 }, headerShown:false, tabBarStyle:{ backgroundColor:'#fff', }, tabBarShowLabel:false, tabBarActiveTintColor: '#175a93', tabBarInactiveTintColor: "grey",}}>
+           <Tab.Screen name="ClientDash" component={ClientDash} options={{'tabBarLabel':"EmpDasboard", 'tabBarIcon': ( ({focused, color}) => (
+              <Image source={focused?require('./assets/home-active.png'):require('./assets/home-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
+           ))}} initialParams={{ userData }} />
+           <Tab.Screen name="ClientMessage" component={ClientMessage} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
+              <Image source={focused?require('./assets/contactActive.png'):require('./assets/contactInactive.png')} style={{width:focused?25:25, height:focused?25:25}} />
+           ))}}/>
+           <Tab.Screen name="Events" component={Events} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
+              <Image source={focused?require('./assets/calendarActive.png'):require('./assets/calendar-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
+           ))}} initialParams={{ userData }} />
+           <Tab.Screen name="ClientProfile" component={ClientProfile} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
+              <Image source={focused?require('./assets/userActive.png'):require('./assets/userInactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
+           ))}}/>
+       </Tab.Navigator>  
+   );
+ }

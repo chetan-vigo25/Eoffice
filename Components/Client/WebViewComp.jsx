@@ -56,7 +56,7 @@ export default function WebViewComp() {
     }, [])
   );
 
-  // Android Back Button Handler
+  // Android Back Button Handler+
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (canGoBackWeb && webviewRef.current) {
@@ -180,7 +180,7 @@ export default function WebViewComp() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
-      <StatusBar translucent={false} backgroundColor={'red'} barStyle='light-content' />
+      <StatusBar translucent={false} backgroundColor={'#074173'} barStyle='light-content' />
       {/* Header */}
       <View style={{ flexDirection: 'row', width: '100%', backgroundColor: '#074173', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
         <View style={{ flexDirection:'row', gap:10, }} >
@@ -188,13 +188,13 @@ export default function WebViewComp() {
              <AntDesign name="arrowleft" size={20} color="#fff" />
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontFamily: 'Poppins-SemiBold', fontSize: 16 }}>EASY </Text>
-            <Text style={{ color: '#7ac943', fontFamily: 'Poppins-SemiBold', fontSize: 16 }}>MY OFFICE</Text>
+            <Text style={{ color: '#fff', fontFamily: 'Lato-SemiBold', fontSize: 16 }}>EASY </Text>
+            <Text style={{ color: '#7ac943', fontFamily: 'Lato-SemiBold', fontSize: 16 }}>MY OFFICE</Text>
           </View>
         </View>
         <TouchableOpacity onPress={logout} style={{ flexDirection: 'row', gap: 5, paddingHorizontal: 10, height: 40, justifyContent: 'center', alignItems: 'center' }}>
           <MaterialIcons name="logout" size={20} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'Poppins-SemiBold' }}>Logout</Text>
+          <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'Lato-SemiBold' }}>Logout</Text>
         </TouchableOpacity>
       </View>
 
@@ -203,7 +203,7 @@ export default function WebViewComp() {
         {loading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <ActivityIndicator size="large" color="#074173" />
-            <Text style={{ marginTop: 10, fontSize: 16, fontFamily: 'Poppins-Medium', color: '#074173' }}>Loading...</Text>
+            <Text style={{ marginTop: 10, fontSize: 16, fontFamily: 'Lato-Medium', color: '#074173' }}>Loading...</Text>
           </View>
         ) : token ? (
           <View style={{ flex: 1 }}>
@@ -279,7 +279,7 @@ export default function WebViewComp() {
           </View>
         ) : (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 16, fontFamily: 'Poppins-Medium', color: '#074173' }}>Please log in again.</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Lato-Medium', color: '#074173' }}>Please log in again.</Text>
           </View>
         )}
       </View>

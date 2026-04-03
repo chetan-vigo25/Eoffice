@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Alert, Animated, Dimensions, PanResponder, StyleSheet, View, Text, SafeAreaView, Linking, TouchableOpacity, ScrollView, Image, ToastAndroid, ActivityIndicator } from 'react-native';
+import { Alert, Animated, Dimensions, PanResponder, StyleSheet, View, Platform, Text, SafeAreaView, Linking, TouchableOpacity, ScrollView, Image, ToastAndroid, ActivityIndicator } from 'react-native';
 import { RadioButton } from 'react-native-paper';
 import RazorpayCheckout from 'react-native-razorpay';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -22,7 +22,11 @@ const smallgap = 4;
 const finalPosition = lockWidth - lockHeight;
 
 function showToast(message) {
-  ToastAndroid.show(message, ToastAndroid.SHORT);
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('', message);
+  }
 }
 
 export default function TransPaidDetail({ navigation, route }) {
@@ -106,13 +110,13 @@ export default function TransPaidDetail({ navigation, route }) {
                  <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start',}}>
                     <AntDesign name="arrowleft" size={24} color="#fff" />
                  </TouchableOpacity>
-                <Text style={{color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Details</Text>
+                <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Details</Text>
               </View>
             </View>
             <Animated.View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20, transform: [{ translateY: slideAnim }] }} >
               <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
                  <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom:10 }} >
-                   <Text style={{ fontSize:18, fontFamily: 'Poppins-Medium', color:Style.headerBgColor }}>Invoice #{transData.invoiceNumber}</Text>
+                   <Text style={{ fontSize:18, fontFamily: 'Lato-Medium', color:Style.headerBgColor }}>Invoice #{transData.invoiceNumber}</Text>
                      <TouchableOpacity onPress={downloadPDF} style={{ width:40, height:40, justifyContent:'center', alignItems:'center' }} >
                         <Feather name="download" size={24} color={Style.placeHolderTextColor} />
                      </TouchableOpacity>
@@ -127,30 +131,30 @@ export default function TransPaidDetail({ navigation, route }) {
                             <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2 }}>
                               <View style={{ width:"100%" }} >
                                   <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
-                                    <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.headerBgColor }}>{transData?.taskName}</Text>
+                                    <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.headerBgColor }}>{transData?.taskName}</Text>
                                      <View  style={{ width:100, backgroundColor:'#85BD2A', height:30, justifyContent:'center', alignItems:'center', borderRadius:5 }} >
-                                         <Text style={{ fontSize:14, fontFamily: 'Poppins-Medium', color:Style.basicbgColor }}>Paid</Text>
+                                         <Text style={{ fontSize:14, fontFamily: 'Lato-Medium', color:Style.basicbgColor }}>Paid</Text>
                                      </View>
                                   </View> 
                                   <View style={{ flexDirection:'row' }} >
-                                     <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.headerBgColor }}>Hsn No.: </Text>
-                                     {/* <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.secondryTextColor }}>{transData?.clientCompletedTaskData[0]?.HSNCode}</Text> */}
+                                     <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.headerBgColor }}>Hsn No.: </Text>
+                                     {/* <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.secondryTextColor }}>{transData?.clientCompletedTaskData[0]?.HSNCode}</Text> */}
                                   </View>
                                   <View style={{ flexDirection:'row' }} >
-                                     <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.headerBgColor }}>Amount to be paid: </Text>
-                                     <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.secondryTextColor }}>{transData.grandTotal}/-</Text>
+                                     <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.headerBgColor }}>Amount to be paid: </Text>
+                                     <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.secondryTextColor }}>{transData.grandTotal}/-</Text>
                                   </View>
                               </View>
                               <View style={{ width:'100%', backgroundColor:Style.inputBgColor, marginTop:10, borderRadius:10, padding:10 }} >
                                <View style={{ flexDirection:'row', paddingVertical:10 }} >
                                    <View style={{ flex:1, justifyContent:'center', borderRightWidth:1.5, borderColor:Style.placeHolderTextColor }} >
-                                       <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.placeHolderTextColor }}>Issued On</Text>
-                                       <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.headerBgColor  }}>{moment(transData?.createdAt).format('DD/MM/YYYY')}</Text>
+                                       <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.placeHolderTextColor }}>Issued On</Text>
+                                       <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.headerBgColor  }}>{moment(transData?.createdAt).format('DD/MM/YYYY')}</Text>
                                    </View>
                                    <View style={{ flex:1, justifyContent:'center', alignItems:'center', }} >
                                        <View>
-                                           <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.placeHolderTextColor }}>Paid On</Text>
-                                           <Text style={{ fontSize:16, fontFamily: 'Poppins-Medium', color:Style.headerBgColor }}>{moment(transData?.paymentHistory?.updatedAt).format('DD/MM/YYYY')}</Text>
+                                           <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.placeHolderTextColor }}>Paid On</Text>
+                                           <Text style={{ fontSize:16, fontFamily: 'Lato-Medium', color:Style.headerBgColor }}>{moment(transData?.paymentHistory?.updatedAt).format('DD/MM/YYYY')}</Text>
                                        </View>
                                    </View>
                                </View>
@@ -158,36 +162,36 @@ export default function TransPaidDetail({ navigation, route }) {
                             </View>
                             <View style={{ width:'100%', backgroundColor:Style.basicbgColor, marginTop:10, borderRadius:10, padding:10, borderWidth:1, borderColor:Style.secondaryButtonColor }} >
                                 <View style={{ width:'100%', height:50, backgroundColor:Style.headerBgColor, borderRadius:10, justifyContent:'center', alignItems:'center' }} >
-                                    <Text style={{fontSize:16, fontFamily: 'Poppins-Medium', color:"#fff"}} >Payment Detail</Text>
+                                    <Text style={{fontSize:16, fontFamily: 'Lato-Medium', color:"#fff"}} >Payment Detail</Text>
                                 </View>
                                 <View style={{ marginTop:20 }} >
                                    <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:"center", paddingBottom:10}} >
                                       <Text style={{ fontSize:14, fontWeight:"400", color:Style.secondryTextColor }}>Transaction ID</Text>
-                                      <Text style={{ fontSize:14, fontFamily: 'Poppins-Medium', color:Style.basicTextColor }}>{transData?.paymentHistory?.razorpayPaymentId}</Text>
+                                      <Text style={{ fontSize:14, fontFamily: 'Lato-Medium', color:Style.basicTextColor }}>{transData?.paymentHistory?.razorpayPaymentId}</Text>
                                    </View>
                                    <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:"center", paddingBottom:10}} >
                                       <Text style={{ fontSize:14, fontWeight:"400", color:Style.secondryTextColor }}>Payment Time</Text>
-                                      <Text style={{ fontSize:14, fontFamily: 'Poppins-Medium', color:Style.basicTextColor }}>{transData?.paymentHistory?.paymentOBJ?.created_at}</Text>
+                                      <Text style={{ fontSize:14, fontFamily: 'Lato-Medium', color:Style.basicTextColor }}>{transData?.paymentHistory?.paymentOBJ?.created_at}</Text>
                                    </View>
                                    <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:"center", paddingBottom:10}} >
                                       <Text style={{ fontSize:14, fontWeight:"400", color:Style.secondryTextColor }}>Payment Method</Text>
-                                      <Text style={{ fontSize:14, fontFamily: 'Poppins-Medium', color:Style.basicTextColor }}>{transData?.paymentHistory?.paymentOBJ?.method}</Text>
+                                      <Text style={{ fontSize:14, fontFamily: 'Lato-Medium', color:Style.basicTextColor }}>{transData?.paymentHistory?.paymentOBJ?.method}</Text>
                                    </View>
                                    <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:"center", paddingBottom:10}} >
                                       <Text style={{ fontSize:14, fontWeight:"400", color:Style.secondryTextColor }}>To</Text>
-                                      <Text style={{ fontSize:14, fontFamily: 'Poppins-Medium', color:Style.basicTextColor }}>{transData?.paidTo?.fullName}</Text>
+                                      <Text style={{ fontSize:14, fontFamily: 'Lato-Medium', color:Style.basicTextColor }}>{transData?.paidTo?.fullName}</Text>
                                    </View>
                                    <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:"center", paddingBottom:10, borderBottomWidth:1, borderStyle:'dashed', borderColor:Style.secondryTextColor}} >
                                       <Text style={{ fontSize:14, fontWeight:"400", color:Style.secondryTextColor }}>From</Text>
-                                      <Text style={{ fontSize:14, fontFamily: 'Poppins-Medium', color:Style.basicTextColor }}>{transData?.paidBy?.fullName}</Text>
+                                      <Text style={{ fontSize:14, fontFamily: 'Lato-Medium', color:Style.basicTextColor }}>{transData?.paidBy?.fullName}</Text>
                                    </View>
                                    <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:"center", paddingVertical:10}} >
                                       <Text style={{ fontSize:14, fontWeight:"400", color:Style.secondryTextColor }}>Amount</Text>
-                                      <Text style={{ fontSize:14, fontFamily: 'Poppins-Medium', color:Style.basicTextColor }}>INR {transData?.paymentHistory?.paymentOBJ?.notes.amount}</Text>
+                                      <Text style={{ fontSize:14, fontFamily: 'Lato-Medium', color:Style.basicTextColor }}>INR {transData?.paymentHistory?.paymentOBJ?.notes.amount}</Text>
                                    </View>
                                    <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:"center", paddingVertical:10}} >
                                       <Text style={{ fontSize:14, fontWeight:"400", color:Style.secondryTextColor }}>Payment Status</Text>
-                                      <Text style={{ fontSize:14, fontFamily: 'Poppins-Medium', color:transData.status === 'Paid'?'#85BD2A':'#E51E1E', backgroundColor:transData.status === 'Paid'?'#85BD2A20':'#E51E1E10', paddingHorizontal:15, padding:4, borderRadius:50 }}>{transData.status === 'Paid'?'Success':'Failed'}</Text>
+                                      <Text style={{ fontSize:14, fontFamily: 'Lato-Medium', color:transData.status === 'Paid'?'#85BD2A':'#E51E1E', backgroundColor:transData.status === 'Paid'?'#85BD2A20':'#E51E1E10', paddingHorizontal:15, padding:4, borderRadius:50 }}>{transData.status === 'Paid'?'Success':'Failed'}</Text>
                                    </View>
                                 </View>
                             </View>
@@ -205,7 +209,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingBottom: 0,
-        backgroundColor:'#fff',
+        backgroundColor:'#eee',
         height:100,
         width:'100%',
     },

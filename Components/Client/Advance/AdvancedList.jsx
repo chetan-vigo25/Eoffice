@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Alert, StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Modal, StyleSheet, LayoutAnimation, UIManager, Platform, ToastAndroid, ActivityIndicator, RefreshControl } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Modal, StyleSheet, LayoutAnimation, UIManager, Platform, ToastAndroid, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
@@ -7,53 +7,35 @@ import BASE_URL from '../../../Urls/DomainUrl';
 import moment from "moment";
 import DatePicker from 'react-native-modern-datepicker';
 import { useFocusEffect } from '@react-navigation/native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 
 import { AntDesign, Feather, Ionicons, Fontisto } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 
-function showToast(message, onOk = null) {
+function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
-    if (onOk) {
-      setTimeout(onOk, 2000);
-    }
   } else {
-    Alert.alert(
-      '',
-      message,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onOk) onOk();
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    Alert.alert('', message);
   }
 }
 
 export default function AdvancedList({ navigation }) {
- 
   const dispatch = useDispatch();
   const [scale] = useState(new Animated.Value(0)); 
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [advanceData, setAdvanceData] = useState([]);
-  const [modalVisible1, setModalVisible1] = useState(false);
-  const [modalVisible2, setModalVisible2] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredData, setFilteredData] = useState([]);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [isDatePickerVisible2, setDatePickerVisibility2] = useState(false);
-  const [refresh, setRefresh] = useState(false);
   const logoutHandled = useRef(false);
+  
 
   const statusData = ['Paid', 'Unpaid']
 
@@ -65,14 +47,18 @@ export default function AdvancedList({ navigation }) {
     }).start();
   }, []);
 
+  useEffect(() => {
+    getAdvanceList();
+  },[])
+
   const getAdvanceList = async () => {
     if (logoutHandled.current) return;
-      setLoading(true)
-      let token = await AsyncStorage.getItem("token");
-      if(!token) {
-       navigation.navigate('Autologin');
-       return;
-    }
+    setLoading(true)
+     let token = await AsyncStorage.getItem("token");
+     if(!token) {
+      navigation.navigate('Autologin');
+      return;
+     };
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -107,14 +93,12 @@ export default function AdvancedList({ navigation }) {
           showToast("No data found for the selected date range.");
         }
   
-      }else if (result.statusCode === 401) {
-        if (!logoutHandled.current) {
-          logoutHandled.current = true; // Flag to prevent multiple logouts
-          showToast("Session expired. Please log in again.", () => {
-            dispatch(logout()); // Dispatch logout action when OK is pressed
-            navigation.navigate('Autologin'); // Navigate to autologin page
-          });
-        }
+      }else if(result.statusCode === 401){
+        dispatch(logout());
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.clear();
+        navigation.navigate('Autologin');
+        setLoading(false);
       } else {
         showToast(result.message || "Something went wrong.");
         setAdvanceData([]);
@@ -131,15 +115,10 @@ export default function AdvancedList({ navigation }) {
   };
   
   const showDefault = async () => {
+    setLoading(true)
     setStartDate('');
     setEndDate('');
-    if (logoutHandled.current) return;
-      setLoading(true)
-      let token = await AsyncStorage.getItem("token");
-      if(!token) {
-       navigation.navigate('Autologin');
-       return;
-    }
+    let token = await AsyncStorage.getItem("token");
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
@@ -168,14 +147,6 @@ export default function AdvancedList({ navigation }) {
             setAdvanceData(result.data.docs);
             setFilteredData(result.data.docs);
             setLoading(false)
-        }else if (result.statusCode === 401) {
-          if (!logoutHandled.current) {
-            logoutHandled.current = true; // Flag to prevent multiple logouts
-            showToast("Session expired. Please log in again.", () => {
-              dispatch(logout()); // Dispatch logout action when OK is pressed
-              navigation.navigate('Autologin'); // Navigate to autologin page
-            });
-          }
         }else{
           showToast(result.message);
           setLoading(false)
@@ -190,26 +161,33 @@ export default function AdvancedList({ navigation }) {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => {
-    getAdvanceList();
-  },[])
+  const showDatePicker = () => {
+     setDatePickerVisibility(true);
+   };
+ 
+   const hideDatePicker = () => {
+     setDatePickerVisibility(false);
+   };
+ 
+   const handleConfirm = (date) => {
+    setStartDate(date);
+     hideDatePicker();
+   };
 
-  const onChange = (event, selectedDate) => {
-    setDatePickerVisibility(Platform.OS === 'ios'); // keep showing on iOS if needed
-    if (selectedDate) {
-      setStartDate(selectedDate);
-      setDatePickerVisibility(false);
-      setModalVisible1(false);
-    }
-  };
-  const onChange2 = (event, selectedDate) => {
-    setDatePickerVisibility(Platform.OS === 'ios'); // keep showing on iOS if needed
-    if (selectedDate) {
-      setEndDate(selectedDate);
-      setDatePickerVisibility2(false);
-      setModalVisible2(false);
-    }
-  };
+  const showDatePicker2 = () => {
+     setDatePickerVisibility2(true);
+   };
+ 
+   const hideDatePicker2 = () => {
+     setDatePickerVisibility2(false);
+   };
+ 
+   const handleConfirm2 = (date) => {
+    setEndDate(date);
+     hideDatePicker2();
+   };
+  const formattedDate = startDate ? moment(startDate).format("DD/MM/YYYY") : "From";
+  const formattedDateTo = endDate ? moment(endDate).format("DD/MM/YYYY") : "To";
 
   const handleSearch = (text) => {
     setSearchQuery(text);
@@ -229,17 +207,11 @@ export default function AdvancedList({ navigation }) {
     },[])
   );
 
-  const onRefresh = () => {
-    setRefresh(true);
-    getAdvanceList();
-    setTimeout(() => {
-        setRefresh(false);
-    }, 2000);
-}
+  console.log("filteredData", formattedDate);
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-     <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
+     <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <Modal
           animationType="slide"
           transparent={true}
@@ -249,85 +221,49 @@ export default function AdvancedList({ navigation }) {
             setModalVisible(false);
           }}>
          <TouchableOpacity onPress={()=> setModalVisible(false)} style={{ flex:1, backgroundColor:'#00000080', justifyContent:'flex-end'}}>
-            <View style={{ width:'100%', backgroundColor:'#fff', height:300,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
+            <View style={{ width:'100%', backgroundColor:'#eee', height:300,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
             <View style={{ width:60, height:4, backgroundColor:'#b3b3b3', alignSelf:'center', marginTop:20, borderRadius:5 }} ></View>
             <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:10 }} >
              <Text style={{ fontSize:16, fontWeight:"600", color:'#074173', }}>Filters</Text>
               <TouchableOpacity onPress={()=> {showDefault();setModalVisible(false)}} style={{ width:110, paddingHorizontal:10, height:40, backgroundColor:'#658Eff10', justifyContent:'center', alignItems:'center', borderRadius:6, borderWidth:1, borderColor:Style.headerBgColor }} >
-                <Text style={{ fontSize: 14, fontFamily: 'Poppins-Medium', color: Style.primaryTextColor }} >Reset</Text>
+                <Text style={{ fontSize: 14, fontFamily: 'Lato-Medium', color: Style.primaryTextColor }} >Reset</Text>
               </TouchableOpacity>
              </View>
               <View style={{ width:'100%', flexDirection:'row', gap:10 }} >
                 <View style={{ flex:1, height:50, flexDirection:'row', backgroundColor:Style.basicbgColor, borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                    <View style={{ width:'100%', height:50, borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:0, marginBottom:10, padding:5, justifyContent:"center", alignItems:'center'}}>
                      <View style={{ flex:9, borderRadius:5, padding:5,  }} >
-                       <Text style={{ color:Style.headerBgColor, fontWeight:'600', fontSize:12 }}>{startDate ? moment(startDate).format('DD/MM/YYYY') : 'From'}</Text>
+                       <Text style={{ color:Style.headerBgColor, fontWeight:'600', fontSize:12 }}>{formattedDate}</Text>
                      </View>
-                     <TouchableOpacity onPress={() => {setModalVisible1(true),setDatePickerVisibility(true)}} style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
+                     <TouchableOpacity onPress={showDatePicker} style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
                        <Feather name="calendar" size={20} color={Style.basicTextColor} />
                      </TouchableOpacity>
                    </View>
                    {/* From Date Modal */}
-                  <Modal
-                    animationType="slide"
-                    transparent={true}
-                    visible={modalVisible1}
-                    onRequestClose={() => setModalVisible1(!modalVisible1)}
-                  >
-                    <View style={styles.modalBackground}>
-                      <View style={styles.modalContainer}>
-                        <View style={styles.modalHeader}>
-                          <Text style={styles.modalTitle}>Select From Date</Text>
-                           <TouchableOpacity onPress={() => setModalVisible1(!modalVisible1)} style={styles.closeButton}>
-                             <Ionicons name="close-sharp" size={32} color='#fff' />
-                           </TouchableOpacity>
-                        </View>
-                        {isDatePickerVisible && (
-                          <DateTimePicker
-                           value={startDate ? new Date(startDate) : new Date()}
-                            mode="date"
-                            display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
-                            onChange={onChange}
-                          />
-                        )}
-                      </View>
-                    </View>
-                  </Modal>
+                    <DateTimePickerModal
+                      isVisible={isDatePickerVisible}
+                      mode="date"
+                      date={startDate || new Date()}
+                      onConfirm={handleConfirm}
+                      onCancel={hideDatePicker}
+                    />
                 </View>
                 <View style={{ flex:1, height:50, flexDirection:'row', backgroundColor:Style.basicbgColor, borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
                    <View style={{ width:'100%', height:50, borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:0, marginBottom:10, padding:5, justifyContent:"center", alignItems:'center'}}>
                      <View style={{ flex:9, borderRadius:5, padding:5,  }} >
-                       <Text style={{ color:Style.headerBgColor, fontWeight:'600', fontSize:12 }}>{endDate ? moment(endDate).format('DD/MM/YYYY') : 'From'}</Text>
+                       <Text style={{ color:Style.headerBgColor, fontWeight:'600', fontSize:12 }}>{formattedDateTo}</Text>
                      </View>
-                     <TouchableOpacity onPress={()=> {setModalVisible2(true),setDatePickerVisibility2(true)}} style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
+                     <TouchableOpacity onPress={showDatePicker2} style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
                         <Feather name="calendar" size={20} color={Style.basicTextColor} />
                       </TouchableOpacity>
                    </View>
-                   <Modal
-                     animationType="slide"
-                     transparent={true}
-                     visible={modalVisible2}
-                     onRequestClose={() => setModalVisible2(!modalVisible2)}
-                   >
-                     <View style={styles.modalBackground}>
-                       <View style={styles.modalContainer}>
-                         <View style={styles.modalHeader}>
-                           <Text style={styles.modalTitle}>Select To Date</Text>
-                           <TouchableOpacity onPress={() => setModalVisible2(!modalVisible2)} style={styles.closeButton}>
-                             <Ionicons name="close-sharp" size={32} color='#fff' />
-                           </TouchableOpacity>
-                         </View>
-                         {isDatePickerVisible2 && (
-                          <DateTimePicker
-                           value={endDate ? new Date(endDate) : new Date()}
-                            mode="date"
-                            display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
-                            onChange={onChange2}
-                          />
-                        )}
-                       </View>
-                     </View>
-                   </Modal>
+                    <DateTimePickerModal
+                      isVisible={isDatePickerVisible2}
+                      mode="date"
+                      date={endDate || new Date()}
+                      onConfirm={handleConfirm2}
+                      onCancel={hideDatePicker2}
+                    />
                 </View>
               </View>
              <TouchableOpacity disabled={!startDate && !endDate}  onPress={() => {setModalVisible(false); getAdvanceList();}} style={{ width:'50%', height:40, backgroundColor: (!startDate && !endDate) ? '#cccccc40' : '#658eff', borderRadius:5, justifyContent:'center', alignItems:'center', alignSelf:'center', elevation:0, marginTop:0, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, marginBottom:10 }} >
@@ -337,11 +273,11 @@ export default function AdvancedList({ navigation }) {
          </TouchableOpacity>
       </Modal>
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
-        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
+        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
              <AntDesign name="arrowleft" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={{color: '#fff',fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Statements</Text>
+          <Text style={{color: '#fff',fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Statements</Text>
         </View>
         <View style={{flexDirection: 'row',alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
           <View style={{flex: 8, flexDirection: 'row', alignItems: 'center', backgroundColor:Style.basicbgColor,borderRadius: 50, height: 50, elevation: 4 }}>
@@ -358,18 +294,18 @@ export default function AdvancedList({ navigation }) {
         
       <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
         <Animated.View style={{flex:1, transform: [{ scale }] }}>
-            <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom:10 }} >
-              <Text style={{ flex:1, fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.headerBgColor }}>Statements</Text>
-                <View style={{ flexDirection:"row", flex:1, justifyContent:"flex-end" }} >
+             <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom:10 }} >
+               <Text style={{ flex:1, fontSize:14, fontFamily:'Lato-SemiBold', color:Style.headerBgColor }}>All Invoices</Text>
+                 <View style={{ flexDirection:'row', flex:1, justifyContent:'flex-end' }} >
                   <TouchableOpacity onPress={()=> showDefault()} style={{ width:40, height:40, justifyContent:'center', alignItems:'center' }} >
                       <Fontisto name="spinner-refresh" size={24} color="gray" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={()=> setModalVisible(true)} style={{ width:40, height:40, justifyContent:'center', alignItems:'center' }} >
                       <Image source={require('../../../assets/menuIcon.png')} resizeMode="contain" style={{ width:30, height:30 }} />
                   </TouchableOpacity>
-                </View>
-            </View>
-             <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh}/>} showsVerticalScrollIndicator={false} style={{ flex:1 }}>
+                 </View>
+             </View>
+             <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
                <View>
                 {
                   loading ? (
@@ -381,9 +317,9 @@ export default function AdvancedList({ navigation }) {
                       filteredData.map((item, index) => {
                         return(
                             <View key={index} style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, marginBottom:10, padding:10 }} >
-                              <View style={{ width:"100%", flexDirection:'row', gap:10, justifyContent:'space-between', alignItems:'center' }} >
-                                  <Text style={{flex:7, fontSize:16, fontWeight:"500", color:Style.headerBgColor }}>Advance {item.receiptNumber}</Text>
-                                  <View style={{flex:3, width:100, backgroundColor:item.status ==='Paid'?'#85BD2A': '#E51E1E', height:30, justifyContent:'center', alignItems:'center', borderRadius:5 }} >
+                              <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center' }} >
+                                  <Text style={{ fontSize:16, fontWeight:"500", color:Style.headerBgColor }}>Advance {item.receiptNumber}</Text>
+                                  <View style={{ width:100, backgroundColor:item.status ==='Paid'?'#85BD2A': '#E51E1E', height:30, justifyContent:'center', alignItems:'center', borderRadius:5 }} >
                                       <Text style={{ fontSize:14, fontWeight:"600", color:Style.basicbgColor }}>{item.status==='Paid'?'Received': 'Adjusted'}</Text>
                                   </View>
                               </View>
@@ -419,6 +355,9 @@ export default function AdvancedList({ navigation }) {
                </View>
           </ScrollView>
         </Animated.View>
+        {/* <TouchableOpacity onPress={()=> navigation.navigate('AddAdvance')} style={{ width:'100%', height:45, backgroundColor:Style.headerBgColor, borderRadius:6, justifyContent:'center', alignItems:'center', marginTop:10 }} >
+          <Text style={{ fontSize:16, fontFamily:'Lato-Medium', color:'#fff' }} >+ Add Advance</Text>
+        </TouchableOpacity> */}
       </View>
     </SafeAreaView>
   );
@@ -458,3 +397,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 })
+

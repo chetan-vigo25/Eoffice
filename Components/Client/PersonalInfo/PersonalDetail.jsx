@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from "react";
-import { View, Text, Alert, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, LayoutAnimation, UIManager, ToastAndroid, Platform, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Image, Alert, Animated, SafeAreaView, LayoutAnimation, UIManager, Platform, ScrollView, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -10,33 +9,10 @@ import moment from "moment";
 import { AntDesign, Feather } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 
-function showToast(message, onOk = null) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-    if (onOk) {
-      setTimeout(onOk, 2000);
-    }
-  } else {
-    Alert.alert(
-      '',
-      message,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onOk) onOk();
-          },
-        },
-      ],
-      { cancelable: false }
-    );
-  }
-}
-
 export default function PersonalDetail({ navigation }) {
 
-const dispatch = useDispatch();
-const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
+  const dispatch = useDispatch();
+  const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
 
 const [slideAnim] = useState(new Animated.Value(30)); 
 
@@ -49,19 +25,26 @@ const [slideAnim] = useState(new Animated.Value(30));
   }, []);
 
   useEffect(() => {
-    // Check for token when the component mounts
     const checkTokenAndFetchData = async () => {
       try {
-        const token = await AsyncStorage.getItem('token'); // Assuming the token is stored under 'token'
-
+        const token = await AsyncStorage.getItem('token'); 
         if (!token) {
-          // If no token, show an alert
-          showToast("Session expired. Please log in again.", () => {
-            dispatch(logout()); // Dispatch logout action when OK is pressed
-            navigation.navigate('Autologin'); // Navigate to autologin page
-          });
+          Alert.alert(
+          "Error",
+          "Session expired. Please log in again.",
+          [
+            {
+              text: "OK",
+              onPress: async () => {
+                dispatch(logout());
+                await AsyncStorage.clear();
+                navigation.replace("Autologin");
+              }
+            }
+          ],
+      { cancelable: false }
+    );
         } else {
-          // If token exists, dispatch the personalInfo action
           dispatch(personalInfo());
         }
       } catch (error) {
@@ -69,22 +52,17 @@ const [slideAnim] = useState(new Animated.Value(30));
         Alert.alert('Error', 'An error occurred while checking the token.');
       }
     };
-
     checkTokenAndFetchData();
   }, [dispatch]);
-  
-  // useEffect(() => {
-  //      dispatch(personalInfo());
-  // }, [dispatch]);
 
-  // console.log("personalInfoData---", personalInfoData?.profileImage)
+  // console.log("personalInfoData---", JSON.stringify(personalInfoData, null, 2))
   const { city, country, pinCode, state, street } = personalInfoData?.addresses?.primary || {};
   const fullAddress = `${street || "Street not available"}, ${city || "City not available"}, ${state || "State not available"} ${pinCode || "PinCode not available"}, ${country || "Country not available"}`;
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-      <View style={{ paddingHorizontal:20 }}>
-        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
+      <View style={{ paddingHorizontal:20, }}>
+        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', }}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start',}}>
              <AntDesign name="arrowleft" size={24} color="#fff" />
           </TouchableOpacity>
@@ -101,20 +79,20 @@ const [slideAnim] = useState(new Animated.Value(30));
           (
             <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
              <Text style={{ fontSize:14, fontWeight:'600', color:Style.headerBgColor, padding:10 }}>Personal Details</Text>
-               <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2, borderWidth: .5, borderColor: '#e0e0e0' }} >
+               <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2 }} >
                 <View>
                   <View style={{ width:'100%', height:80, flexDirection:'row', alignItems:'center', gap:20, marginVertical:10 }} >
                     <View style={{ width:80, height:80, borderRadius:100, borderWidth:2, borderColor:Style.headerBgColor, justifyContent:'center', alignItems:'center' }} >
                       <Image source={ personalInfoData?.profileImage ? { uri: personalInfoData.profileImage } : require('../../../assets/userIcon.jpeg') } resizeMode="cover" style={{ width:75, height:75, borderRadius:100 }} />
                     </View>
                     <View style={{ flex:1, justifyContent:'center', alignItems:'flex-start' }} >
-                      <Text style={{ fontSize:16, color:Style.headerBgColor, fontFamily:'Poppins-SemiBold' }} >{personalInfoData?.fullName || "Unknown"}</Text>
-                      <Text style={{ color:Style.placeHolderTextColor, fontSize:14, fontFamily:'Poppins-Medium' }} >{personalInfoData?.userName || "No username available"}</Text>
+                      <Text style={{ fontSize:16, color:Style.headerBgColor, fontFamily:'Lato-SemiBold' }} >{personalInfoData?.fullName || "Unknown"}</Text>
+                      <Text style={{ color:Style.placeHolderTextColor, fontSize:14, fontFamily:'Lato-Medium' }} >{personalInfoData?.userName || "No username available"}</Text>
                     </View>
                   </View>
                 </View>
                <View>
-                 <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Phone No.</Text>
+                 <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Phone No.</Text>
                   <View style={{ flexDirection:'row', gap:10, marginBottom:10 }} >
                     <View style={{ flex:1.5, height:40, backgroundColor:Style.inputBgColor, borderRadius:5, justifyContent:'center', alignItems:'center', elevation:4}} >
                       <Text style={{ color:Style.placeHolderTextColor, fontWeight:'500', fontSize:14 }}>{personalInfoData?.mobile?.code || "-"}</Text>
@@ -125,20 +103,20 @@ const [slideAnim] = useState(new Animated.Value(30));
                   </View>
                 </View>
                  <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>E-mail ID</Text>
+                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>E-mail ID</Text>
                    <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
                     <Text style={{ color:Style.placeHolderTextColor }} >{personalInfoData?.email || "No email available"}</Text>
                    </View>
                  </View>
                  <View>
-                  <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Address</Text>
+                  <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Address</Text>
                    <View style={{ width:'100%', justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4, }}>
                     <Text style={{ color:Style.placeHolderTextColor, padding:8 }} >{fullAddress}</Text>
                    </View>
                  </View>
                 <View style={{ flexDirection:'row', gap:20 }} >
                 <View style={{ flex:1 }}>
-                   <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Joining Date</Text>
+                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Joining Date</Text>
                    <View style={{ width:'100%', height:40,  borderRadius:5, flexDirection:'row', backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, justifyContent:"center", alignItems:'center', elevation:4}}>
                        <View style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
                            <Feather name="calendar" size={20} color={Style.placeHolderTextColor} />
@@ -149,7 +127,7 @@ const [slideAnim] = useState(new Animated.Value(30));
                    </View>
                  </View>
                 <View style={{ flex:1 }}>
-                   <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>DOB</Text>
+                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>DOB</Text>
                    <View style={{ width:'100%', height:40,  borderRadius:5, flexDirection:'row', backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, justifyContent:"center", alignItems:'center', elevation:4}}>
                        <View style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
                            <Feather name="calendar" size={20} color={Style.placeHolderTextColor} />
@@ -162,33 +140,33 @@ const [slideAnim] = useState(new Animated.Value(30));
                 </View>
                </View>
                <Text style={{ fontSize:14, fontWeight:'600', color:Style.headerBgColor, padding:10 }}>Secondary Detail</Text>
-               <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2, borderWidth: .5, borderColor: '#e0e0e0' }} >
+               <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2 }} >
                  <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Organization Type</Text>
+                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Organization Type</Text>
                    <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
                      <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.organizationName || "No organization available"}</Text>
                    </View>
                  </View>
                  <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>industry Type</Text>
+                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>industry Type</Text>
                    <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
                     <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.industryName || "No organization available"}</Text>
                    </View>
                  </View>
                  <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>GST Number</Text>
+                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>GST Number</Text>
                    <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
                     <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.clientProfile?.GSTNumber || "No GST Number available"}</Text>
                    </View>
                  </View>
                  <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>PAN Card Number</Text>
+                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>PAN Card Number</Text>
                    <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
                     <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.clientProfile?.penNumber || "No PEN Number available"}</Text>
                    </View>
                  </View>
                  <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Poppins-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Aadhar Card</Text>
+                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Aadhar Card</Text>
                    <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
                     <Text style={{ color:Style.placeHolderTextColor }} >{personalInfoData?.clientProfile?.adharNumber || "No Aadhar no available"}</Text>
                    </View>

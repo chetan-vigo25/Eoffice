@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, SafeAreaView, Text, StatusBar, Button, ScrollView, Modal, FlatList, Platform, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
+import { StyleSheet, View, Text, StatusBar, Button, ScrollView, Modal, FlatList, Platform, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import { SelectList } from 'react-native-dropdown-select-list';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -11,6 +11,7 @@ import BASE_URL from '../../../Urls/DomainUrl';
 import { WebView } from 'react-native-webview';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 // import { SafeAreaView } from 'react-native-safe-area-context';
@@ -180,12 +181,12 @@ export default function EmployePaySlip({ navigation, route }) {
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
               <AntDesign name="arrowleft" size={24} color="#fff" />
            </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Payslip</Text>
+          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Payslip</Text>
         </View>
         <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20 }} >
             <EmployeHeader navigation={navigation} />
             <TouchableOpacity onPress={downloadPayslipPDF} style={{ width:'50%', alignSelf:'flex-end', backgroundColor:'#6a8ff3', padding:10, borderRadius:5, marginVertical:10 }} >
-                <Text style={{ color:'#fff', fontSize:14, textAlign:'center', fontFamily:'Poppins-SemiBold' }} >Download</Text>
+                <Text style={{ color:'#fff', fontSize:14, textAlign:'center', fontFamily:'Lato-SemiBold' }} >Download</Text>
             </TouchableOpacity>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flex:1, }} >
               {
@@ -217,7 +218,7 @@ export default function EmployePaySlip({ navigation, route }) {
                   :
                   (
                     <View style={{ flex:1, justifyContent:'center', alignItems:'center',}} >
-                      <Text style={{ fontSize:16, color:'#000', fontFamily:'Poppins-Regular' }} >No Payslip Available</Text>
+                      <Text style={{ fontSize:16, color:'#000', fontFamily:'Lato-Regular' }} >No Payslip Available</Text>
                     </View>
                   )
                 )

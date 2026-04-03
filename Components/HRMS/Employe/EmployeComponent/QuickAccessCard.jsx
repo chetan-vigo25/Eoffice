@@ -98,7 +98,7 @@ const Card = ({ item, navigation }) => (
       {item.icon}
     </View>
 
-    <Text style={{ fontSize: 16, fontFamily: 'Poppins-SemiBold' }}>
+    <Text style={{ fontSize: 16, fontFamily: 'Lato-SemiBold' }}>
       {item.title}
     </Text>
     {item.footer && (
@@ -113,7 +113,7 @@ const Card = ({ item, navigation }) => (
         <Text
           style={{
             fontSize: 18,
-            fontFamily: 'Poppins-Medium',
+            fontFamily: 'Lato-Medium',
             color: '#444',
           }}
         >

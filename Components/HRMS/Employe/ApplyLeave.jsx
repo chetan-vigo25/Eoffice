@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, View, Text, StatusBar, Button, ScrollView, Modal, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
+import { StyleSheet, View, Text, StatusBar, Button, ScrollView, Modal, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import { SelectList } from 'react-native-dropdown-select-list';
 import CalendarPicker from "react-native-calendar-picker";
 import moment from "moment";
 import EmployeHeader from './EmployeComponent/EmployeHeader';
 import EmployeeLeaveCard from './EmployeComponent/EmployeeLeaveCard';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AntDesign, Feather, FontAwesome6 } from "@expo/vector-icons";
 
@@ -104,7 +105,7 @@ export default function LeaveManagement({ navigation }) {
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
               <AntDesign name="arrowleft" size={24} color="#fff" />
            </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Leave Management</Text>
+          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Leave Management</Text>
         </View>
         <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20 }} >
             <EmployeHeader />
@@ -115,50 +116,50 @@ export default function LeaveManagement({ navigation }) {
                      <View style={{ width: '100%', height: 60, flexDirection: 'row', gap: 10, padding: 10, justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#6a8ff320', borderWidth: 1, borderColor: "#6a8ff3", borderRadius: 6 }}>
                        <View style={{ flex: 1 }}>
                           {firstDate && secondDate ? (
-                           <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold", }}>
+                           <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold", }}>
                              {firstDate}
                            </Text>
                           ):
                           (
-                           <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold", }}>{currentDate}</Text>
+                           <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold", }}>{currentDate}</Text>
                           )}
                        </View>
                        <View style={{ flex: 1 }}>
                            <View style={{ flex: 1 }}>
                              {firstDate && secondDate ? (
                                <TouchableOpacity style={{ width: '100%', height: 40, backgroundColor: '#6a8ff3', borderRadius: 3, justifyContent: 'center', alignItems: 'center' }}>
-                                 <Text style={{ color: '#FFF', fontSize: 16, fontFamily: "Poppins-SemiBold" }}>{totalDay} Days</Text>
+                                 <Text style={{ color: '#FFF', fontSize: 16, fontFamily: "Lato-SemiBold" }}>{totalDay} Days</Text>
                                </TouchableOpacity>
                              ):(
                                <TouchableOpacity style={{ width: '100%', height: 40, backgroundColor: '#6a8ff3', borderRadius: 3, justifyContent: 'center', alignItems: 'center' }}>
-                                 <Text style={{ color: '#FFF', fontSize: 16, fontFamily: "Poppins-SemiBold" }}>{selectLeave}</Text>
+                                 <Text style={{ color: '#FFF', fontSize: 16, fontFamily: "Lato-SemiBold" }}>{selectLeave}</Text>
                                </TouchableOpacity>
                              )}
                            </View>
                        </View>
                        <View style={{ flex: 1 }}>
                         {firstDate && secondDate ? (
-                          <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold", textAlign:'right'}}>
+                          <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold", textAlign:'right'}}>
                             {secondDate}
                           </Text>
                          ):
                          (
-                          <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold", textAlign:'right' }}>{currentDate}</Text>
+                          <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold", textAlign:'right' }}>{currentDate}</Text>
                          )}
                        </View>
                      </View>
                    ) : (
                      <View style={{ width: '100%', flexDirection: 'row', gap: 10 }}>
                        <TouchableOpacity onPress={handleTodayClick} style={{ flex: 1, height: 45, justifyContent: 'center', alignItems: 'center', backgroundColor: currentDate === '' ? '#6a8ff320' : '#6a8ff3', borderWidth: 1, borderColor: "#6a8ff3", borderRadius: 6 }}>
-                         <Text style={{ color: currentDate === '' ? '#4c72d9' : '#fff', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>Today</Text>
+                         <Text style={{ color: currentDate === '' ? '#4c72d9' : '#fff', fontSize: 14, fontFamily: "Lato-SemiBold" }}>Today</Text>
                        </TouchableOpacity>
                        <TouchableOpacity onPress={() => setModalVisible2(true)} style={{ flex: 1, height: 45, justifyContent: 'center', alignItems: 'center', backgroundColor: '#6a8ff320', borderWidth: 1, borderColor: "#6a8ff3", borderRadius: 6 }}>
-                         <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>Select Date</Text>
+                         <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold" }}>Select Date</Text>
                        </TouchableOpacity>
                      </View>
                    )
                  }
-                <Text style={{ color: '#868686', fontSize: 14, fontFamily:'Poppins-SemiBold', paddingVertical:10 }}>Leave Type : </Text>
+                <Text style={{ color: '#868686', fontSize: 14, fontFamily:'Lato-SemiBold', paddingVertical:10 }}>Leave Type : </Text>
                 <View style={{ width:'100%', backgroundColor:'#b6b6b610', borderRadius:10 }} >
                  <SelectList 
                      setSelected={() => {}} 
@@ -188,10 +189,10 @@ export default function LeaveManagement({ navigation }) {
                       {
                        selectLeave === '' ? 
                        <View style={{ width:'100%', height:45, backgroundColor:'#6a8ff380', borderRadius:6, justifyContent:'center', alignItems:'center', marginTop:20 }} >
-                           <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Submit</Text>
+                           <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Lato-SemiBold" }} >Submit</Text>
                        </View>:
                        <TouchableOpacity onPress={() => {setModalVisible(!modalVisible); setShow(!show)}} style={{ width:'100%', height:45, backgroundColor:'#6a8ff3', borderRadius:6, justifyContent:'center', alignItems:'center', marginTop:20 }} >
-                           <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Submit</Text>
+                           <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Lato-SemiBold" }} >Submit</Text>
                        </TouchableOpacity>
                       }
                     </View>
@@ -221,10 +222,10 @@ export default function LeaveManagement({ navigation }) {
                         />
                        <View style={{ flexDirection:'row', gap:20 }} >
                          <TouchableOpacity onPress={() => setModalVisible2(!modalVisible2)} style={{ flex:1, height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#6a8ff320', borderWidth:1, borderColor:'#6a8ff3', borderRadius:6 }} >
-                           <Text style={{ color:'#6a8ff3', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Cancel</Text>
+                           <Text style={{ color:'#6a8ff3', fontSize:16, fontFamily:"Lato-SemiBold" }} >Cancel</Text>
                          </TouchableOpacity>
                          <TouchableOpacity onPress={handleOkConfirm} style={{ flex:1, height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#6a8ff3', borderWidth:1, borderColor:'#6a8ff3', borderRadius:6 }} >
-                           <Text style={{ color:'#fff', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Confirm</Text>
+                           <Text style={{ color:'#fff', fontSize:16, fontFamily:"Lato-SemiBold" }} >Confirm</Text>
                          </TouchableOpacity>
                        </View>
                     </View>
@@ -242,7 +243,7 @@ export default function LeaveManagement({ navigation }) {
                     <View style={styles.modalView}>
                       <View style={{ flexDirection:'row', gap:20 }} >
                         <View style={{ flex:1, backgroundColor:'#b6b6b610', borderRadius:10 }} >
-                        <Text style={{ color:'#000', fontSize:14, fontFamily:"Poppins-SemiBold" }} >Start Date: {firstDate}</Text>
+                        <Text style={{ color:'#000', fontSize:14, fontFamily:"Lato-SemiBold" }} >Start Date: {firstDate}</Text>
                          <SelectList 
                              setSelected={(val) => setSelectedStartHalf(val)}
                              data={['First Half', 'Second Half']}
@@ -251,7 +252,7 @@ export default function LeaveManagement({ navigation }) {
                          />
                         </View>
                         <View style={{ flex:1, backgroundColor:'#b6b6b610', borderRadius:10 }} >
-                        <Text style={{ color:'#000', fontSize:14, fontFamily:"Poppins-SemiBold" }} >End Date: {secondDate}</Text>
+                        <Text style={{ color:'#000', fontSize:14, fontFamily:"Lato-SemiBold" }} >End Date: {secondDate}</Text>
                          <SelectList 
                              setSelected={(val) => setSelectedEndHalf(val)} 
                              data={['First Half', 'Second Half']}
@@ -261,12 +262,12 @@ export default function LeaveManagement({ navigation }) {
                         </View>
                       </View>
                       <TouchableOpacity onPress={() => {handleConfirm()}} style={{ width:'100%', height:45, backgroundColor:'#6a8ff3', borderRadius:6, justifyContent:'center', alignItems:'center', marginTop:20 }} >
-                          <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Submit</Text>
+                          <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Lato-SemiBold" }} >Submit</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
                 </Modal>
-                <Text style={{ color: '#868686', fontSize: 14, fontFamily:'Poppins-SemiBold', paddingVertical:10 }}>Note to Approver : </Text>
+                <Text style={{ color: '#868686', fontSize: 14, fontFamily:'Lato-SemiBold', paddingVertical:10 }}>Note to Approver : </Text>
                 <View style={{ padding:.1 }} >
                  <TextInput
                    placeholder="Ex- Going for a movie show"
@@ -289,7 +290,7 @@ export default function LeaveManagement({ navigation }) {
                 </View>
             </ScrollView>
             <TouchableOpacity onPress={()=> navigation.navigate('LeaveSubmit')} style={{ width:'100%', height:45, backgroundColor:'#6a8ff3', borderRadius:6, justifyContent:'center', alignItems:'center', }} >
-                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Request Leave</Text>
+                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Lato-SemiBold" }} >Request Leave</Text>
             </TouchableOpacity>
         </View>
     </SafeAreaView>

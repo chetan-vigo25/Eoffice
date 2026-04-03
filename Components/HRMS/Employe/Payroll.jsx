@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, SafeAreaView, Text, StatusBar, Button, ScrollView, Modal, FlatList, Platform, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
+import { StyleSheet, View, Text, StatusBar, Button, ScrollView, Modal, FlatList, Platform, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import { SelectList } from 'react-native-dropdown-select-list';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -8,7 +8,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import EmployeHeader from './EmployeComponent/EmployeHeader';
 import BASE_URL from '../../../Urls/DomainUrl';
-// import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AntDesign, FontAwesome5, FontAwesome } from "@expo/vector-icons";
 
@@ -41,7 +41,7 @@ export default function Payroll({ navigation, route }) {
   const [manualRecords, setManualRecords] = useState([]);
   const [page, setPage] = useState(0);
   const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [standardData, setStandardData] = useState([]);
   const [actualData, setActualData] = useState([]);
 
@@ -53,6 +53,9 @@ export default function Payroll({ navigation, route }) {
         if (storedUserData) {
           const parsedData = JSON.parse(storedUserData);
           setUserData(parsedData);
+          // Call API functions after userData is set
+          await StandardPayList(parsedData);
+          await actualPayList(parsedData);
         }
       } catch (error) {
         console.error("Failed to load userData:", error);
@@ -61,30 +64,7 @@ export default function Payroll({ navigation, route }) {
 
     loadUserData();
   }, []);
-
-  const StandardPayrolldata = [
-      {
-        'sNo': 1,
-        'name' : 'John Doe',
-        'createdBy': 'Admin',
-        'baseSalary' : '3000',
-        'CTC' : '4000',
-        'status' : 'Approved',
-      },
-    ]   
-    const actualPayrollData = [
-      {
-        'sNo' : 1,
-        'employeeName' : 'Jane Smith',
-        'startDate' : '2023-01-01',
-        'endDate' : '2023-01-31',
-        'basicSalary' : '3200',
-        'grossSalary' : '4200',
-        'netSalary' : '3800',
-        'status' : 'Pending',
-        'action' : 'View',
-      },
-    ];    
+    
     const rowsPerPage = 10;
     const combinedStandardData = standardData; 
     const combinedActualData = actualData;
@@ -114,13 +94,14 @@ export default function Payroll({ navigation, route }) {
        'Action',
   ];
 
-  const StandardPayList = async() => {
+  const StandardPayList = async(userDataParam) => {
+    setLoading(true);
     try {
-      setLoading(true);
       let token = await AsyncStorage.getItem("authToken");
        if (!token) {
          showToast("Authentication token not found");
          setLoading(false);
+         setStandardData([]);
          return;
       }
 
@@ -129,10 +110,10 @@ export default function Payroll({ navigation, route }) {
       myHeaders.append("Authorization", "Bearer " + token);
 
       const raw = JSON.stringify({
-        "branchId": userData?.branchId,
-        "companyId": userData?.companyId,
+        "branchId": userDataParam?.branchId,
+        "companyId": userDataParam?.companyId,
         "directorId": "",
-        "employeId": userData?._id,
+        "employeId": userDataParam?._id,
         "isPagination": false,
         "sort": true,
         "status": "Active",
@@ -145,27 +126,28 @@ export default function Payroll({ navigation, route }) {
         body: raw,
         redirect: 'follow'
       };
-
+// console.log("standard raw data:", raw);
       const response = await fetch(`${BASE_URL}/admin/employe/payroll/standerd/list`, requestOptions);
       const result = await response.json();
 
       if (result.statusCode === 200) {
         // console.log(" fetch Standard Payroll data:", result.data.docs);
         setStandardData(result.data.docs || []);
-        setLoading(false);
       } else {
         showToast(result.message || "Failed to fetch Standard Payroll data");
-        setLoading(false);
+        setStandardData([]);
       }
     } catch (error) {
       console.log("Error fetching Standard Payroll data:", error);
+      setStandardData([]);
     } finally {
       setLoading(false);
     }
   }
-  const actualPayList = async() => {
+
+  const actualPayList = async(userDataParam) => {
+    setLoading(true);
     try {
-      setLoading(true);
       let token = await AsyncStorage.getItem("authToken");
        if (!token) {
          showToast("Authentication token not found");
@@ -178,13 +160,13 @@ export default function Payroll({ navigation, route }) {
       myHeaders.append("Authorization", "Bearer " + token);
 
       const raw = JSON.stringify({
-        "branchId": userData?.branchId,
-        "companyId": userData?.companyId,
+        "branchId": userDataParam?.branchId,
+        "companyId": userDataParam?.companyId,
         "directorId": "",
-        "employeId": userData?._id,
+        "employeId": userDataParam?._id,
         "isPagination": false,
         "sort": true,
-        "status": "Approved",
+        "status": "Active",
         "text": ""
       });
 
@@ -194,30 +176,26 @@ export default function Payroll({ navigation, route }) {
         body: raw,
         redirect: 'follow'
       };
-
+// console.log("actual raw data:", raw);
       const response = await fetch(`${BASE_URL}/admin/employe/payroll/list`, requestOptions);
       const result = await response.json();
 
       if (result.statusCode === 200) {
         // console.log(" fetch Actual Payroll data:", result);
         setActualData(result.data.docs || []);
-        setLoading(false);
       } else {
         showToast(result.message || "Failed to fetch Actual Payroll data");
-        setLoading(false);
+        // setLoading(false);
+        setActualData([]);
       }
     } catch (error) {
       console.log("Error fetching Actual Payroll data:", error);
+      setActualData([]);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    StandardPayList();
-    actualPayList();
-  }, []);
-  
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#6a8ff3' }}>
        <StatusBar backgroundColor={'#6a8ff3'} barStyle='light-content' />
@@ -225,18 +203,18 @@ export default function Payroll({ navigation, route }) {
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
               <AntDesign name="arrowleft" size={24} color="#fff" />
            </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Payroll Management</Text>
+          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Payroll Management</Text>
         </View>
         <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, }} >
-            <View style={{ padding: 20, borderBottomWidth: 0.5, borderBottomColor: '#E0E0E0', }} >
+            {/* <View style={{ padding: 20, borderBottomWidth: 0.5, borderBottomColor: '#E0E0E0', }} >
               <EmployeHeader navigation={navigation} />
-            </View>
-            <View style={{ flexDirection:'row', width:'100%', marginVertical:10, paddingHorizontal:10, }} >
+            </View> */}
+            <View style={{ flexDirection:'row', width:'100%', padding:20, paddingHorizontal:10, }} >
                 <TouchableOpacity onPress={() => { setActiveTab('StandardPayroll'); setPage(0); }} style={{ backgroundColor:activeTab == 'StandardPayroll' ? '#6a8ff3' : '#fff', justifyContent:'center', alignItems:'center', paddingVertical:10, paddingHorizontal:20, borderTopStartRadius:6, borderBottomStartRadius:6, borderWidth:.5, borderColor:'#e0e0e0' }} >
-                    <Text style={{ color:activeTab == 'StandardPayroll' ? '#FFF' : '#6a8ff3', fontSize:16, fontFamily:"Poppins-Medium" }} >Standard Payroll</Text>
+                    <Text style={{ color:activeTab == 'StandardPayroll' ? '#FFF' : '#6a8ff3', fontSize:16, fontFamily:"Lato-Medium" }} >Standard Payroll</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => { setActiveTab('ActualPayroll'); setPage(0); }} style={{ backgroundColor:activeTab == 'ActualPayroll' ? '#6a8ff3' : '#fff', justifyContent:'center', alignItems:'center', paddingVertical:10, paddingHorizontal:20, borderTopEndRadius:6, borderBottomEndRadius:6, borderWidth:.5, borderColor:'#e0e0e0' }} >
-                    <Text style={{ color:activeTab == 'ActualPayroll' ? '#FFF' : '#6a8ff3', fontSize:16, fontFamily:"Poppins-Medium" }} >Actual Payroll</Text>
+                    <Text style={{ color:activeTab == 'ActualPayroll' ? '#FFF' : '#6a8ff3', fontSize:16, fontFamily:"Lato-Medium" }} >Actual Payroll</Text>
                 </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flex:1, padding:10 }} >
@@ -249,7 +227,7 @@ export default function Payroll({ navigation, route }) {
             </ScrollView>
           {/* <View style={{ width:'100%', height:60, backgroundColor:'#fff', justifyContent:'center', alignItems:'center', padding:20 }} >
             <TouchableOpacity style={{ width:'100%', height:45, backgroundColor:'#6a8ff3', borderRadius:6, justifyContent:'center', alignItems:'center', }} >
-                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Payroll</Text>
+                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Lato-SemiBold" }} >Payroll</Text>
             </TouchableOpacity>
           </View> */}
         </View>
@@ -260,141 +238,155 @@ export default function Payroll({ navigation, route }) {
 const StandardTab = ({data, headers, page, setPage, totalPages, rowsPerPage, loading}) => {
   const rpp = rowsPerPage || 10;
   return (
-    <View style={styles.container}>
-     <ScrollView horizontal style={{ marginBottom: 10 }}>
-         <View>
-           <View style={styles.row}>
-             {headers.map((header, index) => (
-               <Text key={index} style={[styles.cell, styles.headerCell]}>
-                 {header}
-               </Text>
-             ))}
-           </View>
-          { 
-            loading ? (
-              <ActivityIndicator size="large" color="#0000ff" />
-            ) : data.length === 0 ? (
-             <View style={{}}>
-               <Text style={{fontSize: 14, fontFamily:'Poppins-SemiBold', color: '#868686',}}>Records not found</Text>
-             </View>
-           ) : (
-             <FlatList
-               data={data}
-               keyExtractor={(item, index) => `${page}-${index}`}
-               renderItem={({ item, index }) => (
-                 <View key={`${page}-${index}`}
-                   style={[
-                     styles.row,
-                     index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                   ]}
-                 >
-                  <Text style={styles.cell}>{page * rpp + index + 1}</Text>
-                   <Text style={styles.cell}>{item.employeName}</Text>
-                   <Text style={styles.cell}>{item.createdBy}</Text>
-                   <Text style={styles.cell}>{item.baseSalary === null ? '0' : item.baseSalary}.00 ₹</Text>
-                   <Text style={styles.cell}>{item.ctc === null ? '0' : item.ctc}.00 ₹</Text>
-                   <Text style={styles.cell}>{item.status}</Text>
+    <View>
+        {
+          loading ? (<ActivityIndicator size="large" color="#0000ff" />) : data.length === 0 ? (
+            <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
+               <View style={{ width:100, height:100 }} >
+                <Image
+                  source={require('../../../assets/Images/notFound.png')}
+                  style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+                />
+              </View>
+              <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
+              <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
+            </View>
+          ) : (
+            <View style={styles.container}>
+             <ScrollView horizontal style={{ marginBottom: 10 }}>
+                 <View>
+                   <View style={styles.row}>
+                     {headers.map((header, index) => (
+                       <Text key={index} style={[styles.cell, styles.headerCell]}>
+                         {header}
+                       </Text>
+                     ))}
+                   </View>
+                     <FlatList
+                       data={data}
+                       keyExtractor={(item, index) => `${page}-${index}`}
+                       renderItem={({ item, index }) => (
+                         <View key={`${page}-${index}`}
+                           style={[
+                             styles.row,
+                             index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                           ]}
+                         >
+                          <Text style={styles.cell}>{page * rpp + index + 1}</Text>
+                           <Text style={styles.cell}>{item.employeName}</Text>
+                           <Text style={styles.cell}>{item.createdBy}</Text>
+                           <Text style={styles.cell}>{item.baseSalary === null ? '0' : item.baseSalary}.00 ₹</Text>
+                           <Text style={styles.cell}>{item.ctc === null ? '0' : item.ctc}.00 ₹</Text>
+                           <Text style={styles.cell}>{item.status}</Text>
+                         </View>
+                       )}
+                     />
                  </View>
-               )}
-             />
-           )
-          }
-         </View>
-     </ScrollView>
-    
-     <View style={styles.pagination}>
-       <TouchableOpacity
-         onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-         style={[styles.pageButton, page === 0 && styles.disabledButton]}
-       >
-         <Text style={styles.pageText}>Previous</Text>
-       </TouchableOpacity>
-   
-       <Text style={{ marginHorizontal: 10 }}>
-         Page {page + 1} of {totalPages}
-       </Text>
-   
-       <TouchableOpacity
-         onPress={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
-         style={[styles.pageButton, page === totalPages - 1 && styles.disabledButton]}
-       >
-         <Text style={styles.pageText}>Next</Text>
-       </TouchableOpacity>
-     </View>
-  </View>
+             </ScrollView>
+            
+             <View style={styles.pagination}>
+               <TouchableOpacity
+                 onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
+                 style={[styles.pageButton, page === 0 && styles.disabledButton]}
+               >
+                 <Text style={styles.pageText}>Previous</Text>
+               </TouchableOpacity>
+           
+               <Text style={{ marginHorizontal: 10 }}>
+                 Page {page + 1} of {totalPages}
+               </Text>
+           
+               <TouchableOpacity
+                 onPress={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
+                 style={[styles.pageButton, page === totalPages - 1 && styles.disabledButton]}
+               >
+                 <Text style={styles.pageText}>Next</Text>
+               </TouchableOpacity>
+             </View>
+          </View>
+          )
+        }
+    </View>
   );
 }
 
 const ActualTab = ({data, headers, page, setPage, totalPages, rowsPerPage, navigation, loading}) => {
   const rpp = rowsPerPage || 10;
   return (
-    <View style={styles.container}>
-     <ScrollView horizontal style={{ marginBottom: 10 }}>
-         <View>
-           <View style={styles.row}>
-             {headers.map((header, index) => (
-               <Text key={index} style={[styles.cell, styles.headerCell]}>
-                 {header}
+    <View>
+       {
+        loading ? (<ActivityIndicator size="large" color="#0000ff" />) : data.length === 0 ? (
+          <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
+               <View style={{ width:100, height:100 }} >
+                <Image
+                  source={require('../../../assets/Images/notFound.png')}
+                  style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+                />
+              </View>
+              <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
+              <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
+            </View>
+        ) : (
+          <View style={styles.container}>
+             <ScrollView horizontal style={{ marginBottom: 10 }}>
+                 <View>
+                   <View style={styles.row}>
+                     {headers.map((header, index) => (
+                       <Text key={index} style={[styles.cell, styles.headerCell]}>
+                         {header}
+                       </Text>
+                     ))}
+                   </View>
+                    <FlatList
+                      data={data}
+                      keyExtractor={(item, index) => `${page}-${index}`}
+                      renderItem={({ item, index }) => (
+                        <View key={`${page}-${index}`}
+                          style={[
+                            styles.row,
+                            index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                          ]}
+                        >
+                         <Text style={styles.cell}>{page * rpp + index + 1}</Text>
+                          <Text style={styles.cell}>{item.employeData.fullName}</Text>
+                          <Text style={styles.cell}>{moment(item.startDate).format('DD-MM-YYYY')}</Text>
+                          <Text style={styles.cell}>{moment(item.endDate).format('DD-MM-YYYY')}</Text>
+                          <Text style={styles.cell}>{item.basicSalary === null ? '0' : item.basicSalary}.00 ₹</Text>
+                          <Text style={styles.cell}>{item.grossSalary === null ? '0' : item.grossSalary}.00 ₹</Text>
+                          <Text style={styles.cell}>{item.netSalary === null ? '0' : item.netSalary}.00 ₹</Text>
+                          <Text style={styles.cell}>{item.status}</Text>
+                          <Text style={styles.cell}>
+                          <FontAwesome onPress={() => navigation.navigate('EmployePaySlip', {item})} style={{marginRight: 10,}} icon={(item)} name="eye" size={24} color={'#6a8ff3'} />
+                          </Text>
+                        </View>
+                      )}
+                    />
+                 </View>
+             </ScrollView>
+            
+             <View style={styles.pagination}>
+               <TouchableOpacity
+                 onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
+                 style={[styles.pageButton, page === 0 && styles.disabledButton]}
+               >
+                 <Text style={styles.pageText}>Previous</Text>
+               </TouchableOpacity>
+           
+               <Text style={{ marginHorizontal: 10 }}>
+                 Page {page + 1} of {totalPages}
                </Text>
-             ))}
-           </View>
-           {
-            loading ? (
-              <ActivityIndicator size="large" color="#0000ff" />
-            ) : data.length === 0 ? (
-             <View style={{}}>
-               <Text style={{fontSize: 14, fontFamily:'Poppins-SemiBold', color: '#868686',}}>Records not found</Text>
+           
+               <TouchableOpacity
+                 onPress={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
+                 style={[styles.pageButton, page === totalPages - 1 && styles.disabledButton]}
+               >
+                 <Text style={styles.pageText}>Next</Text>
+               </TouchableOpacity>
              </View>
-           ) : (
-            <FlatList
-              data={data}
-              keyExtractor={(item, index) => `${page}-${index}`}
-              renderItem={({ item, index }) => (
-                <View key={`${page}-${index}`}
-                  style={[
-                    styles.row,
-                    index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                  ]}
-                >
-                 <Text style={styles.cell}>{page * rpp + index + 1}</Text>
-                  <Text style={styles.cell}>{item.employeData.fullName}</Text>
-                  <Text style={styles.cell}>{moment(item.startDate).format('DD-MM-YYYY')}</Text>
-                  <Text style={styles.cell}>{moment(item.endDate).format('DD-MM-YYYY')}</Text>
-                  <Text style={styles.cell}>{item.basicSalary === null ? '0' : item.basicSalary}.00 ₹</Text>
-                  <Text style={styles.cell}>{item.grossSalary === null ? '0' : item.grossSalary}.00 ₹</Text>
-                  <Text style={styles.cell}>{item.netSalary === null ? '0' : item.netSalary}.00 ₹</Text>
-                  <Text style={styles.cell}>{item.status}</Text>
-                  <Text style={styles.cell}>
-                  <FontAwesome onPress={() => navigation.navigate('EmployePaySlip', {item})} style={{marginRight: 10,}} icon={(item)} name="eye" size={24} color={'#6a8ff3'} />
-                  </Text>
-                </View>
-              )}
-            />
-              )
-           }
-         </View>
-     </ScrollView>
-    
-     <View style={styles.pagination}>
-       <TouchableOpacity
-         onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-         style={[styles.pageButton, page === 0 && styles.disabledButton]}
-       >
-         <Text style={styles.pageText}>Previous</Text>
-       </TouchableOpacity>
-   
-       <Text style={{ marginHorizontal: 10 }}>
-         Page {page + 1} of {totalPages}
-       </Text>
-   
-       <TouchableOpacity
-         onPress={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
-         style={[styles.pageButton, page === totalPages - 1 && styles.disabledButton]}
-       >
-         <Text style={styles.pageText}>Next</Text>
-       </TouchableOpacity>
-     </View>
-  </View>
+          </View>
+        )
+       }   
+    </View>
   );
 }
 
@@ -423,7 +415,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 14,
     color: '#333',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: 'Lato-SemiBold',
   },
   applyButton: {
     backgroundColor: '#4A90E2',
@@ -483,7 +475,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     marginTop: 0,
-    fontFamily: 'Poppins-Medium',
+    fontFamily: 'Lato-Medium',
   },
   container: {
     padding: 0,
@@ -491,7 +483,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f2f2f2',
     borderRadius: 10,
     marginBottom: 20,
-    marginTop:20,
+    marginTop:0,
   },
   row: {
     flexDirection: 'row',

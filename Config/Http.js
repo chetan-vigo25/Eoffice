@@ -23,10 +23,9 @@ async function authHeader() {
 
 // Function for general API calls
 export const apiCall = async (method, path, payload) => {
-    
     try {
         const headers = await authHeader();
-        // console.log("test-console",`${BACKEND_URL}${path}`, "headers",headers, )
+        console.log("test-console",`${BACKEND_URL}${path}`, "headers",headers, "payload", payload);
         const response = await axios({
             method,
             url: `${BACKEND_URL}${path}`,
@@ -35,7 +34,7 @@ export const apiCall = async (method, path, payload) => {
             redirect: "follow",
         });
         // console.log(response.data, "Response Data:");
-        // console.log("Response Datagdsasdg:",response.data.message);
+        // console.log(response.data.message, "Response Datagdsasdg:");
         return response.data;
     } catch (error) {
         handleApiError(error);
@@ -54,7 +53,7 @@ export const apiCallForm = async (method, path, payload) => {
             data: payload,
             headers,
         });
-        console.log("Response Data",response.data);
+        console.log(response.data, "Response Data");
         return response.data;
     } catch (error) {
         handleApiError(error);
@@ -68,7 +67,6 @@ function handleApiError(error) {
     } else if (error.response) {
         throw error.response;
     } else if (error.request) {
-        // console.log("sfsdfdsf",error.request)
         throw new Error("No response received from the server");
     } else {
         console.error("Error occurred during request setup:", error);

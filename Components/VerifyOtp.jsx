@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react'
-import {StatusBar, Text, View, Image, StyleSheet, TextInput, TouchableOpacity, ScrollView, Platform, Alert, ActivityIndicator, ToastAndroid } from 'react-native';
+import {StatusBar, Text, View, Image, StyleSheet, TextInput, Platform, TouchableOpacity, ScrollView, Alert, ActivityIndicator, ToastAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BASE_URL from '../Urls/DomainUrl';
 import { OtpInput } from "react-native-otp-entry";
@@ -10,7 +10,7 @@ function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
-    Alert.alert('', message); // iOS fallback
+    Alert.alert('', message);
   }
 }
 
@@ -130,7 +130,7 @@ export default function VerifyOtp({ navigation, route }) {
   return (
  
     <View style={{ flex: 1, backgroundColor: "white" }}>
-      <StatusBar translucent={false} backgroundColor={'#6a8ff3'} barStyle='light-content' />
+      <StatusBar backgroundColor={'#6a8ff3'} barStyle='light-content' />
        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled' style={{ paddingHorizontal: 20, paddingTop: 20 }}>
           <View style={{justifyContent:'center', alignItems:'center', padding:20}}>
                <View style={{marginTop:10}}>
@@ -138,7 +138,7 @@ export default function VerifyOtp({ navigation, route }) {
                </View> 
           </View>
           <View style={{flex:1, marginTop:'10%', paddingHorizontal:30,}}>
-            <Text style={{fontSize:16, fontFamily:'Poppins-SemiBold',}}>Enter 6 Digit OTP</Text>
+            <Text style={{fontSize:16, fontFamily:'Lato-SemiBold',}}>Enter 6 Digit OTP</Text>
             <OtpInput
               numberOfDigits={6}
               focusColor="#6a8ff3"
@@ -187,7 +187,7 @@ export default function VerifyOtp({ navigation, route }) {
             {
               !otp ? (
                 <View style={{backgroundColor:'#ECF0F6', marginTop:'35%', borderRadius:6,  justifyContent:'center', alignItems:'center', height:40, zIndex:999}}>
-                  <Text style={{color:'#6a8ff3', fontSize:16, fontFamily:'Poppins-SemiBold'}}>Submit</Text>
+                  <Text style={{color:'#6a8ff3', fontSize:16, fontFamily:'Lato-SemiBold'}}>Submit</Text>
                 </View>
               ):(
                 <TouchableOpacity disabled={isLoading} onPress={() => {submitOTP()}} style={{backgroundColor:Style.headerBgColor, marginTop:'35%', borderRadius:6,  justifyContent:'center', alignItems:'center', height:40, zIndex:999}}>
@@ -195,7 +195,7 @@ export default function VerifyOtp({ navigation, route }) {
                 isLoading ? (
                  <ActivityIndicator color={'white'} />
                    ) : (
-                     <Text style={{color:'white', fontSize:16, fontFamily:'Poppins-SemiBold'}}>Submit</Text>
+                     <Text style={{color:'white', fontSize:16, fontFamily:'Lato-SemiBold'}}>Submit</Text>
                      )}
                 </TouchableOpacity>
               )

@@ -1,55 +1,28 @@
-import React, { useState, useEffect, useRef } from "react";
-import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, RefreshControl, Alert, ScrollView, Modal, StyleSheet, LayoutAnimation, UIManager, Platform, ToastAndroid, ActivityIndicator } from "react-native";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { StatusBar, View, Text, TouchableOpacity, TextInput, Animated, Platform, SafeAreaView, RefreshControl, FlatList, Modal, StyleSheet, ToastAndroid, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
 import BASE_URL from '../../../Urls/DomainUrl';
 import moment from "moment";
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
+import { useFocusEffect } from '@react-navigation/native';
+import usePaginatedList from '../../../hooks/usePaginatedList';
 
-import { AntDesign, Feather, Entypo, Fontisto } from "@expo/vector-icons";
+import { AntDesign, Feather, Entypo, Fontisto, MaterialCommunityIcons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 
-function showToast(message, onOk = null) {
+function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
-    if (onOk) {
-      setTimeout(onOk, 2000);
-    }
   } else {
-    Alert.alert(
-      '',
-      message,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onOk) onOk();
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    Alert.alert('', message);
   }
 }
 
 export default function TaskManagement({ navigation }) {
 
-  const dispatch = useDispatch();
-  const [scale] = useState(new Animated.Value(0)); 
-
-  const [modalVisible, setModalVisible] = useState(false);
-  const [deparement, setDepartment] = useState('');
-  const [statusD, setStatusD] = useState('');
-  const [taskData, setTaskData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [departmentData, setDepartmentData] = useState([]);
-  const [statusData, setStatusData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [refresh, setRefresh] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
-  const logoutHandled = useRef(false);
+const dispatch = useDispatch();
 
 const CLIENT_TASK_STATUS_PENDING = "Pending"
 const CLIENT_TASK_STATUS_REJECT = "Rejected"
@@ -88,6 +61,41 @@ const CLIENT_TASK_STATUS_ARR = [
     CLIENT_TASK_STATUS_STOP,
 ]
 
+  const [scale] = useState(new Animated.Value(0));
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [deparement, setDepartment] = useState('');
+  const [statusD, setStatusD] = useState('');
+  const [departmentData, setDepartmentData] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredData, setFilteredData] = useState(null);
+
+  const filtersRef = useRef({ deparement: '', statusD: '' });
+
+  const onUnauthorized = useCallback(async () => {
+    dispatch(logout());
+    await AsyncStorage.removeItem('token');
+    await AsyncStorage.clear();
+    navigation.navigate('Autologin');
+  }, [dispatch, navigation]);
+
+  const buildBody = useCallback(() => ({
+    text: "",
+    sort: true,
+    status: filtersRef.current.statusD || "",
+    departmentId: filtersRef.current.deparement || "",
+    isPagination: false,
+  }), []);
+
+  const extractDocs = useCallback((result) => result.data?.docs, []);
+
+  const { data, allData, loading, refreshing, hasMore, loadFirst, loadMore, refresh } = usePaginatedList({
+    url: `${BASE_URL}/client/task/list`,
+    buildBody,
+    extractDocs,
+    onUnauthorized,
+  });
+
   useEffect(() => {
     Animated.timing(scale, {
       toValue: 1,
@@ -96,415 +104,327 @@ const CLIENT_TASK_STATUS_ARR = [
     }).start();
   }, []);
 
-  const getTaskData = async () => {
-    if (logoutHandled.current) return;
-       setLoading(true)
-       let token = await AsyncStorage.getItem("token");
-       if(!token) {
-        navigation.navigate('Autologin');
-        return;
-     }
-    const myHeaders = new Headers();
-    myHeaders.append("Authorization", "Bearer " + token);
-    myHeaders.append("Content-Type", "application/json");
-  
-    const raw = JSON.stringify({
-      text: "",
-      sort: true,
-      status: statusD || "",
-      departmentId: deparement || "", 
-      isPagination: false
-    });
-  
-    const requestOptions = {
-      method: "POST",
-      headers: myHeaders,
-      body: raw,
-      redirect: "follow"
-    };
-  
-    fetch(`${BASE_URL}/client/task/list`, requestOptions)
-     .then((response) => response.json())
-      .then((result) => {
-        if (result.statusCode === 200) {
-          // console.log(result.data.docs);
-          setTaskData(result.data.docs);
-          setFilteredData(result.data.docs);
-        }else if (result.statusCode === 401) {
-          if (!logoutHandled.current) {
-            logoutHandled.current = true; // Flag to prevent multiple logouts
-            showToast("Session expired. Please log in again.", () => {
-              dispatch(logout()); // Dispatch logout action when OK is pressed
-              navigation.navigate('Autologin'); // Navigate to autologin page
-            });
-          }
-        } else {
-          // showToast(result.message);
-          setTaskData([]);
-          setFilteredData([]);
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-        setTaskData([]);
-        setFilteredData([]);
-      })
-      .finally(() => {setLoading(false);setInitialLoad(false);});
-  };
+  useFocusEffect(
+    useCallback(() => {
+      filtersRef.current = { deparement, statusD };
+      loadFirst();
+    }, [])
+  );
 
-  const showDefault = async () => {
-    setDepartment('');
-    setStatusD('');
-    setLoading(true);
-
-    let token = await AsyncStorage.getItem("token");
-    const myHeaders = new Headers();
-    myHeaders.append("Authorization", "Bearer " + token);
-    myHeaders.append("Content-Type", "application/json");
-  
-    const raw = JSON.stringify({
-      text: "",
-      sort: true,
-      status: "",
-      departmentId: "",
-      isPagination: false
-    });
-  
-    const requestOptions = {
-      method: "POST",
-      headers: myHeaders,
-      body: raw,
-      redirect: "follow"
-    };
-  
-    fetch(`${BASE_URL}/client/task/list`, requestOptions)
-     .then((response) => response.json())
-      .then((result) => {
-        if (result.statusCode === 200) {
-          setTaskData(result.data.docs);
-          setFilteredData(result.data.docs);
-        } else {
-          showToast(result.message);
-          setTaskData([]);
-          setFilteredData([]);
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-        setTaskData([]);
-        setFilteredData([]);
-      })
-      .finally(() => setLoading(false));
-  };
+  useEffect(() => {
+    getDepartment();
+  }, []);
 
   const getDepartment = async () => {
-
-    setLoading(true)
     let token = await AsyncStorage.getItem("token");
     const myHeaders = new Headers();
     myHeaders.append("Authorization", "Bearer " + token);
     myHeaders.append("Content-Type", "application/json");
-    
+
     const requestOptions = {
       method: "POST",
       headers: myHeaders,
       redirect: "follow"
     };
-    
+
     fetch(`${BASE_URL}/client/task/department`, requestOptions)
      .then((response) => response.json())
       .then((result) => {
         if(result.statusCode === 200){
-          // console.log("departmentData....", result.data.docs);
           setDepartmentData(result.data);
-          // showToast(result.message);
-          setLoading(false);
         }else{
-          // showToast(result.message);
-          setLoading(false);
+          showToast(result.message);
         }
       })
-      .catch((error) => console.error(error))
-      .finally(() => setLoading(false))
+      .catch((error) => console.error(error));
   }
 
-  // const getStatus = async ()=>{
-  //   setLoading(true)
-  //   let token = await AsyncStorage.getItem("token");
-  //   const myHeaders = new Headers();
-  //   myHeaders.append("Authorization", "Bearer " + token);
-  //   myHeaders.append("Content-Type", "application/json");
-    
-  //   const requestOptions = {
-  //     method: "POST",
-  //     headers: myHeaders,
-  //     redirect: "follow"
-  //   };
-    
-  //   fetch(`${BASE_URL}/client/task/statusList`, requestOptions)
-  //    .then((response) => response.json())
-  //     .then((result) => {
-  //       if(result.statusCode === 200){
-  //         console.log("Task Status--",result.data);
-  //         setStatusData(result.data);
-  //         // showToast(result.message);
-  //         setLoading(false);
-  //       }else{
-  //         showToast(result.message);
-  //         setLoading(false);
-  //       }
-  //     })
-  //     .catch((error) => console.error(error));
-  // }
-
-  useEffect(()=>{
-    getTaskData();
-    getDepartment();
-    // getStatus();
-  },[])
-  
-  // useEffect(() => {
-  //   setTimeout(() => {
-  //     setLoading(false); 
-  //   }, 1000);
-  // }, [taskData]);
+  // Determine display list (search filters client-side)
+  const displayData = filteredData !== null ? filteredData : data;
 
   const handleSearch = (text) => {
     setSearchQuery(text);
     if (text.trim() === '') {
-      setFilteredData(taskData); 
+      setFilteredData(null);
     } else {
-      const results = taskData.filter(item =>
-        item.taskName.toLowerCase().includes(text.toLowerCase()) || 
-        item.departmentData.name.toLowerCase().includes(text.toLowerCase()) 
+      const results = allData().filter(item =>
+        item.taskName?.toLowerCase().includes(text.toLowerCase()) ||
+        item.departmentData?.name?.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredData(results);
     }
   };
 
-  const onRefresh = ()=>{
-    setRefresh(true)
-    getTaskData();
-    setTimeout(()=>{
-      setRefresh(false);
-    },2000)
-  }
+  const applyFilters = () => {
+    setModalVisible(false);
+    setSearchQuery('');
+    setFilteredData(null);
+    filtersRef.current = { deparement, statusD };
+    loadFirst();
+  };
+
+  const resetFilters = () => {
+    setDepartment('');
+    setStatusD('');
+    setModalVisible(false);
+    setSearchQuery('');
+    setFilteredData(null);
+    filtersRef.current = { deparement: '', statusD: '' };
+    loadFirst();
+  };
+
+  const handleRefresh = () => {
+    setSearchQuery('');
+    setFilteredData(null);
+    filtersRef.current = { deparement, statusD };
+    refresh();
+  };
+
+  const getStatusColor = (status) => {
+    if (status === "Task_Stop") return { bg: '#ffebee', text: '#c62828' };
+    if (status === "Completed") return { bg: '#e8f5e9', text: '#2e7d32' };
+    if (status === "Assigned") return { bg: '#e3f2fd', text: '#1565c0' };
+    return { bg: '#fff3e0', text: '#e65100' };
+  };
+
+  const renderItem = useCallback(({ item }) => {
+    const statusStyle = getStatusColor(item.status);
+    return (
+      <TouchableOpacity
+        onPress={() => { navigation.navigate('TaskSummary', { _id: item._id }) }}
+        activeOpacity={0.7}
+        style={{
+          width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 12,
+          marginBottom: 12, padding: 14, elevation: 2,
+          shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
+        }}
+      >
+        {/* Header: Task Name + Status */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text numberOfLines={1} ellipsizeMode="tail" style={{ fontSize: 15, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor, flex: 1, marginRight: 10 }}>{item.taskName}</Text>
+          <View style={{ backgroundColor: statusStyle.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+            <Text style={{ fontSize: 11, fontFamily: 'Lato-SemiBold', color: statusStyle.text }}>
+              {item.status?.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, char => char.toUpperCase())}
+            </Text>
+          </View>
+        </View>
+
+        {/* Department */}
+        <Text style={{ fontSize: 13, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginBottom: 6 }}>
+          {item.departmentData?.name}
+        </Text>
+
+        {/* Code */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor }}>Code: </Text>
+          <Text style={{ fontSize: 13, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>{item.code}</Text>
+        </View>
+
+        {/* Assigned To */}
+        {item.assignedEmployeData?.map((employee, empIndex) => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }} key={empIndex}>
+            <Feather name="user" size={12} color={Style.secondryTextColor} style={{ marginRight: 6 }} />
+            <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>{employee.fullName}</Text>
+          </View>
+        ))}
+
+        {/* Footer: Date */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: '#eee', paddingTop: 10, marginTop: 8 }}>
+          <Feather name="calendar" size={13} color={Style.secondryTextColor} style={{ marginRight: 6 }} />
+          <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>{moment(item.updatedAt).format('DD/MM/YYYY')}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [navigation]);
+
+  const renderFooter = () => {
+    if (!loading || data.length === 0) return null;
+    return (
+      <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+        <ActivityIndicator size="small" color={Style.headerBgColor} />
+      </View>
+    );
+  };
+
+  const renderEmpty = () => {
+    if (loading) return null;
+    return (
+      <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+        <MaterialCommunityIcons name="clipboard-text-outline" size={50} color="#ccc" />
+        <Text style={{ fontSize: 16, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor, textAlign: 'center', marginTop: 12 }}>
+          {deparement || statusD ? 'No tasks match your filters.' : 'No Tasks Available.'}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-      <StatusBar translucent={false} backgroundColor={Style.headerBgColor} barStyle='light-content' />
+      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Modal
            animationType="slide"
            transparent={true}
            visible={modalVisible}
            onRequestClose={() => {
-             // Alert.alert('Modal has been closed.');
              setModalVisible(false);
            }}>
-         <TouchableOpacity onPress={()=> setModalVisible(false)} style={{ flex:1, backgroundColor:'#00000090', justifyContent:'flex-end'}}>
-            <View style={{ width:'100%', backgroundColor:'#fff', height:500,  borderTopStartRadius:30, borderTopEndRadius:30, padding:15 }} >
-            <View style={{ width:60, height:4, backgroundColor:'#b3b3b3', alignSelf:'center', marginTop:20, borderRadius:5 }} ></View>
-            <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:10  }}>
-              <Text style={{ fontSize:16, fontWeight:"600", color:'#074173', }}>Filters</Text>
-              <TouchableOpacity onPress={() => {setDepartment(''); setStatusD('');showDefault();setModalVisible(false);}} style={{ width:110, paddingHorizontal:10, height:40, backgroundColor:'#658Eff10', justifyContent:'center', alignItems:'center', borderRadius:6, borderWidth:1, borderColor:Style.headerBgColor }} >
-                <Text style={{ fontSize: 14, fontFamily: 'Poppins-Medium', color: Style.primaryTextColor }} >Reset</Text>
+         <TouchableOpacity activeOpacity={1} onPress={() => setModalVisible(false)} style={{ flex: 1, backgroundColor: '#00000050', justifyContent: 'flex-end' }}>
+          <View style={{ width: '100%', backgroundColor: Style.basicbgColor, borderTopStartRadius: 24, borderTopEndRadius: 24, paddingHorizontal: 20, paddingBottom: 20 }}>
+            {/* Handle bar */}
+            <View style={{ width: 40, height: 4, backgroundColor: '#d0d0d0', alignSelf: 'center', marginTop: 12, marginBottom: 16, borderRadius: 2 }} />
+
+            {/* Title + Reset */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontSize: 17, fontFamily: 'Lato-SemiBold', color: Style.primaryTextColor }}>Filters</Text>
+              <TouchableOpacity onPress={resetFilters} style={{ paddingHorizontal: 14, height: 34, backgroundColor: '#f5f5f5', justifyContent: 'center', alignItems: 'center', borderRadius: 20 }}>
+                <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor }}>Reset</Text>
               </TouchableOpacity>
             </View>
-              <View style={{ width:'100%', flexDirection:'row', gap:10 }} >
-              <TouchableOpacity style={{ flex:1, height:50, flexDirection:'row', backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
-                <SelectDropdown
-                  data={departmentData.length === 0 ? [{ name: 'No Departments...' }] : departmentData}
-                  onSelect={(selectedDepartment, index) => {
-                    setDepartment(selectedDepartment._id); 
-                    // showToast(`Selected: ${selectedDepartment.name}`);
-                  }}
-                  renderButton={(selectedDepartment, isOpened) => {
-                    return (
-                      <View style={styles.dropdownButtonStyle}>
-                        <Text style={styles.dropdownButtonTxtStyle}>
-                          {selectedDepartment ? selectedDepartment.name : 'Select Department'}
-                        </Text>
-                        <Entypo
-                          name={isOpened ? 'chevron-up' : 'chevron-down'}
-                          style={styles.dropdownButtonArrowStyle}
-                        />
-                      </View>
-                    );
-                  }}
-                  renderItem={(departmentData, index, isSelected) => {
-                    return (
-                      <View
-                        style={{
-                          ...styles.dropdownItemStyle,
-                          ...(isSelected && { backgroundColor: '#D2D9DF' }),
-                        }}
-                      >
-                        <Text style={styles.dropdownItemTxtStyle}>
-                          {departmentData.name}
-                        </Text>
-                      </View>
-                    );
-                  }}
-                  showsVerticalScrollIndicator={false}
-                  dropdownStyle={styles.dropdownMenuStyle}
-                />
-              </TouchableOpacity>
-              <View style={{ flex:1, height:50, flexDirection:'row', backgroundColor:"#f8f9fa", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
-                <SelectDropdown
-                   data={CLIENT_TASK_STATUS_ARR.length === 0 ? ['No data found'] : CLIENT_TASK_STATUS_ARR}
-                   onSelect={(CLIENT_TASK_STATUS_ARR, index) => {
-                     setStatusD(CLIENT_TASK_STATUS_ARR);
-                    //  showToast(`Selected: ${CLIENT_TASK_STATUS_ARR}`);
-                   }}
-                   renderButton={(CLIENT_TASK_STATUS_ARR, isOpened) => {
-                     return (
-                       <View style={styles.dropdownButtonStyle}>
-                         <Text style={styles.dropdownButtonTxtStyle}>
-                           {(CLIENT_TASK_STATUS_ARR && CLIENT_TASK_STATUS_ARR) || 'Select Status'}
-                         </Text>
-                         <Entypo name={isOpened ? 'chevron-up' : 'chevron-down'} style={styles.dropdownButtonArrowStyle} />
-                       </View>
-                     );
-                   }}
-                   renderItem={(CLIENT_TASK_STATUS_ARR, index, isSelected) => {
-                     return (
-                       <View style={{...styles.dropdownItemStyle, ...(isSelected && {backgroundColor: '#D2D9DF'})}}>
-                         <Text style={styles.dropdownItemTxtStyle}>{CLIENT_TASK_STATUS_ARR?.replace(/_/g, ' ')
-                          .toLowerCase()
-                          .replace(/\b\w/g, char => char.toUpperCase())}</Text>
-                       </View>
-                     );
-                   }}
-                   showsVerticalScrollIndicator={false}
-                   dropdownStyle={styles.dropdownMenuStyle}
-                />
-              </View>
-           </View>
-             <TouchableOpacity disabled={!deparement && !statusD} onPress={()=>{setModalVisible(!true);getTaskData()}} style={{ position:'absolute', bottom:80, width:'50%', height:40, backgroundColor: (!deparement && !statusD) ? '#cccccc40' : '#658eff', borderRadius:5, justifyContent:'center', alignItems:'center', alignSelf:'center', elevation:0, marginTop:0, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, marginBottom:10 }} >
-                <Text style={{ fontWeight:600, fontSize:14, color:(!deparement && !statusD)?'#999':'#fff' }} >Apply</Text>
+
+            {/* Department Dropdown */}
+            <Text style={{ fontSize: 12, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor, marginBottom: 8 }}>Department</Text>
+            <View style={{ marginBottom: 16 }}>
+              <SelectDropdown
+                data={departmentData.length === 0 ? [{ name: 'No Departments...' }] : departmentData}
+                onSelect={(selectedDepartment, index) => {
+                  setDepartment(selectedDepartment._id);
+                }}
+                renderButton={(selectedDepartment, isOpened) => {
+                  return (
+                    <View style={styles.dropdownButtonStyle}>
+                      <Text style={styles.dropdownButtonTxtStyle}>
+                        {selectedDepartment ? selectedDepartment.name : 'Select Department'}
+                      </Text>
+                      <Entypo name={isOpened ? 'chevron-up' : 'chevron-down'} style={styles.dropdownButtonArrowStyle} />
+                    </View>
+                  );
+                }}
+                renderItem={(departmentData, index, isSelected) => {
+                  return (
+                    <View style={{ ...styles.dropdownItemStyle, ...(isSelected && { backgroundColor: '#D2D9DF' }) }}>
+                      <Text style={styles.dropdownItemTxtStyle}>{departmentData.name}</Text>
+                    </View>
+                  );
+                }}
+                showsVerticalScrollIndicator={false}
+                dropdownStyle={styles.dropdownMenuStyle}
+              />
+            </View>
+
+            {/* Status Dropdown */}
+            <Text style={{ fontSize: 12, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor, marginBottom: 8 }}>Status</Text>
+            <View style={{ marginBottom: 24 }}>
+              <SelectDropdown
+                data={CLIENT_TASK_STATUS_ARR.length === 0 ? ['No data found'] : CLIENT_TASK_STATUS_ARR}
+                onSelect={(CLIENT_TASK_STATUS_ARR, index) => {
+                  setStatusD(CLIENT_TASK_STATUS_ARR);
+                  showToast(`Selected: ${CLIENT_TASK_STATUS_ARR}`);
+                }}
+                renderButton={(CLIENT_TASK_STATUS_ARR, isOpened) => {
+                  return (
+                    <View style={styles.dropdownButtonStyle}>
+                      <Text style={styles.dropdownButtonTxtStyle}>
+                        {(CLIENT_TASK_STATUS_ARR && CLIENT_TASK_STATUS_ARR) || 'Select Status'}
+                      </Text>
+                      <Entypo name={isOpened ? 'chevron-up' : 'chevron-down'} style={styles.dropdownButtonArrowStyle} />
+                    </View>
+                  );
+                }}
+                renderItem={(CLIENT_TASK_STATUS_ARR, index, isSelected) => {
+                  return (
+                    <View style={{ ...styles.dropdownItemStyle, ...(isSelected && { backgroundColor: '#D2D9DF' }) }}>
+                      <Text style={styles.dropdownItemTxtStyle}>{CLIENT_TASK_STATUS_ARR?.replace(/_/g, ' ')
+                        .toLowerCase()
+                        .replace(/\b\w/g, char => char.toUpperCase())}</Text>
+                    </View>
+                  );
+                }}
+                showsVerticalScrollIndicator={false}
+                dropdownStyle={styles.dropdownMenuStyle}
+              />
+            </View>
+
+            {/* Apply Button */}
+            <TouchableOpacity
+              disabled={!deparement && !statusD}
+              onPress={applyFilters}
+              style={{
+                width: '100%', height: 48,
+                backgroundColor: (!deparement && !statusD) ? '#e0e0e0' : Style.headerBgColor,
+                borderRadius: 12, justifyContent: 'center', alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: 'Lato-SemiBold', fontSize: 15, color: (!deparement && !statusD) ? '#999' : '#fff' }}>Apply Filters</Text>
             </TouchableOpacity>
           </View>
          </TouchableOpacity>
         </Modal>
 
-      <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
-        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
-             <AntDesign name="arrowleft" size={24} color="#fff" />
+      <Animated.View style={{ paddingHorizontal: 20, transform: [{ scale }] }}>
+        <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'flex-start' }}>
+            <AntDesign name="arrowleft" size={22} color="#fff" />
           </TouchableOpacity>
-          <Text style={{color: '#fff',fontSize: 14, fontFamily:"Poppins-SemiBold", flex: 1, }}>Task Management</Text>
-        </View>
-        <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
-          <View style={{flex: 8, flexDirection: 'row', alignItems: 'center', backgroundColor:Style.basicbgColor, borderRadius: 50, height: 50, elevation: 4 }}>
-            <TextInput placeholder="Search" value={searchQuery} onChangeText={handleSearch} style={{flex: 9,fontSize: 18,padding: 10,paddingLeft: 20,}} />
-            <TouchableOpacity style={{ flex: 1.5, justifyContent: 'center', alignItems: 'center' }}>
-              <Image source={require('../../../assets/oui_search.png')} resizeMode='contain'style={{ width: 20, height: 20,}} />
-            </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lato-SemiBold' }}>Task Management</Text>
           </View>
-          <TouchableOpacity onPress={()=> navigation.navigate('Notifikation')} style={{ flex:1.5, width: 50, height: 50, borderRadius: 50, justifyContent: 'center',alignItems:"flex-end" }}>
-             <Feather name="bell" size={28} color="#fff" />
+          <TouchableOpacity onPress={() => navigation.navigate('Notifikation')} style={{ width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' }}>
+            <Feather name="bell" size={22} color="#fff" />
           </TouchableOpacity>
+        </View>
+
+        {/* Search Bar */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, height: 46, marginTop: 14, marginBottom: 18, paddingHorizontal: 14 }}>
+          <Feather name="search" size={18} color="rgba(255,255,255,0.6)" />
+          <TextInput
+            placeholder="Search tasks..."
+            placeholderTextColor="rgba(255,255,255,0.5)"
+            value={searchQuery}
+            onChangeText={handleSearch}
+            style={{ flex: 1, fontSize: 14, fontFamily: 'Lato-Medium', color: '#fff', marginLeft: 10, padding: 0 }}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => handleSearch('')}>
+              <AntDesign name="close" size={16} color="rgba(255,255,255,0.6)" />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </Animated.View>
-        
-      <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
-        <Animated.View style={{flex:1, transform: [{ scale }] }}>
-             <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom:10 }} >
-               <Text style={{ flex:1, fontSize:14, fontFamily:'Poppins-SemiBold', color:Style.headerBgColor }}>All Tasks</Text>
-                 <View style={{ flexDirection:"row", flex:1, justifyContent:"flex-end" }} >
-                   <TouchableOpacity onPress={()=> showDefault()} style={{ width:40, height:40, justifyContent:'center', alignItems:'center' }} >
-                       <Fontisto name="spinner-refresh" size={24} color="gray" />
-                   </TouchableOpacity>
-                   <TouchableOpacity onPress={()=> setModalVisible(true)} style={{ width:40, height:40, justifyContent:'center', alignItems:'center' }} >
-                       <Image source={require('../../../assets/menuIcon.png')} resizeMode="contain" style={{ width:30, height:30 }} />
-                   </TouchableOpacity>
-                 </View>
-             </View>
-             <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-               {/* Loader shown if data is loading */}
-               {loading ? (
-                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }}>
-                   <ActivityIndicator size="large" color="#0000ff" />
-                 </View>
-               ) : (
-                    filteredData.length > 0 ?(
-                      filteredData.map((item, index) => (
-                        <TouchableOpacity
-                          onPress={() => { navigation.navigate('TaskSummary', { _id: item._id }) }}
-                          key={index}
-                          style={{ 
-                            width: '100%', 
-                            backgroundColor: '#fff', 
-                            borderRadius: 10, 
-                            marginBottom: 10, 
-                            padding: 10,
-                            borderWidth: .5,
-                            borderColor: '#e0e0e0',
-                            // iOS shadow
-                            shadowColor: '#000',
-                            shadowOffset: {
-                              width: 0,
-                              height: 2,
-                            },
-                            shadowOpacity: 0.1,
-                            shadowRadius: 3.84,
-                            // Android shadow
-                            elevation: 2,
-                          }}
-                        >
-                           <View style={{ flex:4, width:'100%' }}>
-                             <Text numberOfLines={1} ellipsizeMode="tail" style={{ fontSize: 14, fontFamily:'Poppins-SemiBold', color: Style.headerBgColor }}>{item.taskName}</Text>
-                           </View>
-                    
-                          <Text style={{ fontSize: 14, fontWeight: "600", color: Style.secondryTextColor }}>
-                            {item.departmentData.name}
-                          </Text>
-                    
-                          <View>
-                            <View style={{ flexDirection: 'row', paddingBottom: 10 }}>
-                              <Text style={{ fontSize: 14, fontWeight: "600", color: Style.secondryTextColor }}>Code: </Text>
-                              <Text style={{ fontSize: 14, fontWeight: "500", color: Style.secondryTextColor }}>{item.code}</Text>
-                            </View>
-                    
-                            {item.assignedEmployeData.map((employee, empIndex) => (
-                              <View style={{ flexDirection: 'row', width:'100%' }} key={empIndex}>
-                                <Text style={{ fontSize: 14, fontWeight: "600", color: Style.secondryTextColor }}>Assigned To: </Text>
-                                <Text style={{ fontSize: 12, fontWeight: "500", color: Style.secondryTextColor }}>
-                                  {employee.fullName}
-                                </Text>
-                              </View>
-                            ))}
-                    
-                            <View style={{ width: "100%", flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <View style={{ flexDirection: 'row' }}>
-                                <Text style={{ fontSize: 14, fontWeight: "600", color: Style.secondryTextColor }}>Assigned On: </Text>
-                                <Text style={{ fontSize: 12, fontWeight: "500", color: Style.secondryTextColor }}>{moment(item.updatedAt).format('DD/MM/YYYY') || "No DOB available"}</Text>
-                              </View>
-                            </View>
-                            <TouchableOpacity
-                            onPress={() => { navigation.navigate('TaskSummary', { _id: item._id }) }} 
-                            style={{width: '100%', flex:6, 
-                                backgroundColor: item.status === "Task_Stop" ? '#E51E1E' : item.status === "Completed" ? '#85BD2A' : item.status === "Assigned" ? '#1AA4FF' : '#eb984e',
-                                height: 35, justifyContent: 'center', alignItems: 'center', borderRadius: 5, marginTop:10,}} >
-                              <Text style={{ fontSize: 14, fontWeight: "600", color: Style.basicbgColor, }}>
-                                {/* {item.status === 'Task_Stop' ? 'Stopped' : item.status === 'Completed' ? 'Completed' : item.status === 'Assigned' ? 'In-Progress' : 'Cancelled'} */}
-                                {item.status ?.replace(/_/g, ' ')
-                                .toLowerCase()
-                                .replace(/\b\w/g, char => char.toUpperCase())}
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </TouchableOpacity>
-                      ))
-                    ):(
-                      !initialLoad && (
-                        <Text style={{ fontSize: 18, fontFamily:'Poppins-SemiBold', color: Style.secondryTextColor, textAlign: 'center', paddingVertical: 20 }}>
-                          {deparement || statusD ? 'No tasks match your filters.' : 'No task Available.'}
-                        </Text>
-                      )
-                    )
-               )}
-             </ScrollView>
+
+      <View style={{ flex: 1, backgroundColor: Style.primaryBgColor, borderTopStartRadius: 20, borderTopEndRadius: 20, paddingTop: 16, paddingHorizontal: 16 }}>
+        <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
+          {/* Toolbar */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor }}>All Tasks</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <TouchableOpacity onPress={resetFilters} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Style.basicbgColor, justifyContent: 'center', alignItems: 'center', elevation: 1 }}>
+                <Fontisto name="spinner-refresh" size={16} color={Style.secondryTextColor} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(true)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Style.basicbgColor, justifyContent: 'center', alignItems: 'center', elevation: 1 }}>
+                <Feather name="sliders" size={16} color={Style.secondryTextColor} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {loading && data.length === 0 ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }}>
+              <ActivityIndicator size="large" color={Style.headerBgColor} />
+            </View>
+          ) : (
+            <FlatList
+              data={displayData}
+              keyExtractor={(item) => item._id?.toString()}
+              renderItem={renderItem}
+              onEndReached={filteredData === null ? loadMore : undefined}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={renderFooter}
+              ListEmptyComponent={renderEmpty}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+              }
+            />
+          )}
         </Animated.View>
       </View>
     </SafeAreaView>
@@ -515,48 +435,45 @@ const styles = StyleSheet.create({
   dropdownButtonStyle: {
     width: "100%",
     height: 50,
-    backgroundColor: Style.basicbgColor,
-    borderRadius: 6,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    elevation:0
+    paddingHorizontal: 14,
   },
   dropdownButtonTxtStyle: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '600',
-    color: Style.headerBgColor,
+    fontFamily: 'Lato-SemiBold',
+    color: Style.primaryTextColor,
   },
   dropdownButtonArrowStyle: {
-    fontSize: 28,
-  },
-  dropdownButtonIconStyle: {
-    fontSize: 28,
-    marginRight: 8,
+    fontSize: 22,
+    color: Style.secondryTextColor,
   },
   dropdownMenuStyle: {
-    height:300,
-    backgroundColor: '#E9ECEF',
-    borderRadius: 8,
+    height: 300,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   dropdownItemStyle: {
     width: '100%',
     flexDirection: 'row',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   dropdownItemTxtStyle: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '500',
-    color: Style.headerBgColor,
-  },
-  dropdownItemIconStyle: {
-    fontSize: 28,
-    marginRight: 8,
+    fontSize: 14,
+    fontFamily: 'Lato-Medium',
+    color: Style.primaryTextColor,
   },
 });

@@ -7,14 +7,52 @@ import { login } from "../Redux/Reducer/Auth/Auth.reducers";
 import { logout } from "../Redux/Reducer/Auth/Auth.reducers";
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-
+import { UserContext } from '../Context/UserProvider';
+import { checkAutoLogin } from '../Context/EmployeeAutoLogin';
+import Style from "../Style/Style.js";
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import BASE_URL from "../Urls/DomainUrl";
-import Style from "../Style/Style";
-import { Entypo, MaterialIcons, Ionicons } from "@expo/vector-icons";
-import Icon from 'react-native-vector-icons/FontAwesome5';
-import messaging from '@react-native-firebase/messaging';
-import * as Contacts from 'expo-contacts';
-import io from "socket.io-client";
+import * as Notifications from 'expo-notifications';
+import { io } from 'socket.io-client';
+
+
+const CONSENT_STORAGE_KEY = 'contactConsentShown';
+const LEGACY_CONSENT_KEY = 'contactPermissionHandled';
+const PERSISTED_CONSENT_KEYS = [CONSENT_STORAGE_KEY, LEGACY_CONSENT_KEY];
+
+const patchAsyncStorageClear = (() => {
+  let patched = false;
+  return () => {
+    if (patched || typeof AsyncStorage?.clear !== 'function') {
+      return;
+    }
+    const originalClear = AsyncStorage.clear.bind(AsyncStorage);
+    AsyncStorage.clear = async () => {
+      let preservedEntries = [];
+      try {
+        preservedEntries = await Promise.all(
+          PERSISTED_CONSENT_KEYS.map(async (key) => {
+            const value = await AsyncStorage.getItem(key);
+            return [key, value];
+          })
+        );
+      } catch {
+        preservedEntries = [];
+      }
+
+      await originalClear();
+
+      await Promise.all(
+        preservedEntries
+          .filter(([, value]) => value !== null && value !== undefined)
+          .map(([key, value]) => AsyncStorage.setItem(key, value))
+      );
+    };
+    patched = true;
+  };
+})();
+
+patchAsyncStorageClear();
 
 const { width, height } = Dimensions.get('window');
 
@@ -30,6 +68,7 @@ export default function Splash({ navigation }) {
 
   const dispatch = useDispatch();
   const { user, login_loading, error } = useSelector((state) => state.authentication);
+  const { setUserAfterLogin } = useContext(UserContext);
 
   const [logoOpacity] = useState(new Animated.Value(1));
   const [secondViewAnimation] = useState(new Animated.Value(100)); 
@@ -47,21 +86,32 @@ export default function Splash({ navigation }) {
   const [fcmTokenLoading, setFcmTokenLoading] = useState(true);
   const [contactList, setContactList] = useState([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [disclosed, setDisclosed] = useState(true);
   const socketRef = useRef(null);
+
+  useEffect(() => {
+    const autoLoginCheck = async () => {
+      const { isLoggedIn, userData } = await checkAutoLogin();
+      if (isLoggedIn) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'EmployeDashboard', params: { userData } }],
+        });
+      }
+    };
+    autoLoginCheck();
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       const requestUserPermission = async () => {
         try {
           setFcmTokenLoading(true);
-          const authStatus = await messaging().requestPermission();
-          const enabled =
-            authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-            authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-          if (enabled) {
-            const fcmtoken = await messaging().getToken();
-            console.log("fcmToken Splash---", fcmtoken);
-            setFcmToken(fcmtoken);
+          const { status } = await Notifications.requestPermissionsAsync();
+          if (status === 'granted') {
+            const token = await Notifications.getDevicePushTokenAsync();
+            console.log("fcmToken Splash---", token.data);
+            setFcmToken(token.data);
           } else {
             console.log("Notification permission denied.");
           }
@@ -75,17 +125,49 @@ export default function Splash({ navigation }) {
     },[])
   );
 
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const storedValue = await AsyncStorage.getItem(CONSENT_STORAGE_KEY);
+        if (!isMounted) return;
+        if (storedValue === 'true') {
+          setDisclosed(true);
+        } else {
+          setDisclosed(false);
+        }
+      } catch (e) {
+        if (isMounted) {
+          setDisclosed(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const markConsentShown = async () => {
+    try {
+      await AsyncStorage.multiSet([
+        [CONSENT_STORAGE_KEY, 'true'],
+        ['contactPermissionHandled', 'true'], // legacy key for backward compatibility
+      ]);
+    } catch (error) {
+      console.error('Failed to persist contact consent flag', error);
+    }
+  };
+
   const handleLogin = async () => {
     // Wait for FCM token if it's not available yet
     let currentFcmToken = fcmToken;
     if (!currentFcmToken) {
       try {
-        const authStatus = await messaging().requestPermission();
-        const enabled =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-        if (enabled) {
-          currentFcmToken = await messaging().getToken();
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status === 'granted') {
+          const token = await Notifications.getDevicePushTokenAsync();
+          currentFcmToken = token.data;
           setFcmToken(currentFcmToken);
         }
       } catch (error) {
@@ -122,12 +204,23 @@ export default function Splash({ navigation }) {
     if (status === 'granted') {
       console.log('Permission granted contact');
       setPermissionGranted(true);
-      fetchContacts();
     } else {
       setPermissionGranted(false);
       console.log("Permission denied contacts");
     }
   }
+  
+  const handleAccept = async () => {
+    await markConsentShown();
+    setDisclosed(true);
+    askForContactPermission();
+  };
+  
+  const handleUserCancel = async () => {
+    await markConsentShown();
+    setDisclosed(true);
+    // Optionally notify backend that user declined
+  };
   
   // Function to fetch contacts
  const fetchContacts = async () => {
@@ -197,12 +290,13 @@ export default function Splash({ navigation }) {
       });
   };
 
-  // useEffect(() => {
-  //   if (user && !login_loading && !error) {
-  //     // Once the user is logged in successfully, send the contacts
-  //     sendContact(contactList);
-  //   }
-  // }, [user, login_loading, error]);
+  useEffect(() => {
+    if (user && !login_loading && !error && contactList && contactList.length > 0) {
+      sendContact(contactList);
+      // Mark consent as shown to avoid future prompts if not already set
+      markConsentShown();
+    }
+  }, [user, login_loading, error, contactList]);
 
   const getClientList = async () => {
     if (!groupId || groupId.length < 12) return;
@@ -244,12 +338,10 @@ export default function Splash({ navigation }) {
       let currentFcmToken = fcmToken;
       if (!currentFcmToken) {
         try {
-          const authStatus = await messaging().requestPermission();
-          const enabled =
-            authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-            authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-          if (enabled) {
-            currentFcmToken = await messaging().getToken();
+          const { status } = await Notifications.requestPermissionsAsync();
+          if (status === 'granted') {
+            const token = await Notifications.getDevicePushTokenAsync();
+            currentFcmToken = token.data;
             setFcmToken(currentFcmToken);
           }
         } catch (error) {
@@ -262,7 +354,7 @@ export default function Splash({ navigation }) {
   
       const raw = JSON.stringify({
           email: userName,
-          fcmToken: currentFcmToken || '', // Send empty string if no token available
+          fcmToken: currentFcmToken || '',
           password: password
       });
   
@@ -272,24 +364,17 @@ export default function Splash({ navigation }) {
           body: raw,
           redirect: "follow"
       };
-      
+      // console.log("Login Request Data:", raw);
+      // return;
       try {
           const response = await fetch(`${BASE_URL}/admin/login`, requestOptions);
           const result = await response.json();
   
           if (result.statusCode === 200) {
-              await AsyncStorage.setItem('authToken', result?.token);
-              console.log("Employe Login Success Token:", result?.token);
-               if (result?.data) {
-                 await AsyncStorage.setItem('userData', JSON.stringify(result?.data));
-                 console.log("Employe Login Success Data:", result?.data);
-               }
-               if(result?.data?.isHRMS === true){
-                navigation.navigate('EmployeDashboard', { userData: result?.data });
-               }else{
-                navigation.navigate('WebViewComp', { userData: result?.data });
-               }
-              // navigation.navigate('EmployeDashboard', { userData: result?.data });
+              await setUserAfterLogin(result.data, result.token);
+              // console.log("User Data after login:", result.data);
+              // console.log("Token-----",result.token);
+              navigation.navigate('EmployeDashboard', { userData: result?.data });
               // showToast(result.message);
               setIsLoading(false);
           } else if (result.statusCode === 400) {
@@ -330,7 +415,7 @@ export default function Splash({ navigation }) {
      if (!user?.data?._id) return;
    
      const userId = user.data._id;
-     const socketUrl = `https://api.easymyoffice.com?userId=${userId}`;
+     const socketUrl = `https://api.vieasyoffice.com?userId=${userId}`;
      socketRef.current = io(socketUrl, {
        transports: ['websocket'],
        reconnection: true,
@@ -389,6 +474,26 @@ export default function Splash({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Consent Modal */}
+      {!disclosed && (
+        <View style={{ position: 'absolute', zIndex: 10, left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ width: '86%', backgroundColor: '#fff', padding: 20, borderRadius: 12 }}>
+            <Text style={{ fontSize: 16, fontFamily: 'Lato-Bold', color: '#111', marginBottom: 8 }}>We value your privacy</Text>
+            <Text style={{ fontSize: 14, fontFamily: 'Lato-Regular', color: '#444', marginBottom: 16 }}>
+              This app requests access to your contacts (with your permission) to help you invite colleagues and work better together. We never access your full contact list without your approval.
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+              {/* Uncomment to show a Cancel option: */}
+              {/* <TouchableOpacity onPress={handleUserCancel} style={{ paddingVertical: 10, paddingHorizontal: 12, marginRight: 12 }}>
+                <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: '#074173' }}>Not now</Text>
+              </TouchableOpacity> */}
+              <TouchableOpacity onPress={handleAccept} style={{ backgroundColor: '#074173', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 }}>
+                <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: '#fff' }}>Agree and Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
       <StatusBar translucent={false} backgroundColor={'#ffffff'} barStyle='dark-content' />
       <View style={styles.backgroundContainer}>
         <ScrollView 
@@ -418,65 +523,27 @@ export default function Splash({ navigation }) {
           {/* Tab Selector */}
           <View style={styles.tabContainer}>
             <View style={styles.tabWrapper}>
-              <TouchableOpacity 
-                onPress={() => setActiveTab('Group')} 
-                style={[
-                  styles.tabButton,
-                  activeTab === 'Group' && styles.activeTabButton
-                ]}
-              >
-                <MaterialIcons 
-                  name="group" 
-                  size={20} 
-                  color={activeTab === 'Group' ? '#fff' : '#666'} 
-                />
-                <Text style={[
-                  styles.tabText,
-                  activeTab === 'Group' && styles.activeTabText
-                ]}>
+              <TouchableOpacity onPress={() => setActiveTab('Group')} 
+                style={[ styles.tabButton, activeTab === 'Group' && styles.activeTabButton ]} >
+                <MaterialIcons name="group" size={20} color={activeTab === 'Group' ? '#fff' : '#666'} />
+                <Text style={[ styles.tabText, activeTab === 'Group' && styles.activeTabText ]}>
                   Group
                 </Text>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                onPress={() => setActiveTab('Client')} 
-                style={[
-                  styles.tabButton,
-                  activeTab === 'Client' && styles.activeTabButton
-                ]}
-              >
-                <MaterialIcons 
-                  name="person" 
-                  size={20} 
-                  color={activeTab === 'Client' ? '#fff' : '#666'} 
-                />
-                <Text style={[
-                  styles.tabText,
-                  activeTab === 'Client' && styles.activeTabText
-                ]}>
+              <TouchableOpacity onPress={() => setActiveTab('Client')} style={[ styles.tabButton, activeTab === 'Client' && styles.activeTabButton ]} >
+                <MaterialIcons name="person" size={20} color={activeTab === 'Client' ? '#fff' : '#666'} />
+                <Text style={[ styles.tabText, activeTab === 'Client' && styles.activeTabText ]}>
                   Client
                 </Text>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                onPress={() => setActiveTab('Employee')} 
-                style={[
-                  styles.tabButton,
-                  activeTab === 'Employee' && styles.activeTabButton
-                ]}
-              >
-                <MaterialIcons 
-                  name="work" 
-                  size={20} 
-                  color={activeTab === 'Employee' ? '#fff' : '#666'} 
-                />
-                <Text style={[
-                  styles.tabText,
-                  activeTab === 'Employee' && styles.activeTabText
-                ]}>
+              {/* <TouchableOpacity onPress={() => setActiveTab('Employee')} style={[ styles.tabButton, activeTab === 'Employee' && styles.activeTabButton ]}>
+                <MaterialIcons name="work" size={20} color={activeTab === 'Employee' ? '#fff' : '#666'} />
+                <Text style={[ styles.tabText, activeTab === 'Employee' && styles.activeTabText ]}>
                   Employee
                 </Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           </View>
           {/* Form Section */}
@@ -487,7 +554,7 @@ export default function Splash({ navigation }) {
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Email Address</Text>
                     <View style={styles.inputWrapper}>
-                      <Ionicons name="mail-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                      <Ionicons name="mail-outline" size={20} color="#074173" style={styles.inputIcon} />
                       <TextInput
                         placeholder="Enter your email"
                         value={userName}
@@ -503,7 +570,7 @@ export default function Splash({ navigation }) {
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Password</Text>
                     <View style={styles.inputWrapper}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                      <Ionicons name="lock-closed-outline" size={20} color="#074173" style={styles.inputIcon} />
                       <TextInput
                         placeholder="Enter your password"
                         value={password}
@@ -519,7 +586,7 @@ export default function Splash({ navigation }) {
                         <Ionicons 
                           name={showPass ? 'eye-off-outline' : 'eye-outline'} 
                           size={20} 
-                          color="#667eea" 
+                          color="#074173" 
                         />
                       </TouchableOpacity>
                     </View>
@@ -530,7 +597,7 @@ export default function Splash({ navigation }) {
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Group Name</Text>
                     <View style={styles.inputWrapper}>
-                      <Ionicons name="business-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                      <Ionicons name="business-outline" size={20} color="#074173" style={styles.inputIcon} />
                       <TextInput
                         placeholder="Enter group name"
                         value={groupId}
@@ -541,7 +608,7 @@ export default function Splash({ navigation }) {
                       />
                       {isLoading && (
                         <View style={styles.loadingContainer}>
-                          <ActivityIndicator size="small" color="#667eea" />
+                          <ActivityIndicator size="small" color="#074173" />
                         </View>
                       )}
                     </View>
@@ -559,14 +626,14 @@ export default function Splash({ navigation }) {
                       renderButton={(clientList, isOpened) => {
                         return (
                           <View style={styles.modernDropdownButton}>
-                            <Ionicons name="person-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                            <Ionicons name="person-outline" size={20} color="#074173" style={styles.inputIcon} />
                             <Text style={styles.modernDropdownText}>
                               {(clientList && clientList?.fullName) || 'Select Client'}
                             </Text>
                             <Ionicons 
                               name={isOpened ? 'chevron-up' : 'chevron-down'} 
                               size={20} 
-                              color="#667eea" 
+                              color="#074173" 
                             />
                           </View>
                         );
@@ -586,7 +653,7 @@ export default function Splash({ navigation }) {
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Password</Text>
                     <View style={styles.inputWrapper}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                      <Ionicons name="lock-closed-outline" size={20} color="#074173" style={styles.inputIcon} />
                       <TextInput
                         placeholder="Enter your password"
                         value={password}
@@ -602,7 +669,7 @@ export default function Splash({ navigation }) {
                         <Ionicons 
                           name={showPass ? 'eye-off-outline' : 'eye-outline'} 
                           size={20} 
-                          color="#667eea" 
+                          color="#074173" 
                         />
                       </TouchableOpacity>
                     </View>
@@ -613,7 +680,7 @@ export default function Splash({ navigation }) {
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Email Address</Text>
                     <View style={styles.inputWrapper}>
-                      <Ionicons name="mail-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                      <Ionicons name="mail-outline" size={20} color="#074173" style={styles.inputIcon} />
                       <TextInput
                         placeholder="Enter your email"
                         value={userName}
@@ -629,7 +696,7 @@ export default function Splash({ navigation }) {
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>Password</Text>
                     <View style={styles.inputWrapper}>
-                      <Ionicons name="lock-closed-outline" size={20} color="#667eea" style={styles.inputIcon} />
+                      <Ionicons name="lock-closed-outline" size={20} color="#074173" style={styles.inputIcon} />
                       <TextInput
                         placeholder="Enter your password"
                         value={password}
@@ -645,7 +712,7 @@ export default function Splash({ navigation }) {
                         <Ionicons 
                           name={showPass ? 'eye-off-outline' : 'eye-outline'} 
                           size={20} 
-                          color="#667eea" 
+                          color="#074173" 
                         />
                       </TouchableOpacity>
                     </View>
@@ -700,9 +767,9 @@ export default function Splash({ navigation }) {
               </TouchableOpacity>
             )}
           </View>
-          <View style={{ width:'100%', alignSelf:'center', bottom:20, position:'absolute' }} >
-              <Text style={{ color: '#000', fontSize:10, fontFamily:"Poppins-Medium", textAlign:'center' }} >By continuing, you agree to our <Text onPress={() => navigation.navigate('TermCondition')} style={{ color: "#999", fontSize:10, fontFamily:'Poppins-Medium', textAlign:'center' }} >Term</Text> & <Text onPress={() => navigation.navigate('Privacy')} style={{ color: "#999", fontSize:10, fontFamily:'Poppins-Medium', textAlign:'center' }} >Privacy Policy</Text> </Text>
-          </View>
+         <View style={{ width:'100%', alignSelf:'center', bottom:20, position:'absolute' }} >
+             <Text style={{ color: '#000', fontSize:10, fontFamily:"Lato-Medium", textAlign:'center' }} >By continuing, you agree to our <Text onPress={() => navigation.navigate('TermCondition')} style={{ color: "#999", fontSize:10, fontFamily:'Lato-Medium', textAlign:'center' }} >Term</Text> & <Text onPress={() => navigation.navigate('Privacy')} style={{ color: "#999", fontSize:10, fontFamily:'Lato-Medium', textAlign:'center' }} >Privacy Policy</Text> </Text>
+         </View>
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -753,19 +820,19 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     fontSize: 18,
-    fontFamily: 'Poppins-Light',
+    fontFamily: 'Lato-Light',
     color: '#333',
     marginBottom: 0,
   },
   appNameText: {
     fontSize: 24,
-    fontFamily: 'Poppins-Bold',
-    color: '#667eea',
+    fontFamily: 'Lato-Bold',
+    color: '#074173',
     marginBottom: 1,
   },
   subtitleText: {
     fontSize: 14,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Lato-Regular',
     color: '#666',
     textAlign: 'center',
   },
@@ -793,17 +860,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   activeTabButton: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#074173',
   },
   tabText: {
     fontSize: 14,
-    fontFamily: 'Poppins-Medium',
+    fontFamily: 'Lato-Medium',
     color: '#666',
     marginLeft: 6,
   },
   activeTabText: {
     color: '#fff',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: 'Lato-SemiBold',
   },
 
   // Form Container Styles
@@ -828,7 +895,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: 'Lato-SemiBold',
     color: '#333',
     marginBottom: 8,
   },
@@ -856,7 +923,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Lato-Regular',
     color: '#333',
   },
   eyeIcon: {
@@ -888,7 +955,7 @@ const styles = StyleSheet.create({
   modernDropdownText: {
     flex: 1,
     fontSize: 16,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Lato-Regular',
     color: '#333',
     marginLeft: 12,
   },
@@ -917,7 +984,7 @@ const styles = StyleSheet.create({
   },
   modernDropdownItemText: {
     fontSize: 16,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: 'Lato-Regular',
     color: '#333',
   },
 
@@ -928,8 +995,8 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 14,
-    fontFamily: 'Poppins-SemiBold',
-    color: '#667eea',
+    fontFamily: 'Lato-SemiBold',
+    color: '#074173',
     textDecorationLine: 'underline',
   },
 
@@ -942,7 +1009,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 56,
     borderRadius: 12,
-    backgroundColor: '#667eea',
+    backgroundColor: '#074173',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -967,7 +1034,7 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     fontSize: 18,
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: 'Lato-SemiBold',
     color: '#fff',
   },
 

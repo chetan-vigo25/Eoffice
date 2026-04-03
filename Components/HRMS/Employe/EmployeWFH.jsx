@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, View, Text, StatusBar, Button, ScrollView, FlatList, Modal, TextInput, Alert, Platform, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
+import { StyleSheet, View, Text, StatusBar, Button, ScrollView, FlatList, Modal, TextInput, Alert, Platform, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SelectList } from 'react-native-dropdown-select-list';
@@ -7,8 +7,9 @@ import CalendarPicker from "react-native-calendar-picker";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import moment from "moment";
 import EmployeHeader from './EmployeComponent/EmployeHeader';
-import BASE_URL from '../../../Urls/DomainUrl';
+import BASE_URL, { IMAGE_FILEPATH_URL } from '../../../Urls/DomainUrl';
 import { useEmployeeDashboard } from '../../../Context/EmployeeDashboardContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AntDesign, FontAwesome, FontAwesome5, Octicons, Entypo, MaterialIcons, SimpleLineIcons, Ionicons } from "@expo/vector-icons";
 
@@ -59,7 +60,7 @@ export default function EmployeWFH({ navigation }) {
     const [errors, setErrors] = useState({});
     const [filteredWfhData, setFilteredWfhData] = useState([]);
     const [wfhData, setWfhData] = useState([]);
-    const [viewModal, setViewModal] = useState(false);
+    const [viewModalId, setViewModalId] = useState(null);
     const [selectedItem, setSelectedItem] = useState(null);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingLeaveId, setEditingLeaveId] = useState(null);
@@ -72,6 +73,7 @@ export default function EmployeWFH({ navigation }) {
           if (storedUserData) {
             const parsedData = JSON.parse(storedUserData);
             setUserData(parsedData);
+            await wfhEmployeeList(parsedData);
             // console.log("User Data---:", parsedData);
           }
         } catch (error) {
@@ -133,7 +135,7 @@ export default function EmployeWFH({ navigation }) {
         const response = await fetch(`${BASE_URL}/admin/master/others/wfhManager/list`, requestOptions);
         const result = await response.json();
         if(result.statusCode === 200){
-          // console.log("WFH List---:", result?.data?.docs);
+          console.log("WFH List---:", result?.data?.docs);
           const wfhReqOptions = result.data.docs.map(wfhReq => ({
             key: wfhReq._id,
             value: wfhReq.name
@@ -294,9 +296,9 @@ export default function EmployeWFH({ navigation }) {
         }
       }
 
-      const wfhEmployeeList = async ()=>{
+      const wfhEmployeeList = async (userDataParam)=>{
+        setLoading(true);
         try{
-          setLoading(true);
             let token = await AsyncStorage.getItem("authToken");
            if (!token) {
              showToast("Authentication token not found");
@@ -314,10 +316,10 @@ export default function EmployeWFH({ navigation }) {
           // Fetch all pages until no more data
           while (hasNextPage) {
             const raw = JSON.stringify({
-              "branchId": userData?.branchId,
-              "companyId": userData?.companyId,
+              "branchId": userDataParam?.branchId,
+              "companyId": userDataParam?.companyId,
               "directorId": "",
-              "employeId": userData?._id,
+              "employeId": userDataParam?._id,
               "endDate": "",
               "isPagination": true,
               "page": currentPage,
@@ -339,7 +341,8 @@ export default function EmployeWFH({ navigation }) {
             const result = await response.json();
             
             if(result.statusCode === 200){
-              const pageData = result.data.docs || result.data || [];
+              // console.log("addadada", result.data);
+              const pageData = result.data.docs || result.data.docs || [];
               
               if (pageData.length === 0) {
                 hasNextPage = false;
@@ -362,7 +365,7 @@ export default function EmployeWFH({ navigation }) {
                 currentPage++;
               }
             } else {
-              console.log("WFH List Error---:", result.message);
+              // console.log("WFH List Error---:", result.message);
               // If first page fails, try without pagination parameters
               if (currentPage === 1) {
                 // Try fetching all data at once
@@ -407,8 +410,8 @@ export default function EmployeWFH({ navigation }) {
           setFilteredWfhData(allData);
           setLoading(false);
         }catch(error){
-          console.error("Failed to load WFH request data:", error);
-          showToast("Error loading WFH requests: " + error.message);
+          // console.error("Failed to load WFH request data:", error);
+          // showToast("Error loading WFH requests: " + error.message);
           setLoading(false);
         }
       }
@@ -451,11 +454,11 @@ export default function EmployeWFH({ navigation }) {
         setPage(0);
       };
       
-      useEffect(() => {
-        if (userData) {
-          wfhEmployeeList();
-        }
-      }, [userData]);
+      // useEffect(() => {
+      //   if (userData) {
+      //     wfhEmployeeList();
+      //   }
+      // }, [userData]);
       
       useEffect(() => {
         if (userData && (startDate || endDate || selectStatus)) {
@@ -516,10 +519,10 @@ export default function EmployeWFH({ navigation }) {
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
               <AntDesign name="arrowleft" size={24} color="#fff" />
            </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>WFH Management</Text>
+          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>WFH Management</Text>
         </View>
         <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20 }} >
-            <EmployeHeader navigation={navigation} />
+            {/* <EmployeHeader navigation={navigation} /> */}
             <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
               <View style={styles.cardContainer}>
                 {/* Card Header */}
@@ -537,13 +540,13 @@ export default function EmployeWFH({ navigation }) {
                    setWfhModal(!wfhModal);
                    resetFormFields();
                  }}>
-                 <View style={{ flex:1, justifyContent:'center',  backgroundColor:'#ffffff80', padding:10 }} >
+                 <View style={{ flex:1, justifyContent:'center',  backgroundColor:'#00000060', padding:10 }} >
                    <View style={{ width:'100%', backgroundColor:'#fff', padding:20, borderRadius:10, shadowOffset: { width: 0, height: 5, }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, }} >
                       <View>
-                        <Text style={{ color:'#444', fontSize:16, fontFamily:'Poppins-SemiBold', marginBottom:10 }} >{isEditMode?'Update WFH':'Apply WFH'}</Text>
+                        <Text style={{ color:'#444', fontSize:16, fontFamily:'Lato-SemiBold', marginBottom:10 }} >{isEditMode?'Update WFH':'Apply WFH'}</Text>
                       </View>
                       <View>
-                      <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5 }} >WFH Type</Text>
+                      <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5 }} >WFH Type</Text>
                        <View style={{ width:'100%', marginBottom:10,}} >
                         <SelectList 
                             setSelected={(val) => {setWfhType(val)
@@ -557,9 +560,9 @@ export default function EmployeWFH({ navigation }) {
                        </View>
                       </View>
                       <View>
-                      <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', marginBottom:5 }} >WFH Date</Text>
+                      <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', marginBottom:5 }} >WFH Date</Text>
                         <View style={{ width:'100%', marginBottom:0, height:45, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:.8, borderRadius:8, borderColor: '#444', }} >
-                          <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', color:'#868686', paddingTop:5 }} >{wfhDate? wfhDate : 'Select Date'}</Text>
+                          <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', color:'#868686', paddingTop:5 }} >{wfhDate? wfhDate : 'Select Date'}</Text>
                           <TouchableOpacity onPress={()=> setWfhDateVisible(true)} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                             <Text style={{ fontSize:20,}} >📅</Text>
                           </TouchableOpacity>
@@ -580,25 +583,25 @@ export default function EmployeWFH({ navigation }) {
                         {errors.wfhDate && <Text style={{ color: 'red', fontSize: 12, marginTop: 5 }}>{errors.wfhDate}</Text>}
                       </View>
                       <View style={{ marginTop:5 }} >
-                       <Text style={{ paddingLeft:0, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5, color:'#444' }} >WFH Reason</Text>
+                       <Text style={{ paddingLeft:0, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5, color:'#444' }} >WFH Reason</Text>
                        <View style={{ width:'100%', height:45, backgroundColor:'#fff', borderWidth:.8, borderColor: '#444', borderRadius:8, padding:5,  }}>
-                          <TextInput value={wfhReason} onChangeText={value=> {setWfhReason(value), setErrors(prev => ({ ...prev, wfhReason: null }))}} placeholder="Reason" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#fff', borderRadius:5, padding:5, color:"#074173", fontFamily:'Poppins-Mediumkk' }} />
+                          <TextInput value={wfhReason} onChangeText={value=> {setWfhReason(value), setErrors(prev => ({ ...prev, wfhReason: null }))}} placeholder="Reason" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#fff', borderRadius:5, padding:5, color:"#074173", fontFamily:'Lato-Mediumkk' }} />
                        </View>
                        {errors.wfhReason && <Text style={{ color: 'red', fontSize: 12, marginTop: 5 }}>{errors.wfhReason}</Text>}
                       </View>
                       <View style={{ marginTop:5, marginBottom:20 }} >
-                       <Text style={{ paddingLeft:0, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5, color:'#444' }} >Work To Do</Text>
+                       <Text style={{ paddingLeft:0, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5, color:'#444' }} >Work To Do</Text>
                        <View style={{ width:'100%', height:45, backgroundColor:'#fff', borderWidth:.8, borderColor: '#444', borderRadius:8, padding:5,  }}>
-                          <TextInput value={workToDo} onChangeText={value=> {setWorkToDo(value), setErrors(prev => ({ ...prev, workToDo: null }))}} placeholder="Work To Do" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#fff', borderRadius:5, padding:5, color:"#074173", fontFamily:'Poppins-Mediumkk' }} />
+                          <TextInput value={workToDo} onChangeText={value=> {setWorkToDo(value), setErrors(prev => ({ ...prev, workToDo: null }))}} placeholder="Work To Do" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#fff', borderRadius:5, padding:5, color:"#074173", fontFamily:'Lato-Mediumkk' }} />
                        </View>
                        {errors.workToDo && <Text style={{ color: 'red', fontSize: 12, marginTop: 5 }}>{errors.workToDo}</Text>}
                       </View>
                       <View style={{ flexDirection:'row', gap:20 }} >
                         <TouchableOpacity onPress={() => {setWfhModal(!wfhModal),resetFormFields()}} style={{ flex:1, height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#6a8ff320', borderWidth:1, borderColor:'#6a8ff3', borderRadius:6 }} >
-                          <Text style={{ color:'#6a8ff3', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Cancel</Text>
+                          <Text style={{ color:'#6a8ff3', fontSize:16, fontFamily:"Lato-SemiBold" }} >Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => {isEditMode? updateWfhRequest() : createWFHRequest()}} style={{ flex:1, height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#6a8ff3', borderWidth:1, borderColor:'#6a8ff3', borderRadius:6 }} >
-                          <Text style={{ color:'#fff', fontSize:16, fontFamily:"Poppins-SemiBold" }} >{isEditMode? 'Update' : 'Submit'}</Text>
+                          <Text style={{ color:'#fff', fontSize:16, fontFamily:"Lato-SemiBold" }} >{isEditMode? 'Update' : 'Submit'}</Text>
                         </TouchableOpacity>
                       </View>
                    </View>
@@ -613,7 +616,7 @@ export default function EmployeWFH({ navigation }) {
                         <View style={styles.avatarContainer}>
                           {
                               emp.profileImage ? (
-                                <Image source={{ uri: `https://api.vieasyoffice.com/public/${emp.profileImage}` }} style={{ height: 42, width: 42, borderRadius: 21 }} />
+                                <Image source={{ uri: `${IMAGE_FILEPATH_URL}/${emp.profileImage}` }} style={{ height: 42, width: 42, borderRadius: 21 }} />
                               ) : (
                                 <Text style={styles.avatarText}>{emp.fullName.charAt(0)}</Text>
                               )
@@ -630,7 +633,7 @@ export default function EmployeWFH({ navigation }) {
               </View>
               <View style={{ width:'100%', flexDirection:'row', gap:10, marginBottom:10 }} >
                 <View style={{ flex:1, height:40, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:.5, borderRadius:5, borderColor: '#E0E0E0' }} >
-                  <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5 }} >{startDate?startDate: 'Start Date'}</Text>
+                  <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5 }} >{startDate?startDate: 'Start Date'}</Text>
                   <TouchableOpacity onPress={() => setStartDateVisible(true)} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                     <Text style={{ fontSize:25,}} >📅</Text>
                   </TouchableOpacity>
@@ -647,7 +650,7 @@ export default function EmployeWFH({ navigation }) {
                    />
                 </View>
                 <View style={{ flex:1, flexDirection:'row', height:40, justifyContent:'space-between', alignItems:'center', borderWidth:.5, borderRadius:5, borderColor: '#E0E0E0' }} >
-                  <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5 }} >{endDate ? endDate: 'End Date'}</Text>
+                  <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5 }} >{endDate ? endDate: 'End Date'}</Text>
                   <TouchableOpacity onPress={() => setEndDateVisible(true)} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                     <Text style={{ fontSize:25,}} >📅</Text>
                   </TouchableOpacity>
@@ -665,7 +668,7 @@ export default function EmployeWFH({ navigation }) {
                 </View>
                 <View style={{ height:45, justifyContent:'space-between', alignItems:'center', }} >
                   <TouchableOpacity onPress={handleResetFilters} style={{ height:40, paddingHorizontal:8, justifyContent:'center', alignItems:'center', backgroundColor: '#6a8ff3', borderRadius: 5 }}>
-                    <Text style={{ color: '#fff', fontFamily: 'Poppins-Medium' }}>Reset</Text>
+                    <Text style={{ color: '#fff', fontFamily: 'Lato-Medium' }}>Reset</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -679,8 +682,21 @@ export default function EmployeWFH({ navigation }) {
                  />
                 </View>
                </View>
-              <View style={styles.container}>
-                <ScrollView horizontal style={{ marginBottom: 10 }}>
+               {
+                loading ? (<ActivityIndicator size="large" color="#0000ff" />) : currentData.length === 0 ? (
+                  <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
+                     <View style={{ width:100, height:100 }} >
+                      <Image
+                        source={require('../../../assets/Images/notFound.png')}
+                        style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+                      />
+                    </View>
+                    <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
+                    <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
+                  </View>
+                ):(
+                  <View style={styles.container}>
+                    <ScrollView horizontal style={{ marginBottom: 10 }}>
                     <View>
                       <View style={styles.row}>
                         {headers.map((header, index) => (
@@ -689,17 +705,6 @@ export default function EmployeWFH({ navigation }) {
                           </Text>
                         ))}
                       </View>
-                      {
-                        loading ? (
-                          <View style={{ flex: 1, alignItems: 'center',}}>
-                            <ActivityIndicator size="large" color="#007BFF" />
-                          </View>
-                        ):
-                          currentData.length === 0 ? (
-                            <View style={{}}>
-                              <Text style={{fontSize: 14, fontFamily:'Poppins-SemiBold', color: '#868686',}}>Records not found</Text>
-                            </View>
-                          ) : (
                             <FlatList
                               data={currentData}
                                keyExtractor={(item) => item._id.toString()}
@@ -712,186 +717,185 @@ export default function EmployeWFH({ navigation }) {
                                  >
                                    <Text style={styles.cell}>{page * rowsPerPage + index + 1}</Text>
                                    <Text style={{width: 140, flexDirection: 'row', justifyContent: 'center',}}>{item.reason}</Text>
-                                   <Text style={styles.cell}>{item.wfhManagerData.name}</Text>
-                                   <Text style={styles.cell}>{item.wfhManagerData.allowedDays}</Text>
+                                   <Text style={styles.cell}>{item.wfhManagerData?.name}</Text>
+                                   <Text style={styles.cell}>{item.wfhManagerData?.allowedDays}</Text>
                                    <Text style={styles.cell}>{moment(item.startDate).format('DD-MM-YYYY')}</Text>
                                    <Text style={styles.cell}>{moment(item.createdAt).format('DD-MM-YYYY')}</Text>
                                    <Text style={styles.cell}>{item.updatedBy === null? '-': item.updatedBy}</Text>
                                    <Text style={styles.cell}>{moment(item.updatedAt).format('DD-MM-YYYY')}</Text>
-                                   <Text style={{width:140, textAlign: 'center', fontSize: 14, fontFamily: 'Poppins-Medium', color:item.status === 'pending' ? '#FFD230' : item.status === 'approved' ? '#4CAF50' : '#F54927'}}>{item.status === 'pending' ? 'Pending' : item.status === 'approved' ? 'Approved' : 'Rejected'}</Text>
+                                   <Text style={{width:140, textAlign: 'center', fontSize: 14, fontFamily: 'Lato-Medium', color:item.status === 'pending' ? '#FFD230' : item.status === 'approved' ? '#4CAF50' : '#F54927'}}>{item.status === 'pending' ? 'Pending' : item.status === 'approved' ? 'Approved' : 'Rejected'}</Text>
                                    {/* <Text style={styles.cell}>{item.action}</Text> */}
                                    <View style={{ width: 140, flexDirection: 'row', justifyContent: 'center', gap:10 }} >
-                                    <TouchableOpacity onPress={()=> {setViewModal(true),setSelectedItem(item);}} style={{ width: 30, height: 30, justifyContent: 'center', alignItems: 'center', }} >
+                                    <TouchableOpacity onPress={()=> {setViewModalId(item._id),setSelectedItem(item);}} style={{ width: 30, height: 30, justifyContent: 'center', alignItems: 'center', }} >
                                       <FontAwesome name="eye" size={24} color={'#6a8ff3'} />
                                     </TouchableOpacity>
                                     <TouchableOpacity onPress={item.status === 'pending' ? () => openEditModal(item) : ()=> showToast('No Action')} style={{ width: 30, height: 30, justifyContent: 'center', alignItems: 'center', }} >
                                       <FontAwesome5 name="edit" size={20} color={'#6a8ff3'} />
                                     </TouchableOpacity>
                                    </View>
-                                   <Modal
-                                     animationType="slide"
-                                     transparent={true}
-                                     visible={viewModal}
-                                     onRequestClose={() => {
-                                       setViewModal(!viewModal);
-                                     }}>
-                                     <View style={{ flex:1, justifyContent:'center',  backgroundColor:'#ffffff80', padding:10 }} >
-                                       <View style={{ width:'100%', backgroundColor:'#fff', padding:20, borderRadius:10, shadowOffset: { width: 0, height: 5, }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, }} >
-                                          <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }} >
-                                            <Text style={{ color:'#444', fontSize:16, fontFamily:'Poppins-SemiBold', marginBottom:10 }} >WFH Request Details</Text>
-                                            <TouchableOpacity onPress={() => setViewModal(false)} style={{ width: 30, height: 30, justifyContent: 'center', alignItems: 'center', }} >
-                                              <Ionicons name="close-circle" size={24} color="#6a8ff3" />
-                                            </TouchableOpacity>
-                                          </View>
-                                          {
-                                            selectedItem && (
-                                              <View>
-                                                <View style={{ flexDirection:'row', alignItems:'center'}} >
-                                                   <Octicons name="person" size={20} color="black" />
-                                                   <Text style={{ color:'#444', fontSize:16, fontFamily:'Poppins-SemiBold', marginLeft:10 }} >Employee Information</Text>
-                                                </View>
-                                                <View style={{ marginTop:10, flexDirection:'row', borderWidth:.5, borderColor:'#e0e0e0', borderRadius:5 }} >
-                                                  <View style={{ flex:3 }} >
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >Full Name</Text>
-                                                    </View>
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >Email</Text>
-                                                    </View>
-                                                  </View>
-                                                  <View style={{ flex:7 }} >
-                                                   <View style={{ padding:8, borderBottomWidth:.5, borderColor:"#e0e0e0", justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{userData?.fullName}</Text>
-                                                   </View>
-                                                   <View style={{ padding:8, justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{userData?.email}</Text>
-                                                   </View>
-                                                  </View>
-                                                </View>
-                                                <View style={{ flexDirection:'row', alignItems:'center', marginVertical:10 }} >
-                                                   <Entypo name="calendar" size={20} color="black" />
-                                                   <Text style={{ color:'#444', fontSize:16, fontFamily:'Poppins-SemiBold', marginLeft:10 }} >Request Detail</Text>
-                                                </View>
-                                                <View style={{ flexDirection:'row', borderWidth:.5, borderColor:'#e0e0e0', borderRadius:5 }} >
-                                                  <View style={{ flex:5 }} >
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >Request Type</Text>
-                                                    </View>
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >Status</Text>
-                                                    </View>
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >Date</Text>
-                                                    </View>
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >Duration</Text>
-                                                    </View>
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >Reason</Text>
-                                                    </View>
-                                                  </View>
-                                                  <View style={{ flex:5 }} >
-                                                   <View style={{ padding:8, borderBottomWidth:.5, borderColor:"#e0e0e0", justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{selectedItem?.wfhManagerData?.name}</Text>
-                                                   </View>
-                                                   <View style={{ padding:8, borderBottomWidth:.5, borderColor:"#e0e0e0", justifyContent:'center', }} >
-                                                     <Text style={{ color:selectedItem?.status === 'pending' ? '#FFD230' : selectedItem?.status === 'approved' ? '#4CAF50' : '#F54927', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{selectedItem?.status === 'pending' ? 'Pending' : selectedItem?.status === 'approved' ? 'Approved' : 'Rejected'}</Text>
-                                                   </View>
-                                                   <View style={{ padding:8, borderBottomWidth:.5, borderColor:"#e0e0e0", justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{moment(selectedItem?.startDate).format('DD-MM-YYYY')}</Text>
-                                                   </View>
-                                                   <View style={{ padding:8, borderBottomWidth:.5, borderColor:"#e0e0e0", justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{selectedItem?.wfhManagerData?.allowedDays}</Text>
-                                                   </View>
-                                                   <View style={{ padding:3 }} >
-                                                     <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{selectedItem?.reason}</Text>
-                                                   </View>
-                                                  </View>
-                                                </View>
-                                                <View style={{ flexDirection:'row', alignItems:'center', marginVertical:10 }} >
-                                                   <MaterialIcons name="computer" size={20} color="black" />
-                                                   <Text style={{ color:'#444', fontSize:16, fontFamily:'Poppins-SemiBold', marginLeft:10 }} >WFH Type Information</Text>
-                                                </View>
-                                                <View style={{ flexDirection:'row', borderWidth:.5, borderColor:'#e0e0e0', borderRadius:5 }} >
-                                                  <View style={{ flex:3 }} >
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >WFH Type</Text>
-                                                    </View>
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', }} >
-                                                      <Text style={{ color:'#888', fontSize:14, fontFamily:'Poppins-SemiBold' }} >Salary %</Text>
-                                                    </View>
-                                                  </View>
-                                                  <View style={{ flex:7 }} >
-                                                   <View style={{ padding:8, borderBottomWidth:.5, borderColor:"#e0e0e0", justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{selectedItem?.wfhManagerData?.name}</Text>
-                                                   </View>
-                                                   <View style={{ padding:8, justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:14, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{selectedItem?.wfhManagerData?.perdaySalaryPercent}%</Text>
-                                                   </View>
-                                                  </View>
-                                                </View>
-                                                <View style={{ flexDirection:'row', alignItems:'center', marginVertical:10 }} >
-                                                   <SimpleLineIcons name="exclamation" size={20} color="black" />
-                                                   <Text style={{ color:'#444', fontSize:16, fontFamily:'Poppins-SemiBold', marginLeft:10 }} >System Information</Text>
-                                                </View>
-                                                <View style={{ flexDirection:'row', borderWidth:.5, borderColor:'#e0e0e0', borderRadius:5 }} >
-                                                  <View style={{ flex:3 }} >
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', alignItems:'center' }} >
-                                                      <Text style={{ color:'#888', fontSize:12, fontFamily:'Poppins-SemiBold' }} >Created At</Text>
-                                                    </View>
-                                                    <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', alignItems:'center' }} >
-                                                      <Text style={{ color:'#888', fontSize:12, fontFamily:'Poppins-SemiBold' }} >Last Update</Text>
-                                                    </View>
-                                                  </View>
-                                                  <View style={{ flex:7 }} >
-                                                   <View style={{ padding:8, borderBottomWidth:.5, borderColor:"#e0e0e0", justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:12, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{moment(selectedItem?.wfhManagerData?.createdAt).format('MMMM DD, YYYY')}</Text>
-                                                   </View>
-                                                   <View style={{ padding:8, justifyContent:'center', }} >
-                                                     <Text style={{ color:'#444', fontSize:12, fontFamily:'Poppins-Medium', paddingLeft:5 }} >{moment(selectedItem?.wfhManagerData?.updatedAt).format('MMMM DD, YYYY')}</Text>
-                                                   </View>
-                                                  </View>
-                                                </View>
-                                              </View>
-                                            )
-                                          }
-                                       </View>
-                                     </View>
-                                   </Modal>
                                  </View>
                               )}
                             />
-                          )
-                      }
                     </View>
-                </ScrollView>
-                <View style={styles.pagination}>
-                 <TouchableOpacity
-                   onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-                   style={[styles.pageButton, page === 0 && styles.disabledButton]}
-                 >
-                   <Text style={styles.pageText}>Previous</Text>
-                 </TouchableOpacity>
-              
-                 <Text style={{ marginHorizontal: 10 }}>
-                   Page {page + 1} of {totalPages}
-                 </Text>
-              
-                 <TouchableOpacity
-                   onPress={() =>
-                     setPage((prev) => Math.min(prev + 1, totalPages - 1))
-                   }
-                   style={[
-                     styles.pageButton,
-                     page === totalPages - 1 && styles.disabledButton,
-                   ]}
-                 >
-                   <Text style={styles.pageText}>Next</Text>
-                 </TouchableOpacity>
-                </View>
-              </View>
+                    </ScrollView>
+                    <View style={styles.pagination}>
+                     <TouchableOpacity
+                       onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
+                       style={[styles.pageButton, page === 0 && styles.disabledButton]}
+                     >
+                       <Text style={styles.pageText}>Previous</Text>
+                     </TouchableOpacity>
+                  
+                     <Text style={{ marginHorizontal: 10 }}>
+                       Page {page + 1} of {totalPages}
+                     </Text>
+                  
+                     <TouchableOpacity
+                       onPress={() =>
+                         setPage((prev) => Math.min(prev + 1, totalPages - 1))
+                       }
+                       style={[
+                         styles.pageButton,
+                         page === totalPages - 1 && styles.disabledButton,
+                       ]}
+                     >
+                       <Text style={styles.pageText}>Next</Text>
+                     </TouchableOpacity>
+                    </View>
+                  </View>
+                )
+               }
             </ScrollView>
         </View>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={viewModalId !== null}
+        onRequestClose={() => setViewModalId(null)}
+      >
+        <View style={{ flex:1, justifyContent:'center', backgroundColor:'rgba(0,0,0,0.4)', padding:10 }}>
+          <ScrollView contentContainerStyle={{ flexGrow:1, justifyContent:'center' }}>
+            <View style={{ width:'100%', backgroundColor:'#fff', padding:20, borderRadius:10, elevation: 5 }}>
+              <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
+                <Text style={{ color:'#444', fontSize:16, fontFamily:'Lato-SemiBold', marginBottom:10 }}>WFH Request Details</Text>
+                <TouchableOpacity onPress={() => setViewModalId(null)} style={{ width: 30, height: 30, justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="close-circle" size={24} color="#6a8ff3" />
+                </TouchableOpacity>
+              </View>
+              {selectedItem && (
+                <View>
+                  <View style={{ flexDirection:'row', alignItems:'center' }}>
+                    <Octicons name="person" size={20} color="black" />
+                    <Text style={{ color:'#444', fontSize:16, fontFamily:'Lato-SemiBold', marginLeft:10 }}>Employee Information</Text>
+                  </View>
+                  <View style={{ marginTop:10, flexDirection:'row', borderWidth:.5, borderColor:'#e0e0e0', borderRadius:5 }}>
+                    <View style={{ flex:3 }}>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>Full Name</Text>
+                      </View>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>Email</Text>
+                      </View>
+                    </View>
+                    <View style={{ flex:7 }}>
+                      <View style={{ padding:8, borderBottomWidth:.5, borderColor:'#e0e0e0', justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{userData?.fullName}</Text>
+                      </View>
+                      <View style={{ padding:8, justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{userData?.email}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection:'row', alignItems:'center', marginVertical:10 }}>
+                    <Entypo name="calendar" size={20} color="black" />
+                    <Text style={{ color:'#444', fontSize:16, fontFamily:'Lato-SemiBold', marginLeft:10 }}>Request Detail</Text>
+                  </View>
+                  <View style={{ flexDirection:'row', borderWidth:.5, borderColor:'#e0e0e0', borderRadius:5 }}>
+                    <View style={{ flex:5 }}>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>Request Type</Text>
+                      </View>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>Status</Text>
+                      </View>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>Date</Text>
+                      </View>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>Duration</Text>
+                      </View>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>Reason</Text>
+                      </View>
+                    </View>
+                    <View style={{ flex:5 }}>
+                      <View style={{ padding:8, borderBottomWidth:.5, borderColor:'#e0e0e0', justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{selectedItem?.wfhManagerData?.name}</Text>
+                      </View>
+                      <View style={{ padding:8, borderBottomWidth:.5, borderColor:'#e0e0e0', justifyContent:'center' }}>
+                        <Text style={{ color:selectedItem?.status === 'pending' ? '#FFD230' : selectedItem?.status === 'approved' ? '#4CAF50' : '#F54927', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{selectedItem?.status === 'pending' ? 'Pending' : selectedItem?.status === 'approved' ? 'Approved' : 'Rejected'}</Text>
+                      </View>
+                      <View style={{ padding:8, borderBottomWidth:.5, borderColor:'#e0e0e0', justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{moment(selectedItem?.startDate).format('DD-MM-YYYY')}</Text>
+                      </View>
+                      <View style={{ padding:8, borderBottomWidth:.5, borderColor:'#e0e0e0', justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{selectedItem?.wfhManagerData?.allowedDays}</Text>
+                      </View>
+                      <View style={{ padding:3 }}>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{selectedItem?.reason}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection:'row', alignItems:'center', marginVertical:10 }}>
+                    <MaterialIcons name="computer" size={20} color="black" />
+                    <Text style={{ color:'#444', fontSize:16, fontFamily:'Lato-SemiBold', marginLeft:10 }}>WFH Type Information</Text>
+                  </View>
+                  <View style={{ flexDirection:'row', borderWidth:.5, borderColor:'#e0e0e0', borderRadius:5 }}>
+                    <View style={{ flex:3 }}>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>WFH Type</Text>
+                      </View>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center' }}>
+                        <Text style={{ color:'#888', fontSize:14, fontFamily:'Lato-SemiBold' }}>Salary %</Text>
+                      </View>
+                    </View>
+                    <View style={{ flex:7 }}>
+                      <View style={{ padding:8, borderBottomWidth:.5, borderColor:'#e0e0e0', justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{selectedItem?.wfhManagerData?.name}</Text>
+                      </View>
+                      <View style={{ padding:8, justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:14, fontFamily:'Lato-Medium', paddingLeft:5 }}>{selectedItem?.wfhManagerData?.perdaySalaryPercent}%</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection:'row', alignItems:'center', marginVertical:10 }}>
+                    <SimpleLineIcons name="exclamation" size={20} color="black" />
+                    <Text style={{ color:'#444', fontSize:16, fontFamily:'Lato-SemiBold', marginLeft:10 }}>System Information</Text>
+                  </View>
+                  <View style={{ flexDirection:'row', borderWidth:.5, borderColor:'#e0e0e0', borderRadius:5 }}>
+                    <View style={{ flex:3 }}>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', alignItems:'center' }}>
+                        <Text style={{ color:'#888', fontSize:12, fontFamily:'Lato-SemiBold' }}>Created At</Text>
+                      </View>
+                      <View style={{ padding:8, borderRightWidth:.5, borderBottomWidth:.5, borderColor:'#e0e0e0', backgroundColor:'#f1f1f160', justifyContent:'center', alignItems:'center' }}>
+                        <Text style={{ color:'#888', fontSize:12, fontFamily:'Lato-SemiBold' }}>Last Update</Text>
+                      </View>
+                    </View>
+                    <View style={{ flex:7 }}>
+                      <View style={{ padding:8, borderBottomWidth:.5, borderColor:'#e0e0e0', justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:12, fontFamily:'Lato-Medium', paddingLeft:5 }}>{moment(selectedItem?.wfhManagerData?.createdAt).format('MMMM DD, YYYY')}</Text>
+                      </View>
+                      <View style={{ padding:8, justifyContent:'center' }}>
+                        <Text style={{ color:'#444', fontSize:12, fontFamily:'Lato-Medium', paddingLeft:5 }}>{moment(selectedItem?.wfhManagerData?.updatedAt).format('MMMM DD, YYYY')}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -919,7 +923,7 @@ const styles = StyleSheet.create({
     headerText: {
       fontSize: 14,
       color: '#333',
-      fontFamily: 'Poppins-SemiBold',
+      fontFamily: 'Lato-SemiBold',
     },
     applyButton: {
       backgroundColor: '#4A90E2',
@@ -963,12 +967,12 @@ const styles = StyleSheet.create({
     employeeName: {
       fontSize: 12,
       color: '#222',
-      fontFamily: 'Poppins-SemiBold',
+      fontFamily: 'Lato-SemiBold',
     },
     employeeRole: {
       fontSize: 10,
       color: '#888',
-      fontFamily: 'Poppins-Medium',
+      fontFamily: 'Lato-Medium',
     },
     leaveDate: {
       fontSize: 12,
@@ -980,7 +984,7 @@ const styles = StyleSheet.create({
       fontSize: 14,
       color: '#888',
       marginTop: 0,
-      fontFamily: 'Poppins-Medium',
+      fontFamily: 'Lato-Medium',
     },
     container: {
       padding: 0,

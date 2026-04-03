@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, SafeAreaView, Image, TouchableOpacity, Alert, ActivityIndicator, ToastAndroid, Dimensions, LayoutAnimation, UIManager, Platform } from "react-native";
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { View, Text, ScrollView, Image, TouchableOpacity, Alert, ActivityIndicator, ToastAndroid, Dimensions, LayoutAnimation, UIManager, Platform } from "react-native";
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from 'moment';
-import { Entypo } from '@expo/vector-icons';
+import { Entypo, FontAwesome } from '@expo/vector-icons';
 import CustomCalendar from './EmployeComponent/CustomCalendar';
 import EmployeeLeaveCard from './EmployeComponent/EmployeeLeaveCard';
 import DashboardCards from './EmployeComponent/QuickAccessCard';
 import EmployeBirthdayCard from './EmployeComponent/EmployeBirthdayCard';
 import EmployeHeader from './EmployeComponent/EmployeHeader';
 import { useEmployeeDashboard } from '../../../Context/EmployeeDashboardContext';
+import { UserContext } from '../../../Context/UserProvider';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BASE_URL from '../../../Urls/DomainUrl';
 
@@ -44,7 +46,9 @@ function showToast(message, onOk = null) {
 }
 
 export default function EmployeDashboard({ navigation, route }) {
-  const { userData } = route.params || {};
+  const { userData: contextUserData } = useContext(UserContext);
+  const { userData: routeUserData } = route.params || {};
+  const userData = contextUserData || routeUserData;
   const { dashboardData, loading, error } = useEmployeeDashboard();
   const [expanded, setExpanded] = useState(false);
   const [location, setLocation] = useState(null);
@@ -320,7 +324,7 @@ export default function EmployeDashboard({ navigation, route }) {
       myHeaders.append("Content-Type", "application/json");
       myHeaders.append("Authorization", "Bearer " + token);
 
-      const checkInDateTime = moment(data.checkInDateTime).utc().format('YYYY-MM-DD HH:mm:ss');
+      const checkInDateTime = data.checkInDateTime;
 
       const raw = JSON.stringify({
         "id": userData?._id,
@@ -330,7 +334,7 @@ export default function EmployeDashboard({ navigation, route }) {
         "employeId": userData?._id,
         "shift": "",
         "attendanceDate": currentDate,
-        "checkInTime": checkInDateTime,
+        "checkInTime": new Date(checkInDateTime).toISOString(),
         "checkOutTime": null,
         "workType": "work_from_office",
         "method": "google_api",
@@ -348,7 +352,7 @@ export default function EmployeDashboard({ navigation, route }) {
         body: raw,
         redirect: "follow"
       };
-      // console.log("Check-In API Request Data:", raw);
+      // console.log("Check-In API Request Data for test:", raw);
       // return;
 
       const response = await fetch(`${BASE_URL}/admin/employe/attendance/create`, requestOptions);
@@ -391,7 +395,7 @@ export default function EmployeDashboard({ navigation, route }) {
 
           const raw = JSON.stringify({
             "employeId": userData?._id,
-            "id": userData?._id
+            // "id": userData?._id
           });
 
           const requestOptions = {
@@ -400,6 +404,8 @@ export default function EmployeDashboard({ navigation, route }) {
             body: raw,
             redirect: "follow"
           };
+
+          // console.log("confirmCheckInOut API Request Data:", raw);
 
           fetch(`${BASE_URL}/admin/employe/attendance/isCheckin`, requestOptions)
             .then((response) => response.json())
@@ -443,8 +449,8 @@ export default function EmployeDashboard({ navigation, route }) {
       myHeaders.append("Content-Type", "application/json");
       myHeaders.append("Authorization", "Bearer " + token);
 
-      const checkInDateTime = moment(data.checkInDateTime).utc().format('YYYY-MM-DD HH:mm:ss');
-      const checkOutDateTime = moment(data.checkOutDateTime).utc().format('YYYY-MM-DD HH:mm:ss');
+      const checkInDateTime = data.checkInDateTime;
+      const checkOutDateTime = data.checkOutDateTime;
 
       const raw = JSON.stringify({
         "_id": attendanceRecordId, // Use the stored attendance record ID
@@ -454,8 +460,8 @@ export default function EmployeDashboard({ navigation, route }) {
         "employeId": userData?._id,
         "shift": "",
         "attendanceDate": currentDate,
-        "checkInTime": checkInDateTime,
-        "checkOutTime": checkOutDateTime,
+        "checkInTime": checkInDateTime ,
+        "checkOutTime":  new Date(checkOutDateTime).toISOString(),
         "workType": "work_from_office",
         "method": "google_api",
         "checkInLocation": {
@@ -502,16 +508,13 @@ export default function EmployeDashboard({ navigation, route }) {
       showToast("Error during check-out");
     }
   };
-// useEffect(() => {
-//     confirmCheckInOut();a
-// },[])
-// console.log("xzxzxzxzx",confirmAttendance);
+
   useEffect(() => {
        if (dashboardData) {
         //  console.log('Dashboard Data eventData:', dashboardData.holidayData);
        }
    }, [dashboardData])
-   const todayOnLeave = dashboardData?.todayOnLeave.length || [];
+  const employeesOnLeave = dashboardData?.todayOnLeave || [];
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <StatusBar background='#fff' barStyle='dark-content' />
@@ -520,17 +523,58 @@ export default function EmployeDashboard({ navigation, route }) {
         <View style={{ width: '100%', backgroundColor: '#f1f1f1', borderRadius: 6, marginBottom:10 }}>
           <View style={{ padding: 10, }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10 }}>
-              <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>{time}</Text>
+              <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold" }}>{time}</Text>
               <View style={{ backgroundColor: '#fff', paddingHorizontal:10, paddingVertical:4, borderRadius: 5 }} >
-                <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>On Leave: {todayOnLeave || 0}</Text>
+                <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold" }}>On Leave: {employeesOnLeave.length}</Text>
               </View>
             </View>
             {
+              confirmAttendance?.isCheckIn === false || confirmAttendance === false ? (
+                <></>
+              ):( 
+               confirmAttendance?.isCheckIn === true && confirmAttendance?.isCheckOut === false ? (
+                 <View style={{ flex:1, flexDirection:'row', alignItems:'center', gap:10 }} >
+                  <Entypo name="login" size={12} color="#4c72d9" />
+                  <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Lato-Medium' }}>
+                    {confirmAttendance?.checkInTime 
+                      ? (moment(confirmAttendance.checkInTime).isValid() 
+                          ? moment(confirmAttendance.checkInTime).format('hh:mm:ss A')
+                          : confirmAttendance.checkInTime)
+                      : '-'}
+                  </Text>
+                 </View>
+               ):(
+                 <View style={{ flexDirection: 'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal: 10, marginTop:10 }} >
+                   <View style={{ flex:1, flexDirection:'row', alignItems:'center', gap:10 }} >
+                    <Entypo name="login" size={12} color="#4c72d9" />
+                    <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Lato-Medium' }}>
+                      {confirmAttendance?.checkInTime 
+                        ? (moment(confirmAttendance.checkInTime).isValid() 
+                            ? moment(confirmAttendance.checkInTime).format('hh:mm:ss A')
+                            : confirmAttendance.checkInTime)
+                        : '-'}
+                    </Text>
+                   </View>
+                   <View style={{ flex:1, flexDirection:'row', alignItems:'center', gap:10, justifyContent:'flex-end' }} >
+                    <Entypo name="login" size={12} color="#4c72d9" />
+                    <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Lato-Medium' }}>
+                      {confirmAttendance?.checkOutTime 
+                        ? (moment(confirmAttendance.checkOutTime).isValid() 
+                            ? moment(confirmAttendance.checkOutTime).format('hh:mm:ss A')
+                            : confirmAttendance.checkOutTime)
+                        : '-'}
+                    </Text>
+                   </View>
+                 </View>
+               )
+              )
+            }
+            {/* {
               confirmAttendance?.isCheckIn === true && confirmAttendance?.isCheckOut === true ? (
                 <View style={{ flexDirection: 'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal: 10, marginTop:10 }} >
                   <View style={{ flex:1, flexDirection:'row', alignItems:'center', gap:10 }} >
                    <Entypo name="login" size={12} color="#4c72d9" />
-                   <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Poppins-Medium' }}>
+                   <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Lato-Medium' }}>
                      {confirmAttendance?.checkInTime 
                        ? (moment(confirmAttendance.checkInTime).isValid() 
                            ? moment(confirmAttendance.checkInTime).format('hh:mm:ss A')
@@ -540,7 +584,7 @@ export default function EmployeDashboard({ navigation, route }) {
                   </View>
                   <View style={{ flex:1, flexDirection:'row', alignItems:'center', gap:10, justifyContent:'flex-end' }} >
                    <Entypo name="login" size={12} color="#4c72d9" />
-                   <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Poppins-Medium' }}>
+                   <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: 'Lato-Medium' }}>
                      {confirmAttendance?.checkOutTime 
                        ? (moment(confirmAttendance.checkOutTime).isValid() 
                            ? moment(confirmAttendance.checkOutTime).format('hh:mm:ss A')
@@ -556,12 +600,12 @@ export default function EmployeDashboard({ navigation, route }) {
                     <View style={{ marginLeft: 5 }}>
                       {!checkInData.checkOutDateTime ? (
                         // Show only Check-In time before check-out
-                        <Text style={{ color: '#868686', fontSize: 14, fontFamily: 'Poppins-Medium' }}>
+                        <Text style={{ color: '#868686', fontSize: 14, fontFamily: 'Lato-Medium' }}>
                           {moment(checkInData.checkInDateTime).format('hh:mm:ss A')}
                         </Text>
                       ) : (
                         // Show only Check-Out time after check-out
-                        <Text style={{ color: '#868686', fontSize: 14, fontFamily: 'Poppins-Medium' }}>
+                        <Text style={{ color: '#868686', fontSize: 14, fontFamily: 'Lato-Medium' }}>
                           {moment(checkInData.checkOutDateTime).format('hh:mm:ss A')}
                         </Text>
                       )}
@@ -569,13 +613,13 @@ export default function EmployeDashboard({ navigation, route }) {
                   )}
                 </View>
               )
-            }
+            } */}
           </View>
           <View style={{ flexDirection: 'row', alignItems:'center', gap: 5, justifyContent: 'center' }}>
             <Entypo name="clock" size={24} color="#4c72d9" />
-            {
+            {/* {
               confirmAttendance?.isCheckIn === true && confirmAttendance?.isCheckOut === true?(
-                <Text style={{ textAlign: 'center', color: '#4c72d9', fontSize: 30, fontFamily: 'Poppins-SemiBold', paddingTop: 0 }}>
+                <Text style={{ textAlign: 'center', color: '#4c72d9', fontSize: 30, fontFamily: 'Lato-SemiBold', paddingTop: 0 }}>
                   {confirmAttendance?.checkInTime && confirmAttendance?.checkOutTime
                    ? (() => {
                        const checkInMoment = moment(confirmAttendance.checkInTime);
@@ -593,54 +637,138 @@ export default function EmployeDashboard({ navigation, route }) {
                   }
                 </Text>
               ):(
-                <Text style={{ textAlign: 'center', color: '#4c72d9', fontSize: 30, fontFamily: 'Poppins-SemiBold', paddingTop: 0 }}>{(checkInData && checkInData.workingHours) ? checkInData.workingHours : workingHours}</Text>
+                <Text style={{ textAlign: 'center', color: '#4c72d9', fontSize: 30, fontFamily: 'Lato-SemiBold', paddingTop: 0 }}>{(checkInData && checkInData.workingHours) ? checkInData.workingHours : workingHours}</Text>
               )
-            }
+            } */}
+            {
+             confirmAttendance?.isCheckIn === true && confirmAttendance?.isCheckOut === true ? (
+               // ✅ BOTH TRUE → TOTAL WORKING HOURS
+               <Text
+                 style={{
+                   textAlign: 'center',
+                   color: '#4c72d9',
+                   fontSize: 30,
+                   fontFamily: 'Lato-SemiBold',
+                   paddingTop: 0,
+                 }}
+               >
+                 {confirmAttendance?.checkInTime && confirmAttendance?.checkOutTime
+                   ? (() => {
+                       const checkInMoment = moment(confirmAttendance.checkInTime);
+                       const checkOutMoment = moment(confirmAttendance.checkOutTime);           
+
+                       if (checkInMoment.isValid() && checkOutMoment.isValid()) {
+                         const diffMs = checkOutMoment.diff(checkInMoment);
+                         const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                         const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);           
+
+                         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                       }
+                       return '-';
+                     })()
+                   : '-'}
+               </Text>
+             ) : confirmAttendance?.isCheckIn === true && confirmAttendance?.isCheckOut === false ? (
+               // ⏱️ CHECKED-IN ONLY → RUNNING WORKING HOURS
+               <Text style={{ textAlign: 'center', color: '#4c72d9', fontSize: 30, fontFamily: 'Lato-SemiBold', paddingTop: 0, }} >
+                 {confirmAttendance?.checkInTime
+                   ? (() => {
+                       const checkInMoment = moment(confirmAttendance.checkInTime);
+                       const nowMoment = moment();           
+
+                       if (checkInMoment.isValid()) {
+                         const diffMs = nowMoment.diff(checkInMoment);
+                         const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                         const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);           
+
+                         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                       }
+                       return '-';
+                     })()
+                   : '-'}
+               </Text>
+             ) : (
+               // 🔁 FALLBACK
+               <Text style={{ textAlign: 'center', color: '#4c72d9', fontSize: 30, fontFamily: 'Lato-SemiBold', paddingTop: 0, }} >
+                 {(checkInData && checkInData.workingHours)
+                   ? checkInData.workingHours
+                   : workingHours}
+               </Text>
+             )
+           }
           </View>
-          {confirmAttendance?.isCheckIn === true && confirmAttendance?.isCheckOut === true? (
-           <Text style={{ color: '#868686', fontSize: 14, fontFamily: 'Poppins-SemiBold', paddingLeft: 10 }} >You've already checked out today</Text>
+          {/* {confirmAttendance?.isCheckIn === true && confirmAttendance?.isCheckOut === true? (
+           <Text style={{ color: '#868686', fontSize: 14, fontFamily: 'Lato-SemiBold', paddingLeft: 10 }} >You've already checked out today</Text>
           ):(
             <TouchableOpacity
             onPress={toggleExpand}
-            style={{ marginTop: 10, height: 40, flexDirection: 'row', backgroundColor: '#4c72d9', justifyContent: 'center', alignItems: 'center', borderBottomRightRadius: 6, borderBottomLeftRadius: 6 }}
+            style={{ marginTop: 10, height: 40, flexDirection: 'row', backgroundColor:isCheckedIn?'red':'#4c72d9', justifyContent: 'center', alignItems: 'center', borderBottomRightRadius: 6, borderBottomLeftRadius: 6 }}
           >
             <Entypo name="location-pin" size={20} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'Poppins-SemiBold' }}>{isCheckedIn ? "Check-Out" : "Check-In"} </Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'Lato-SemiBold' }}>{isCheckedIn ? "Check-Out" : "Check-In"} </Text>
           </TouchableOpacity>
           )
+          } */}
+          {
+            confirmAttendance?.isCheckIn === true &&
+            confirmAttendance?.isCheckOut === true ? (
+              <Text style={{ color: '#868686', fontSize: 14, fontFamily: 'Lato-SemiBold',paddingLeft: 10, }} > You've already checked out today</Text>
+            ) : (
+          
+              <TouchableOpacity onPress={toggleExpand} style={{ marginTop: 10, height: 40, flexDirection: 'row',
+                    backgroundColor:
+                    confirmAttendance?.isCheckIn === true &&
+                    confirmAttendance?.isCheckOut === false
+                      ? 'red'
+                      : '#4c72d9',
+                  justifyContent: 'center', alignItems: 'center', borderBottomRightRadius: 6, borderBottomLeftRadius: 6,}} >
+                <Entypo name="location-pin" size={20} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'Lato-SemiBold', }} >
+                  {
+                    confirmAttendance?.isCheckIn === true &&
+                    confirmAttendance?.isCheckOut === false
+                      ? 'Check-Out' 
+                      : 'Check-In'   
+                  }
+                </Text>
+              </TouchableOpacity>
+          
+            )
           }
           {expanded && (
             <View style={{ width: '100%', marginTop: 10, backgroundColor: '#fff', padding: 10, borderRadius: 10, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, }}>
                 <View style={{ flexDirection:'row', paddingVertical:5 }} >
-                  <Entypo name="location-pin" size={24} color="#6a8ff3" style={{ flex:.6 }} />
+                  <FontAwesome name="map-pin" size={22} color="red" style={{ flex:.6 }} />
                   {loadingLocation ? (
                     <ActivityIndicator size="small" color="#6a8ff3" style={{ flex:8.4 }} />
                   ) : (
-                    <Text style={{ flex:9, color: "#444", fontSize: 14, fontFamily: 'Poppins-Medium' }}>{address ? address[0].formattedAddress : 'Location not available'}</Text>
+                    <Text style={{ flex:9, color: "#444", fontSize: 14, fontFamily: 'Lato-Medium' }}>{address ? address[0].formattedAddress : 'Location not available'}</Text>
                   )}
                 </View>
-                <View style={{ flexDirection:'row', paddingVertical:5 }} >
+                {/* <View style={{ flexDirection:'row', paddingVertical:5 }} >
                   <View style={{ flex:.6 }} ></View>
                   {loadingLocation ? (
                     <></>
                   ) : (
                     location && (
-                      <Text style={{ flex:9, color: '#444', fontSize: 14, fontFamily: 'Poppins-Medium', marginBottom: 10 }}>
+                      <Text style={{ flex:9, color: '#444', fontSize: 14, fontFamily: 'Lato-Medium', marginBottom: 10 }}>
                         Latitude: {location.coords.latitude},
                         Longitude: {location.coords.longitude}
                       </Text>
                     )
                   )}
-                </View>
+                </View> */}
               <View style={{ flexDirection: 'row', gap: 20 }}>
                 <TouchableOpacity onPress={toggleExpand} style={{ flex: 1, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: '#6a8ff320', borderWidth: 1, borderColor: '#6a8ff3', borderRadius: 6 }}>
-                  <Text style={{ color: '#6a8ff3', fontSize: 16, fontFamily: "Poppins-SemiBold" }}>Cancel</Text>
+                  <Text style={{ color: '#6a8ff3', fontSize: 16, fontFamily: "Lato-SemiBold" }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleConfirm} disabled={loadingLocation || (!location || !address) || isCheckingOut} style={{  flex: 1, backgroundColor: (!location || !address || loadingLocation || isCheckingOut) ? '#6a8ff380' : '#6a8ff3', height: 40, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#6a8ff3', borderRadius: 6 }} >
                   {loadingLocation || isCheckingOut ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={{ color: '#fff', fontSize: 16, fontFamily: "Poppins-SemiBold" }}>Confirm</Text>
+                    <Text style={{ color: '#fff', fontSize: 16, fontFamily: "Lato-SemiBold" }}>Confirm</Text>
                   )}
                 </TouchableOpacity>
               </View>

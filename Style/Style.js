@@ -1,11 +1,11 @@
-export default {
+const Style = {
     basicbgColor:'#fff',
-    primaryBgColor: '#fff',
+    primaryBgColor: '#eee',
     // headerBgColor: '#2B547E',
-    headerBgColor: '#658eff',
+    headerBgColor: '#074173',
     basicTextColor: '#000',
     // primaryTextColor: '#2B547E',
-    primaryTextColor: '#386bf6',
+    primaryTextColor: '#074173',
     // buttonColor: '#2B547E',
     buttonColor: '#074173',
     secondryTextColor:'#818181',
@@ -17,3 +17,5 @@ export default {
     buttonSuccess:'#85bd24',
     buttonStopped:'#ef1e1e',
 }
+
+export default Style;

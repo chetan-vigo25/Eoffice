@@ -11,12 +11,12 @@ export default function Privacy({ navigation }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
-        <StatusBar translucent={false} backgroundColor={'#6a8ff3'} barStyle='light-content' />
+        <StatusBar backgroundColor={'#074173'} barStyle='light-content' />
          <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', paddingHorizontal:20 }}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
                <AntDesign name="arrowleft" size={24} color="#fff" />
             </TouchableOpacity>
-           <Text style={{ color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Privacy</Text>
+           <Text style={{ color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Privacy</Text>
          </View>
         <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20 }} >
           <WebView

@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { SafeAreaView, View, Text, StatusBar, ScrollView, Image, TouchableOpacity, Dimensions, BackHandler, ToastAndroid, Platform, Alert } from "react-native";
+import { SafeAreaView, View, Text, StatusBar, ScrollView, Image, Platform, Alert, TouchableOpacity, Dimensions, BackHandler, ToastAndroid, StyleSheet, Animated } from "react-native";
 import Carousel, { Pagination } from 'react-native-snap-carousel';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,37 +11,23 @@ import { personalInfo } from "../../Redux/Reducer/Client/Client.Reducer";
 import { useContacts } from '../../Context/Contact';
 import BASE_URL from '../../Urls/DomainUrl';
 import Style from '../../Style/Style';
-import { Feather, AntDesign } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 
 const windowWidth = Dimensions.get('window').width;
 const windowHeight = Dimensions.get('window').height;
 
-function showToast(message, onOk = null) {
+function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
-    if (onOk) {
-      setTimeout(onOk, 2000);
-    }
   } else {
-    Alert.alert(
-      '',
-      message,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onOk) onOk();
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    Alert.alert('', message);
   }
 }
 
 export default function ClientDash({ navigation, route }) {
-    
-    const dispatch = useDispatch();
+
+  const dispatch = useDispatch();
+
     const { userData } = route.params;
     const [invoiceData, setInvoiceData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -51,17 +36,46 @@ export default function ClientDash({ navigation, route }) {
     const [activeSlide, setActiveSlide] = useState(0);
     const logoutHandled = useRef(false);
 
+    // Animations
+    const greetAnim = useRef(new Animated.Value(0)).current;
+    const cardAnim = useRef(new Animated.Value(30)).current;
+    const cardOpacity = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.parallel([
+        Animated.timing(greetAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardAnim, {
+          toValue: 0,
+          duration: 450,
+          delay: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardOpacity, {
+          toValue: 1,
+          duration: 450,
+          delay: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, []);
+
     const dashData = [
         { id:1, screen: 'PersonalInfo', name:'Personal Information', cardColor:'#ff6968', img:require('../../assets/personIcon.png')},
         { id:2, screen: 'TaskManagement', name:'Task Management', cardColor:'#7454ff', img:require('../../assets/taskIcon.png')},
         { id:3, screen: 'InvoiceList', name:'Invoice', cardColor:'#ff8f61', img:require('../../assets/invoiceIcon.png')},
-        { id:4, screen: 'TransactionList', name:'Transaction History', cardColor:'#2ac3ff', img:require('../../assets/transIcon.png')},
+        { id:4, screen: 'StatementsTrans', name:'Transaction History', cardColor:'#2ac3ff', img:require('../../assets/transIcon.png')},
         { id:5, screen: 'AdvancedList', name:'Advance Management', cardColor:'#5a6aff', img:require('../../assets/ShoppingBag.png')},
         { id:6, screen: 'MyDocuments', name:'Download Documents', cardColor:'#73c2fb', img:require('../../assets/downloadIcon.png')},
+        { id:7, screen: 'AddAdvance', name:'Pay Advance', cardColor:'#00CEC9', icon:'plus-circle'},
+        { id:8, screen: 'VisitHistory', name:'Visit History', cardColor:'#FF7675', icon:'map-pin'},
     ]
 
     const navigateToScreen = (screen) => {
-        navigation.navigate(screen);
+        navigation.navigate(screen, { userData });
     };
 
     const getInvoiceList = async () => {
@@ -69,13 +83,13 @@ export default function ClientDash({ navigation, route }) {
         setLoading(true)
          let token = await AsyncStorage.getItem("token");
          if(!token) {
-          navigation.navigate('Autologin');
+          navigation.navigate('Splash');
           return;
          }
          const myHeaders = new Headers();
          myHeaders.append("Authorization", "Bearer " + token);
          myHeaders.append("Content-Type", "application/json");
-    
+
          const raw = JSON.stringify({
           "text": "",
           "sort": true,
@@ -84,14 +98,14 @@ export default function ClientDash({ navigation, route }) {
           "isPagination": true,
           "date": '',
         });
-    
+
          const requestOptions = {
-           method: "POST", 
+           method: "POST",
            headers: myHeaders,
            body: raw,
            redirect: "follow"
          };
-         
+
          fetch(`${BASE_URL}/client/invoice/list`, requestOptions)
          .then((response) => response.json())
           .then(async(result) => {
@@ -102,13 +116,12 @@ export default function ClientDash({ navigation, route }) {
               setUnpaidInvoices(unpaidInvoicesData || []);
               setLoading(false);
             } else if (result.statusCode === 401) {
-              if (!logoutHandled.current) {
-                logoutHandled.current = true; // Flag to prevent multiple logouts
-                showToast("Session expired. Please log in again.", () => {
-                  dispatch(logout()); // Dispatch logout action when OK is pressed
-                  navigation.navigate('Autologin'); // Navigate to autologin page
-                });
-              }
+              console.log("🔒 Unauthorized - Token may be invalid or expired");
+              dispatch(logout());
+              await AsyncStorage.removeItem('token');
+              await AsyncStorage.clear();
+              navigation.navigate('Splash');
+              setLoading(false);
             } else {
               showToast(result.message || "Something went wrong.");
               setLoading(false);
@@ -118,11 +131,11 @@ export default function ClientDash({ navigation, route }) {
          .finally(() => setLoading(false));
       }
 
-     const canExit = useRef(false);
-      useEffect(() => {
-        const backHandler = BackHandler.addEventListener('hardwareBackPress', _backHandler);
-        return () => backHandler.remove();
-     }, []);
+    const canExit = useRef(false);
+       useEffect(() => {
+         const backHandler = BackHandler.addEventListener('hardwareBackPress', _backHandler);
+         return () => backHandler.remove();
+      }, []);
 
       const _backHandler = () => {
         if (navigation.isFocused()) {
@@ -156,23 +169,30 @@ export default function ClientDash({ navigation, route }) {
 
     const _renderItem = ({ item, index }) => {
       return (
-          <TouchableOpacity key={index} onPress={() => {navigation.navigate('TransDetail', { _id: item._id })}} style={{ width:'90%', backgroundColor:'#fff', borderRadius:6, elevation:3, }} >
-              <View style={{ flexDirection:'row', gap:10, padding:10 }} >
-                  <View style={{ width:60, height:60, justifyContent:'center', alignItems:'center', borderWidth:1, borderColor:'#00000020', borderRadius:6 }} >
-                      <Image source={require('../../assets/DollarCoin.png')} resizeMode='contain' style={{ width:50, height:50 }} />
+          <TouchableOpacity
+            key={index}
+            onPress={() => {navigation.navigate('TransDetail', { _id: item._id })}}
+            style={styles.invoiceCard}
+            activeOpacity={0.8}
+          >
+              <View style={styles.invoiceCardTop}>
+                  <View style={styles.invoiceIconWrap}>
+                      <Image source={require('../../assets/DollarCoin.png')} resizeMode='contain' style={{ width:44, height:44 }} />
                   </View>
-                  <View style={{ flex:1,}} >
-                     <Text style={{ fontSize:12, fontFamily:'Poppins-SemiBold', color:Style.primaryTextColor }} >{item.invoiceNumber}</Text>
-                     <Text style={{ fontSize:10, fontFamily:'Poppins-Medium', color:'#23a26d' }} >₹ {item.grandTotal}/-</Text>
-                     <Text style={{ fontSize:10, fontFamily:'Poppins-Medium', color:Style.secondryTextColor }} >{moment(item.createdAt).format('DD-MM-YYYY')}</Text>
+                  <View style={{ flex:1 }}>
+                     <Text numberOfLines={1} ellipsizeMode='tail' style={styles.invoiceNumber}>{item.invoiceNumber}</Text>
+                     <Text style={styles.invoiceAmount}>₹ {item.grandTotal} /-</Text>
+                     <Text style={styles.invoiceDate}>{moment(item.createdAt).format('DD-MM-YYYY')}</Text>
                   </View>
-                  <View style={{ width:50, height:50, justifyContent:'center', alignItems:'flex-end', }} >
-                     <AntDesign name="rightcircleo" size={26} color={Style.secondryTextColor} />
+                  <View style={{ justifyContent:'center' }}>
+                     <View style={styles.invoiceArrow}>
+                       <Feather name="chevron-right" size={18} color={Style.headerBgColor} />
+                     </View>
                   </View>
               </View>
-              <View style={{ width:"85%", borderBottomWidth:3, borderColor:'#00000020' }} ></View>
-              <View style={{ padding: 10 }} >
-                <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor }} >Reminder: Outstanding Balance</Text>
+              <View style={styles.invoiceDivider} />
+              <View style={{ paddingHorizontal:14, paddingVertical:10 }}>
+                <Text style={styles.invoiceReminder}>Reminder: Outstanding Balance</Text>
               </View>
           </TouchableOpacity>
       );
@@ -190,44 +210,46 @@ export default function ClientDash({ navigation, route }) {
     };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#ebf1fd' }}>
-      <StatusBar translucent={false} backgroundColor={'#ebf1fd'} barStyle='dark-content' />
-        <View style={{ padding:20 }} >
-            <View style={{ flexDirection:'row', justifyContent:'space-between', marginBottom: 20, }} >
-                <View style={{ flex:3,}} >
-                    <Text style={{ fontSize:16, fontFamily:'Poppins-SemiBold', color:Style.primaryTextColor, textTransform:'capitalize' }} >Hi, {userData?.fullName}!</Text>
-                    <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:'#808080' }} >{getGreeting()}</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f4ff' }}>
+      <StatusBar backgroundColor={'#074173'} barStyle='light-content' />
+        <View style={{ paddingHorizontal:20, paddingTop:16, paddingBottom:10 }}>
+            {/* Greeting + Actions */}
+            <Animated.View style={[styles.greetingRow, { opacity: greetAnim }]}>
+                <View style={{ flex:1 }}>
+                    <Text style={styles.greetName}>Hi, {userData.fullName}!</Text>
+                    <Text style={styles.greetText}>{getGreeting()}</Text>
                 </View>
-                <View style={{ flex:1, width:'100%', flexDirection:'row' }} >
-                    <View style={{ flex:1, alignItems:'center', justifyContent:'center' }} >
-                        <TouchableOpacity onPress={()=> navigation.navigate('Support')} style={{ width:40, height:40, justifyContent:'center', alignItems:'center', }} >
-                            <Image source={require('../../assets/headset.png')} resizeMode='contain' style={{ width:30, height:30 }} />
-                        </TouchableOpacity>
-                    </View>
-                    <View style={{ flex:1, justifyContent:'center', alignItems:'center' }} >
-                     <TouchableOpacity onPress={()=> navigation.navigate('Notifikation')} style={{ width:40, height:40, justifyContent:'center', alignItems:'flex-end', }} >
-                        <Feather name="bell" size={30} color={Style.primaryTextColor} />
-                     </TouchableOpacity>
-                    </View>
+                <View style={styles.actionRow}>
+                    <TouchableOpacity onPress={()=> navigation.navigate('Support')} style={styles.actionBtn} activeOpacity={0.7}>
+                        <Image source={require('../../assets/headset.png')} resizeMode='contain' style={{ width:22, height:22 }} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={()=> navigation.navigate('Notifikation')} style={styles.actionBtn} activeOpacity={0.7}>
+                        <Feather name="bell" size={22} color={Style.primaryTextColor} />
+                    </TouchableOpacity>
                 </View>
-            </View>
+            </Animated.View>
+
+            {/* Invoice Section */}
+            <View style={{ marginTop:12 }}>
             {unpaidInvoices.length === 0 ? (
-                  <View style={{ width: '100%', backgroundColor: '#fff', borderRadius: 6, elevation: 3 }} >
-                    <View style={{ flexDirection: 'row', gap: 10, padding: 10 }} >
-                      <View style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#00000020', borderRadius: 6, }} >
-                        <Image source={require('../../assets/DollarCoin.png')} resizeMode='contain' style={{ width: 50, height: 50 }} />
+                  <View style={styles.noDuesCard}>
+                    <View style={styles.invoiceCardTop}>
+                      <View style={styles.invoiceIconWrap}>
+                        <Image source={require('../../assets/DollarCoin.png')} resizeMode='contain' style={{ width:44, height:44 }} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontFamily: 'Poppins-SemiBold', color: Style.primaryTextColor }} >Pay your Dues</Text>
-                        <Text style={{ fontSize: 12, fontFamily: 'Poppins-Medium', color: '#23a26d' }} >No Dues</Text>
+                        <Text style={styles.invoiceNumber}>Pay your Dues</Text>
+                        <Text style={styles.invoiceAmount}>No Dues</Text>
                       </View>
-                      <View style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-end' }} >
-                        <AntDesign name="rightcircleo" size={26} color={Style.secondryTextColor} />
+                      <View style={{ justifyContent:'center' }}>
+                        <View style={styles.invoiceArrow}>
+                          <Feather name="check" size={18} color="#23a26d" />
+                        </View>
                       </View>
                     </View>
-                    <View style={{ width: "85%", borderBottomWidth: 3, borderColor: '#00000020' }} ></View>
-                    <View style={{ padding: 10 }} >
-                      <Text style={{ fontSize: 12, fontFamily: 'Poppins-Medium', color: Style.secondryTextColor }} >Invoice Paid: No Outstanding Balance</Text>
+                    <View style={styles.invoiceDivider} />
+                    <View style={{ paddingHorizontal:14, paddingVertical:10 }}>
+                      <Text style={styles.invoiceReminder}>Invoice Paid: No Outstanding Balance</Text>
                     </View>
                   </View>
                 ) : (
@@ -245,54 +267,212 @@ export default function ClientDash({ navigation, route }) {
                     <Pagination
                       dotsLength={unpaidInvoices.length}
                       activeDotIndex={activeSlide}
-                      containerStyle={{ paddingVertical: 10 }}
-                      dotStyle={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 5,
-                        marginHorizontal: -10,
-                        backgroundColor: '#000'
-                      }}
-                      inactiveDotStyle={{
-                        backgroundColor: '#ccc'
-                      }}
-                      inactiveDotOpacity={0.4}
-                      inactiveDotScale={0.6}
+                      containerStyle={{ paddingVertical: 8 }}
+                      dotStyle={styles.paginationDot}
+                      inactiveDotStyle={{ backgroundColor: '#c0c8e0' }}
+                      inactiveDotOpacity={0.5}
+                      inactiveDotScale={0.7}
                     />
                   </>
              )
            }
+           </View>
         </View>
-        <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:15 }} >
-         <ScrollView showsVerticalScrollIndicator={true} style={{ flex:1, padding:5 }}>
-            <View style={{ flexDirection:'row', justifyContent:'space-between', flexWrap:'wrap' }} >
-                {
-                    dashData.map((item, index)=> {
-                     const isDisabled = item.id === 5 && userData?.isGroupOwner === false;
-                      const dashTitels = item.name.split(' ');
-                        return (
-                          // <TouchableOpacity key={index} onPress={() => navigateToScreen(item.screen)} style={{ width:'48%', justifyContent:'center', alignItems:'center', padding:15, backgroundColor:item.cardColor, marginBottom:10, borderRadius:6 }} >
-                          <TouchableOpacity key={index} onPress={() => isDisabled ? showToast('Client has no rights') : navigateToScreen(item.screen)} style={{ width:'48%', justifyContent:'center', alignItems:'center', padding:15, backgroundColor:item.cardColor, marginBottom:10, borderRadius:6 }} >
-                            <Image source={item.img} resizeMode='contain' style={{ width:40, height:40 }} />
-                              {
-                                  dashTitels.map((word, idx)=>{
-                                      return(
-                                        <Text key={idx} style={{ fontSize:12, fontFamily:'Poppins-Medium', color:'#fff', textAlign:'center' }} >
-                                            {word.charAt(0).toUpperCase() + word.slice(1)} 
-                                        </Text>
-                                      )
-                                  })  
-                              }
-                          </TouchableOpacity>
-                        )
-                    })
-                }
-            </View>
-            <TouchableOpacity onPress={()=> navigation.navigate('AddAdvance')} style={{ width:'100%', height:45, backgroundColor:Style.headerBgColor, borderRadius:6, justifyContent:'center', alignItems:'center', marginTop:10 }} >
-              <Text style={{ fontSize:16, fontFamily:'Poppins-Medium', color:'#fff' }} >Statements</Text>
-            </TouchableOpacity>
-         </ScrollView>
-        </View>
+
+        {/* Dashboard Grid */}
+        <Animated.View style={[styles.gridContainer, { opacity: cardOpacity, transform: [{ translateY: cardAnim }] }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
+                <View style={styles.gridWrap}>
+                    {
+                        dashData.map((item, index)=> {
+                         const isDisabled = item.id === 5 && userData?.isGroupOwner === false;
+                            return (
+                              <TouchableOpacity
+                                key={index}
+                                onPress={() => isDisabled ? showToast('Only the group owner has access') : navigateToScreen(item.screen)}
+                                style={[styles.dashCard, { backgroundColor: item.cardColor }]}
+                                activeOpacity={0.8}
+                              >
+                                <View style={styles.dashIconWrap}>
+                                  {item.img ? (
+                                    <Image source={item.img} resizeMode='contain' style={{ width:32, height:32 }} />
+                                  ) : (
+                                    <Feather name={item.icon} size={28} color="#fff" />
+                                  )}
+                                </View>
+                                <Text style={styles.dashCardTitle} numberOfLines={2}>
+                                  {item.name}
+                                </Text>
+                              </TouchableOpacity>
+                            )
+                        })
+                    }
+                </View>
+            </ScrollView>
+        </Animated.View>
     </SafeAreaView>
   )
 }
+
+const styles = StyleSheet.create({
+  greetingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  greetName: {
+    fontSize: 20,
+    fontFamily: 'Lato-Bold',
+    color: Style.primaryTextColor,
+    textTransform: 'capitalize',
+  },
+  greetText: {
+    fontSize: 14,
+    fontFamily: 'Lato-Medium',
+    color: '#8a8fa8',
+    marginTop: 2,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  actionBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    // elevation: 2,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 1 },
+    // shadowOpacity: 0.08,
+    // shadowRadius: 3,
+  },
+  // Invoice Cards
+  invoiceCard: {
+    width: '92%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+  },
+  noDuesCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    // elevation: 2,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowOpacity: 0.06,
+    // shadowRadius: 6,
+  },
+  invoiceCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+  },
+  invoiceIconWrap: {
+    width: 52,
+    height: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9ff',
+    borderRadius: 14,
+  },
+  invoiceNumber: {
+    fontSize: 14,
+    fontFamily: 'Lato-SemiBold',
+    color: Style.primaryTextColor,
+  },
+  invoiceAmount: {
+    fontSize: 13,
+    fontFamily: 'Lato-SemiBold',
+    color: '#23a26d',
+    marginTop: 2,
+  },
+  invoiceDate: {
+    fontSize: 11,
+    fontFamily: 'Lato-Medium',
+    color: '#a0a4b8',
+    marginTop: 1,
+  },
+  invoiceArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#eef2ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  invoiceDivider: {
+    height: 1,
+    backgroundColor: '#f0f1f5',
+    marginHorizontal: 14,
+  },
+  invoiceReminder: {
+    fontSize: 12,
+    fontFamily: 'Lato-Medium',
+    color: '#a0a4b8',
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: -16,
+    backgroundColor: Style.headerBgColor,
+  },
+  // Grid
+  gridContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    // elevation: 8,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: -3 },
+    // shadowOpacity: 0.06,
+    // shadowRadius: 8,
+  },
+  gridWrap: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+  },
+  dashCard: {
+    width: '48%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    marginBottom: 14,
+    borderRadius: 16,
+    // elevation: 3,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 3 },
+    // shadowOpacity: 0.12,
+    // shadowRadius: 6,
+  },
+  dashIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dashCardTitle: {
+    fontSize: 12,
+    fontFamily: 'Lato-SemiBold',
+    color: '#fff',
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+});

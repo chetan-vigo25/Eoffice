@@ -30,12 +30,12 @@ const employeesTodayBirthday = dashboardData?.todayBirthday || [];
       {/* Card Header */}
       <View style={styles.header}>
         <Text style={styles.headerText}>Today Birthday</Text>
-          <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Poppins-SemiBold" }}>{employeesTodayBirthday.length}</Text>
+          <Text style={{ color: '#4c72d9', fontSize: 14, fontFamily: "Lato-SemiBold" }}>{employeesTodayBirthday.length}</Text>
       </View>
 
       <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
         {employeesTodayBirthday.length === 0 ? (
-          <Text style={styles.noEmployeesText}>No employees on leave today</Text>
+          <Text style={styles.noEmployeesText}>No birthday on today</Text>
         ) : (
             employeesTodayBirthday.map((emp) => (
             <View key={emp._id} style={styles.employeeContainer}>
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 14,
     color: '#333',
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: 'Lato-SemiBold',
   },
   applyButton: {
     backgroundColor: '#4A90E2',
@@ -144,6 +144,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     marginTop: 0,
-    fontFamily: 'Poppins-Medium',
+    fontFamily: 'Lato-Medium',
   },
 });

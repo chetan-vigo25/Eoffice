@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { View, Text, SafeAreaView, ScrollView, StyleSheet, StatusBar, Platform, Alert, TouchableOpacity, RefreshControl, Image, TextInput, TouchableWithoutFeedback, Keyboard, Modal, ToastAndroid, ActivityIndicator } from "react-native";
+import { View, Text, SafeAreaView, ScrollView, StyleSheet, StatusBar, Platform, TouchableOpacity, Alert, RefreshControl, Image, TextInput, TouchableWithoutFeedback, Keyboard, Modal, ToastAndroid, ActivityIndicator, Animated, Dimensions } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../Redux/Reducer/Client/Client.Reducer";
@@ -14,26 +14,13 @@ import BASE_URL from '../../Urls/DomainUrl';
 import Style from "../../Style/Style";
 import { Feather } from "@expo/vector-icons";
 
-function showToast(message, onOk = null) {
+const { width } = Dimensions.get('window');
+
+function showToast(message) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
-    if (onOk) {
-      setTimeout(onOk, 2000);
-    }
   } else {
-    Alert.alert(
-      '',
-      message,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onOk) onOk();
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    Alert.alert('', message);
   }
 }
 
@@ -43,16 +30,36 @@ export default function ClientProfile({ navigation, route }) {
     const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
     const [loading, setLoading] = useState(false);
     const [images, setImages] = useState(null);
-    const [refresh, setRefresh] = useState(false);
     const socketRef = useRef(null);
-    const logoutHandled = useRef(false);
+
+    // Animations
+    const headerAnim = useRef(new Animated.Value(0)).current;
+    const cardAnim = useRef(new Animated.Value(40)).current;
+    const cardOpacity = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.parallel([
+        Animated.timing(headerAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardAnim, {
+          toValue: 0,
+          duration: 500,
+          delay: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardOpacity, {
+          toValue: 1,
+          duration: 500,
+          delay: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, []);
 
     const pickImages = async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert("Permission required", "Please allow photo access");
-        return;
-      }
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 1,
@@ -70,13 +77,13 @@ export default function ClientProfile({ navigation, route }) {
         const myHeaders = new Headers();
         myHeaders.append("Authorization", "Bearer " + token);
         myHeaders.append("Content-Type", "application/json");
-       
+
        const requestOptions = {
          method: "POST",
          headers: myHeaders,
          redirect: "follow"
        };
-       
+
        fetch(`${BASE_URL}/client/auth/logout`, requestOptions)
         .then((response) => response.json())
          .then(async(result) => {
@@ -84,10 +91,11 @@ export default function ClientProfile({ navigation, route }) {
                 showToast(result.message);
                 AsyncStorage.removeItem("token");
                 await AsyncStorage.clear();
+                navigation.navigate('Splash')
                 dispatch(logout());
                   navigation.reset({
                     index: 0,
-                    routes: [{ name: 'Autologin' }],
+                    routes: [{ name: 'Splash' }],
                   });
                 setLoading(false);
             } else if(result.statusCode === 401){
@@ -96,7 +104,7 @@ export default function ClientProfile({ navigation, route }) {
                 dispatch(logout());
                 navigation.reset({
                   index: 0,
-                  routes: [{ name: 'Autologin' }],
+                  routes: [{ name: 'Splash' }],
                 });
                 setLoading(false);
                 return;
@@ -114,26 +122,20 @@ export default function ClientProfile({ navigation, route }) {
         showToast("Please select an image.");
         return;
       }
-    
+
       try {
-        if (logoutHandled.current) return;
-         setLoading(true)
-         let token = await AsyncStorage.getItem("token");
-         if(!token) {
-          navigation.navigate('Splash');
-          return;
-        }
+        let token = await AsyncStorage.getItem("token");
         const formData = new FormData();
         formData.append("filePath", {
           uri: image.uri,
           name: "profile.jpg",
-          type: "image/jpeg", 
+          type: "image/jpeg",
         });
-    
+
         formData.append("fileLocation", "/clientImage");
         formData.append("isMultiple", "false");
         formData.append("isVideo", "false");
-    
+
         const requestOptions = {
           method: "POST",
           headers: {
@@ -142,22 +144,13 @@ export default function ClientProfile({ navigation, route }) {
           },
           body: formData,
         };
-    
+
         const response = await fetch(`${BASE_URL}/client/auth/fileUpload`, requestOptions);
         const result = await response.json();
-    
+
         if (result.statusCode === 200) {
-          // showToast(result.message);
-          // console.log("Uploaded profile:", result);
+          showToast(result.message);
           uploadImage(result.data[0]);
-        }else if (result.statusCode === 401) {
-          if (!logoutHandled.current) {
-            logoutHandled.current = true; // Flag to prevent multiple logouts
-            showToast("Session expired. Please log in again.", () => {
-              dispatch(logout()); // Dispatch logout action when OK is pressed
-              navigation.navigate('Autologin'); // Navigate to autologin page
-            });
-          }
         } else {
           showToast(result.message || "Upload failed.");
         }
@@ -168,28 +161,27 @@ export default function ClientProfile({ navigation, route }) {
     };
 
     const uploadImage = async (data) => {
-      setLoading(true);
+      setLoading(true)
       let token = await AsyncStorage.getItem("token");
       const myHeaders = new Headers();
       myHeaders.append("Authorization", "Bearer " + token);
       myHeaders.append("Content-Type", "application/json");
-      
+
       const raw = JSON.stringify({
         "profileImage": data
       });
-      
+
       const requestOptions = {
         method: "POST",
         headers: myHeaders,
         body: raw,
         redirect: "follow"
       };
-      
+
       fetch(`${BASE_URL}/client/auth/update`, requestOptions)
        .then((response) => response.json())
         .then((result) => {
           if(result.statusCode === 200){
-            showToast(result.message);
             dispatch(personalInfo());
             setLoading(false);
           }else{
@@ -201,50 +193,40 @@ export default function ClientProfile({ navigation, route }) {
         .finally(()=> setLoading(false));
     };
 
-    // useFocusEffect(
-    //   React.useCallback(() => {
-    //     dispatch(personalInfo());
-    //   },[dispatch])
-    // );
+   useEffect(() => {
+     const checkTokenAndFetchData = async () => {
+       try {
+         const token = await AsyncStorage.getItem('token');
+         if (!token) {
+           Alert.alert(
+           "Error",
+           "Session expired. Please log in again.",
+           [
+             {
+               text: "OK",
+               onPress: async () => {
+                 dispatch(logout());
+                 await AsyncStorage.clear();
+                 navigation.replace("Autologin");
+               }
+             }
+           ],
+       { cancelable: false }
+     );
+         } else {
+           dispatch(personalInfo());
+         }
+       } catch (error) {
+         console.log('Error checking token:', error);
+         Alert.alert('Error', 'An error occurred while checking the token.');
+       }
+     };
+     checkTokenAndFetchData();
+   }, [dispatch]);
 
-    // useEffect(()=>{
-    //   dispatch(personalInfo());
-    // },[])
+    const { city, country, pinCode, state, street } = personalInfoData?.addresses?.primary || {};
+    const fullAddress = `${street || "Street not available"}, ${city || "City not available"}, ${state || "State not available"} ${pinCode || "PinCode not available"}, ${country || "Country not available"}`;
 
-    useEffect(() => {
-      // Check for token when the component mounts
-      const checkTokenAndFetchData = async () => {
-        try {
-          const token = await AsyncStorage.getItem('token'); // Assuming the token is stored under 'token'
-  
-          if (!token) {
-            // If no token, show an alert
-            showToast("Session expired. Please log in again.", () => {
-              dispatch(logout()); // Dispatch logout action when OK is pressed
-              navigation.navigate('Autologin'); // Navigate to autologin page
-            });
-          } else {
-            // If token exists, dispatch the personalInfo action
-            dispatch(personalInfo());
-          }
-        } catch (error) {
-          console.log('Error checking token:', error);
-          Alert.alert('Error', 'An error occurred while checking the token.');
-        }
-      };
-  
-      checkTokenAndFetchData();
-    }, [dispatch]);
-
-    const onRefresh = () => {
-      setRefresh(true);
-      dispatch(personalInfo());
-      setTimeout (()=>{
-          setRefresh(false);
-      },2000)
-  }
-
-  // Function to handle logout
   const handleLogout = async() => {
     if (socketRef.current) {
       socketRef.current.disconnect();
@@ -252,138 +234,119 @@ export default function ClientProfile({ navigation, route }) {
       await AsyncStorage.clear();
       navigation.reset({
         index: 0,
-        routes: [{ name: 'Autologin' }],
+        routes: [{ name: 'Splash' }],
       });
-      // console.warn('Socket disconnected due to logout');
     }
-    // Handle your logout logic (redirect, reset user, etc.) 
   };
 
-  const { city, country, pinCode, state, street } = personalInfoData?.addresses?.primary || {};
-  const fullAddress = `${street || "Street not available"}, ${city || "City not available"}, ${state || "State not available"} ${pinCode || "PinCode not available"}, ${country || "Country not available"}`;
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor:Style.headerBgColor }}>
-      <StatusBar translucent={false} barStyle="light-content" backgroundColor={Style.headerBgColor} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+      <StatusBar barStyle="light-content" style="auto" backgroundColor={Style.headerBgColor} />
         <View style={{ flex: 1 }}>
-          <View style={{ width: "100%", padding: 50, alignItems: "center" }}>
-            <View style={{ width:80, height:80, justifyContent:'center', alignItems:'center', borderWidth:1, borderRadius:100, borderColor:'#fff' }} >
-              <Image source={ personalInfoData?.profileImage ? { uri: personalInfoData.profileImage } : require('../../assets/userIcon.jpeg') } style={{ width:75, height:75, borderRadius:100 }} />
-                <TouchableOpacity
-                  onPress={pickImages}
-                  style={{ position: 'absolute', bottom: 5, right: 2, backgroundColor: '#ffffff', padding: 5, borderRadius: 20,}} >
-                  <Feather name="edit" size={14} color="#000" />
-                </TouchableOpacity>
-            </View>
-            <View style={{ alignItems: "center", marginTop: 10 }}>
-              <Text style={{ color: "#fff", fontSize: 14, fontFamily:'Poppins-SemiBold' }}>Hi, {personalInfoData?.fullName || "Unknown"}</Text>
-              <Text style={{ color:"#dfdfdf", fontSize:12, fontFamily:'Poppins-SemiBold' }} >{personalInfoData?.userName || "No username available"}</Text>
-            </View>
+          {/* Header with back button */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <Feather name="arrow-left" size={22} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Profile</Text>
+            <View style={{ width: 40 }} />
           </View>
-          <View style={{ flex: 1, backgroundColor: "#fff", borderTopStartRadius: 20, borderTopEndRadius: 20, padding: 20, }}>
-            <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false} style={{ width: "100%", backgroundColor: "#fff", borderRadius: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 1, elevation: 2, padding: 10, borderWidth: .5, borderColor: '#e0e0e0' }}>
-                <View>
-                  <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor, paddingBottom:5 }}>Profile Name</Text>
-                    <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:'#b6b6b610', borderWidth:1, borderColor:'#d6d6d6', marginBottom:10, padding:5, }}>
-                     <Text style={{ fontFamily:'Poppins-Medium', fontSize:12, color:Style.placeHolderTextColor }} >{personalInfoData?.fullName || "No name available"}</Text>
-                    </View>
-                  </View>
-                <View>
-                 <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor, paddingBottom:5 }}>Phone No.</Text>
-                  <View style={{ flexDirection:'row', gap:10, marginBottom:10 }} >
-                    <View style={{ flex:1.5, height:40, backgroundColor:'#b6b6b610', borderRadius:5, justifyContent:'center', alignItems:'center', borderWidth:1, borderColor:'#d6d6d6',}} >
-                      <Text style={{ fontFamily:'Poppins-Medium', color:Style.placeHolderTextColor, fontSize:14 }}>{personalInfoData?.mobile?.code || "-"}</Text>
-                    </View>
-                    <View style={{ flex:8, height:40, backgroundColor:'#b6b6b610', borderRadius:5, justifyContent:'center', alignItems:'flex-start', paddingLeft:10, borderWidth:1, borderColor:'#d6d6d6', }} >
-                      <Text style={{ fontFamily:'Poppins-Medium', fontSize:12, color:Style.placeHolderTextColor }} >{personalInfoData?.mobile?.number || "No number available"}</Text>
-                    </View>
-                  </View>
-                </View>
-                <View>
-                    <View>
-                      <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor, paddingBottom:5 }}>E-mail ID</Text>
-                      <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:'#b6b6b610', borderWidth:1, borderColor:'#d6d6d6', marginBottom:10, padding:5, }}>
-                       <Text style={{ fontFamily:'Poppins-Medium', fontSize:12, color:Style.placeHolderTextColor }} >{personalInfoData?.email || "No email available"}</Text>
-                      </View>
-                    </View>
-                </View>
-                <View>
-                    <View>
-                     <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor, paddingBottom:5 }}>Address</Text>
-                      <View style={{ width:'100%', justifyContent:'center', borderRadius:5, backgroundColor:'#b6b6b610', borderWidth:1, borderColor:'#d6d6d6', marginBottom:10, padding:5, }}>
-                       <Text style={{ fontFamily:'Poppins-Medium', fontSize:12, color:Style.placeHolderTextColor }} >{fullAddress || "No address available"}</Text>
-                      </View>
-                    </View>
-                </View>
-                <View style={{ flexDirection:'row', gap:20 }} >
-                 <View style={{ flex:1 }}>
-                   <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor, paddingBottom:5 }}>Joining Date</Text>
-                    <View style={{ width:'100%', height:40,  borderRadius:5, flexDirection:'row', backgroundColor:'#b6b6b610', borderWidth:1, borderColor:'#d6d6d6', marginBottom:10, padding:5, justifyContent:"center", alignItems:'center', }}>
-                       <View style={{ flex:9, borderRadius:5, padding:5 }} >
-                         <Text style={{ fontFamily:'Poppins-Medium', fontSize:12, color:Style.placeHolderTextColor }}>{moment(personalInfoData?.clientProfile?.dateOfJoining).format('DD/MM/YYYY') || "No DOJ available"}</Text>
-                       </View>
-                       <View style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
-                          <Feather name="calendar" size={20} color={Style.placeHolderTextColor} />
-                       </View>
-                    </View>
-                  </View>
-                 <View style={{ flex:1 }}>
-                   <Text style={{ fontSize:12, fontFamily:'Poppins-Medium', color:Style.secondryTextColor, paddingBottom:5 }}>DOB</Text>
-                    <View style={{ width:'100%', height:40,  borderRadius:5, flexDirection:'row', backgroundColor:'#b6b6b610', borderWidth:1, borderColor:'#d6d6d6', marginBottom:10, padding:5, justifyContent:"center", alignItems:'center', }}>
-                       <View style={{ flex:9, borderRadius:5, padding:5 }} >
-                        <Text style={{ fontFamily:'Poppins-Medium', fontSize:12, color:Style.placeHolderTextColor }}>{moment(personalInfoData?.generalInfo?.dateOfBirth).format('DD/MM/YYYY') || "No DOB available"}</Text>
-                       </View>
-                       <View style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
-                          <Feather name="calendar" size={20} color={Style.placeHolderTextColor} />
-                       </View>
-                    </View>
-                  </View>
-                </View>
-                <View>
-                    <View>
-                      <TouchableOpacity onPress={()=> navigation.navigate('Privacy')} style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:'#b6b6b610', borderWidth:1, borderColor:'#d6d6d6', marginBottom:10, padding:5, }}>
-                       <Text style={{ fontFamily:'Poppins-Medium', fontSize:12, color:Style.placeHolderTextColor }} >Privacy Policy</Text>
-                      </TouchableOpacity>
-                    </View>
-                </View>
-                <View>
-                    <View>
-                      <TouchableOpacity onPress={()=> navigation.navigate('TermCondition')} style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:'#b6b6b610', borderWidth:1, borderColor:'#d6d6d6', marginBottom:10, padding:5, }}>
-                       <Text style={{ fontFamily:'Poppins-Medium', fontSize:12, color:Style.placeHolderTextColor }} >Terms & Conditions</Text>
-                      </TouchableOpacity>
-                    </View>
-                </View>
-              <TouchableOpacity onPress={()=> navigation.navigate('VisitHistory')} style={{ marginBottom:20, width: "100%", height: 50, borderRadius: 10, borderWidth: 1, borderColor: "#D1D5DB", justifyContent: 'space-between', alignItems: "center", alignSelf:'center', flexDirection: "row", paddingHorizontal:10 }}>
-                 <Text style={{ fontSize: 14, color: Style.secondryTextColor, fontFamily:'Poppins-SemiBold', }}>Employee Visit History</Text>
-                 <Feather name="arrow-up-right" size={24} color={Style.placeHolderTextColor} />
+
+          {/* Profile Avatar Section */}
+          <Animated.View style={[styles.avatarSection, { opacity: headerAnim, transform: [{ scale: headerAnim }] }]}>
+            <View style={styles.avatarOuter}>
+              <Image
+                source={personalInfoData?.profileImage ? { uri: personalInfoData.profileImage } : require('../../assets/userIcon.jpeg')}
+                style={styles.avatarImage}
+              />
+              <TouchableOpacity onPress={pickImages} style={styles.editBadge}>
+                <Feather name="camera" size={13} color="#fff" />
               </TouchableOpacity>
-              </ScrollView>
-              <View style={{ marginBottom:20 }} ></View>
-               <TouchableOpacity 
-                onPress={() => {
-                 Alert.alert(null, "Please confirm to logout!", [
-                   {
-                     text: "Cancel",
-                     style: "cancel",
-                   },
-                   {
-                     text: "Confirm",
-                     onPress: () => {
-                       logoutFun(); // ✅ Call the logout function here
-                       handleLogout();
-                     },
-                   },
-                 ]);
-               }}
-               style={{ marginBottom:0, width: "100%", height: 50, borderRadius: 10, borderWidth: 1, borderColor: "#D1D5DB", justifyContent: "center", alignItems: "center", alignSelf:'center', flexDirection: "row" }}>
-                 <View style={{ flex: 9 }}>
-                   <Text style={{ fontSize: 14, color: "#DD3231", fontFamily:'Poppins-SemiBold', left: 10 }}>Log out</Text>
-                 </View>
-                 <View style={{ flex: 1 }}>
-                   <Image source={require('../../assets/logOut.png')} resizeMode='contain' style={{ width: 20, height: 20 }} />
-                 </View>
-               </TouchableOpacity>
-          </View>
+            </View>
+            <Text style={styles.profileName}>{personalInfoData?.fullName || "Unknown"}</Text>
+            <Text style={styles.profileUsername}>{personalInfoData?.userName || "No username available"}</Text>
+          </Animated.View>
+
+          {/* Card Content */}
+          <Animated.View style={[styles.cardContainer, { opacity: cardOpacity, transform: [{ translateY: cardAnim }] }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+
+              {/* Info Fields */}
+              <ProfileField icon="user" label="Full Name" value={personalInfoData?.fullName || "No name available"} />
+
+              <View style={styles.phoneRow}>
+                <View style={styles.phoneCode}>
+                  <Text style={styles.phoneCodeText}>{personalInfoData?.mobile?.code || "-"}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ProfileField icon="phone" label="Phone Number" value={personalInfoData?.mobile?.number || "No number available"} />
+                </View>
+              </View>
+
+              <ProfileField icon="mail" label="Email Address" value={personalInfoData?.email || "No email available"} />
+              <ProfileField icon="map-pin" label="Address" value={fullAddress || "No address available"} />
+
+              <View style={styles.dateRow}>
+                <View style={{ flex: 1 }}>
+                  <ProfileField
+                    icon="calendar"
+                    label="Joining Date"
+                    value={moment(personalInfoData?.clientProfile?.dateOfJoining).format('DD/MM/YYYY') || "N/A"}
+                  />
+                </View>
+                <View style={{ width: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <ProfileField
+                    icon="gift"
+                    label="Date of Birth"
+                    value={moment(personalInfoData?.generalInfo?.dateOfBirth).format('DD/MM/YYYY') || "N/A"}
+                  />
+                </View>
+              </View>
+
+              {/* Links */}
+              <TouchableOpacity onPress={() => navigation.navigate('Privacy')} style={styles.linkButton}>
+                <View style={styles.linkIconWrap}>
+                  <Feather name="shield" size={16} color={Style.headerBgColor} />
+                </View>
+                <Text style={styles.linkText}>Privacy Policy</Text>
+                <Feather name="chevron-right" size={18} color="#b0b0b0" />
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => navigation.navigate('TermCondition')} style={styles.linkButton}>
+                <View style={styles.linkIconWrap}>
+                  <Feather name="file-text" size={16} color={Style.headerBgColor} />
+                </View>
+                <Text style={styles.linkText}>Terms & Conditions</Text>
+                <Feather name="chevron-right" size={18} color="#b0b0b0" />
+              </TouchableOpacity>
+
+            </ScrollView>
+
+            {/* Logout Button */}
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(null, "Please confirm to logout!", [
+                  {
+                    text: "Cancel",
+                    style: "cancel",
+                  },
+                  {
+                    text: "Confirm",
+                    onPress: () => {
+                      logoutFun();
+                      handleLogout();
+                    },
+                  },
+                ]);
+              }}
+              style={styles.logoutBtn}
+              activeOpacity={0.7}
+            >
+              <Feather name="log-out" size={18} color="#DD3231" />
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
         {isLoading && (
           <View style={styles.loaderOverlay}>
@@ -394,7 +357,206 @@ export default function ClientProfile({ navigation, route }) {
   );
 }
 
+// Reusable field component
+const ProfileField = ({ icon, label, value }) => (
+  <View style={styles.fieldContainer}>
+    <Text style={styles.fieldLabel}>{label}</Text>
+    <View style={styles.fieldBox}>
+      <View style={styles.fieldIconWrap}>
+        <Feather name={icon} size={15} color={Style.headerBgColor} />
+      </View>
+      <Text style={styles.fieldValue} numberOfLines={2}>{value}</Text>
+    </View>
+  </View>
+);
+
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 5,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontFamily: 'Lato-SemiBold',
+    color: '#fff',
+  },
+  avatarSection: {
+    alignItems: 'center',
+    paddingBottom: 25,
+    paddingTop: 5,
+  },
+  avatarOuter: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  avatarImage: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+  },
+  editBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: Style.headerBgColor,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  profileName: {
+    color: '#fff',
+    fontSize: 18,
+    fontFamily: 'Lato-SemiBold',
+    marginTop: 12,
+    textTransform: 'capitalize',
+  },
+  profileUsername: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    fontFamily: 'Lato-Medium',
+    marginTop: 2,
+  },
+  cardContainer: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    borderTopStartRadius: 24,
+    borderTopEndRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  fieldContainer: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontFamily: 'Lato-SemiBold',
+    color: Style.secondryTextColor,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  fieldBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  fieldIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#e8f0fe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  fieldValue: {
+    flex: 1,
+    fontFamily: 'Lato-Medium',
+    fontSize: 13,
+    color: '#333',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  phoneCode: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  phoneCodeText: {
+    fontFamily: 'Lato-SemiBold',
+    fontSize: 13,
+    color: '#333',
+  },
+  dateRow: {
+    flexDirection: 'row',
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 10,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+  },
+  linkIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#e8f0fe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  linkText: {
+    flex: 1,
+    fontFamily: 'Lato-Medium',
+    fontSize: 13,
+    color: '#333',
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 16,
+    elevation: 1,
+    // borderWidth: 1,
+    // borderColor: '#ffecec',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 0.5,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontFamily: 'Lato-SemiBold',
+    color: '#DD3231',
+  },
   loaderOverlay: {
     position: "absolute",
     top: 0,

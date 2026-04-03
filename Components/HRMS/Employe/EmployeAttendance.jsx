@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, SafeAreaView, Text, StatusBar, Button, ScrollView, Modal, FlatList, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Platform, Dimensions } from "react-native";
+import { StyleSheet, View, Text, StatusBar, Button, ScrollView, Modal, FlatList, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Platform, Dimensions } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import { SelectList } from 'react-native-dropdown-select-list';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -8,7 +8,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import EmployeHeader from './EmployeComponent/EmployeHeader';
 import BASE_URL from '../../../Urls/DomainUrl';
-// import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AntDesign, Feather, FontAwesome6 } from "@expo/vector-icons";
 
@@ -36,7 +36,7 @@ function showToast(message, onOk = null) {
 }
 
 export default function EmployeAttendance({ navigation, route }) {
-
+  
   const [startDateVisible, setStartDateVisible] = useState(false);
   const [startDate, setStartDate] = useState(null);
   const [endDateVisible, setEndDateVisible] = useState(false);
@@ -77,7 +77,9 @@ export default function EmployeAttendance({ navigation, route }) {
 
   // Create array of leave types for dropdown
   const addType = Object.keys(leaveTypeMap);
-
+useEffect(() => {
+  attendanceList(userData);
+}, []);
     useEffect(() => {
       const loadUserData = async () => {
         try {
@@ -87,6 +89,7 @@ export default function EmployeAttendance({ navigation, route }) {
             const parsedData = JSON.parse(storedUserData);
             setUserData(parsedData);
             // console.log("User Data---:", parsedData);
+            await attendanceList(parsedData);
           }
         } catch (error) {
           console.error("Failed to load userData:", error);
@@ -95,9 +98,10 @@ export default function EmployeAttendance({ navigation, route }) {
     
       loadUserData();
     }, []);
-    const attendanceList = async () => {
+
+    const attendanceList = async (userDataParam) => {
+      setLoading(true);
       try {
-        setLoading(true);
         const token = await AsyncStorage.getItem('authToken');
         
         if (!token) {
@@ -118,9 +122,9 @@ export default function EmployeAttendance({ navigation, route }) {
         // Fetch all pages until no more data
         while (hasNextPage) {
           const raw = JSON.stringify({
-            "branchId": userData?.branchId,
-            "companyId": userData?.companyId,
-            "employeId": userData?._id,
+            "branchId": userDataParam?.branchId,
+            "companyId": userDataParam?.companyId,
+            "employeId": userDataParam?._id,
             "endDate": null,
             "isPagination": true,
             "isPresentDay": [],
@@ -141,7 +145,7 @@ export default function EmployeAttendance({ navigation, route }) {
             redirect: "follow"
           };
           
-          const response = await fetch(`${BASE_URL}/admin/employe/attendance/list`, requestOptions);
+          const response = await fetch(`${BASE_URL}/admin/employe/attendance/list?page=${currentPage}&limit=${limit}`, requestOptions);
           const result = await response.json();
 
           if (result.statusCode === 200) {
@@ -151,21 +155,20 @@ export default function EmployeAttendance({ navigation, route }) {
               hasNextPage = false;
             } else {
               allData = [...allData, ...pageData];
-              
-              // Check if there are more pages using API response
-              hasNextPage = result.data?.hasNextPage !== false;
-              
-              // If we got less data than limit, it's likely the last page
-              if (pageData.length < limit) {
-                hasNextPage = false;
-              }
-              
-              // If totalPages is available, use it to determine if more pages exist
-              if (result.data?.totalPages) {
+              if (result.data?.totalPages !== undefined && result.data.totalPages !== null) {
                 hasNextPage = currentPage < result.data.totalPages;
+              } else if (result.data?.hasNextPage !== undefined && result.data.hasNextPage !== null) {
+                hasNextPage = result.data.hasNextPage === true;
+              } else {
+                hasNextPage = pageData.length >= limit;
               }
               
               currentPage++;
+              
+              if (currentPage > 1000) {
+                console.warn("⚠️ Reached maximum page limit (1000)");
+                hasNextPage = false;
+              }
             }
           } else {
             console.error("❌ API Error:", result.message);
@@ -173,9 +176,9 @@ export default function EmployeAttendance({ navigation, route }) {
             if (currentPage === 1) {
               // Try fetching all data at once
               const rawAll = JSON.stringify({
-                "branchId": userData?.branchId,
-                "companyId": userData?.companyId,
-                "employeId": userData?._id,
+                "branchId": userDataParam?.branchId,
+                "companyId": userDataParam?.companyId,
+                "employeId": userDataParam?._id,
                 "endDate": null,
                 "isPagination": false,
                 "isPresentDay": [],
@@ -199,20 +202,22 @@ export default function EmployeAttendance({ navigation, route }) {
               
               if (resultAll.statusCode === 200) {
                 allData = resultAll.data.docs || resultAll.data || [];
-                hasNextPage = false;
               } else {
                 ToastAndroid.show(resultAll.message || "Failed to fetch attendance", ToastAndroid.SHORT);
-                hasNextPage = false;
               }
-            } else {
-              hasNextPage = false;
             }
+            hasNextPage = false;
           }
         }
         
-        // console.log("✅ All Attendance Data loaded:", allData.length, "records");
-        setAllAttendanceData(allData);
-        filterAttendanceData(allData, startDate, endDate);
+        // Remove duplicates based on _id
+        const uniqueAllData = allData.filter((item, index, self) => 
+          self.findIndex(i => i._id === item._id) === index
+        );
+        
+        // console.log("✅ All Attendance Data loaded:", uniqueAllData.length, "records");
+        setAllAttendanceData(uniqueAllData);
+        filterAttendanceData(uniqueAllData, startDate, endDate, selectLeave);
       } catch (error) {
         console.error("❌ Network Error:", error);
         ToastAndroid.show("Network request failed: " + error.message, ToastAndroid.SHORT);
@@ -229,27 +234,19 @@ export default function EmployeAttendance({ navigation, route }) {
       }
 
       const filtered = data.filter(item => {
-        const itemDate = moment(item.attendanceDate).format('DD/MM/YYYY');
-        
-        // Debug: Log actual API values
-        // if (leaveType) {
-        //   console.log("🔍 Item isPresentDay:", item.isPresentDay, "Selected:", leaveType, "Mapped:", leaveTypeMap[leaveType]);
-        // }
+        const itemMoment = moment(item.attendanceDate);
 
         const itemStatus = item.isPresentDay?.toLowerCase()?.trim();
         const selectedStatus = leaveTypeMap[leaveType]?.toLowerCase()?.trim();
         let dateMatch = true;
-        if (start && end) {
-          dateMatch = moment(itemDate, 'DD/MM/YYYY').isBetween(
-            moment(start, 'DD/MM/YYYY'),
-            moment(end, 'DD/MM/YYYY'),
-            null,
-            '[]'
-          );
-        } else if (start && !end) {
-          dateMatch = moment(itemDate, 'DD/MM/YYYY').isSame(moment(start, 'DD/MM/YYYY'), 'day');
-        } else if (end && !start) {
-          dateMatch = moment(itemDate, 'DD/MM/YYYY').isSame(moment(end, 'DD/MM/YYYY'), 'day');
+        if (start) {
+          const startMoment = moment(start, 'DD/MM/YYYY');
+          if (end) {
+            const endMoment = moment(end, 'DD/MM/YYYY');
+            dateMatch = itemMoment.isBetween(startMoment, endMoment, 'day', '[]');
+          } else {
+            dateMatch = itemMoment.isSame(startMoment, 'day');
+          }
         }
         let leaveTypeMatch = true;
         if (leaveType) {
@@ -260,26 +257,23 @@ export default function EmployeAttendance({ navigation, route }) {
         return dateMatch && leaveTypeMatch;
       });
 
-      // console.log("🔍 Filtered records:", filtered.length, "(Start:", start, "End:", end, "LeaveType:", leaveType, ")");
+      // Remove duplicates based on _id
+      const uniqueFiltered = filtered.filter((item, index, self) => 
+        self.findIndex(i => i._id === item._id) === index
+      );
+
+      // console.log("🔍 Filtered records:", uniqueFiltered.length, "(Start:", start, "End:", end, "LeaveType:", leaveType, ")");
       // console.log("📊 Items found with status:", data.map(item => item.isPresentDay));
-      setAttendanceData(filtered);
+      setAttendanceData(uniqueFiltered);
       setPage(0);
     };
 
-    useEffect(() => {
-      if (userData) {
-        attendanceList();
-      }
-    }, [userData]);
-
-    // Auto-filter when dates change
     useEffect(() => {
       if (userData && (startDate || endDate || selectLeave)) {
         filterAttendanceData(allAttendanceData, startDate, endDate, selectLeave);
       }
     }, [startDate, endDate, selectLeave]);
-    
-    // Reset all filters
+
     const handleResetFilters = () => {
       setStartDate(null);
       setEndDate(null);
@@ -288,8 +282,6 @@ export default function EmployeAttendance({ navigation, route }) {
       ToastAndroid.show("Filters cleared", ToastAndroid.SHORT);
     };
 
-  
-    // combine manual records with static data (manual ones first)
     const combinedData = [...manualRecords, ...attendanceData];
     const totalPages = Math.ceil(combinedData.length / rowsPerPage);
     const currentData = combinedData.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
@@ -351,8 +343,8 @@ export default function EmployeAttendance({ navigation, route }) {
         hour12: true,
       });
     
-      console.log('✅ Checkout Date Set:', formattedDate);
-      console.log('✅ Checkout Time Set:', formattedTime);
+      // console.log('✅ Checkout Date Set:', formattedDate);
+      // console.log('✅ Checkout Time Set:', formattedTime);
     
       setCheckOutDate(formattedDate);
       setCheckOutTime(formattedTime);
@@ -448,7 +440,7 @@ export default function EmployeAttendance({ navigation, route }) {
         const response = await fetch(`${BASE_URL}/admin/employe/attendance/create`, requestOptions);
         const result = await response.json();
 
-        console.log('📥 API Response:', result);
+        // console.log('📥 API Response:', result);
 
         if (result.statusCode === 200 || response.ok) {
           // Reset form
@@ -463,7 +455,7 @@ export default function EmployeAttendance({ navigation, route }) {
           showToast(result.message || "✅ Attendance added successfully");
           
           // Refresh attendance list
-          await attendanceList();
+          await attendanceList(userData);
         } else {
           console.error("❌ API Error:", result.message);
           Alert.alert('Error', result.message || "Failed to add attendance");
@@ -539,14 +531,14 @@ export default function EmployeAttendance({ navigation, route }) {
            <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
               <AntDesign name="arrowleft" size={24} color="#fff" />
            </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Poppins-SemiBold', flex: 1, }}>Employe Attendance</Text>
+          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Employe Attendance</Text>
         </View>
         <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20 }} >
-            <EmployeHeader navigation={navigation} />
+            {/* <EmployeHeader navigation={navigation} /> */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, padding:0 }} >
               <View style={{ width:'100%', flexDirection:'row', gap:10, marginBottom:10 }} >
                 <View style={{ flex:1, flexDirection:'row', height:40, justifyContent:'space-between', alignItems:'center', borderWidth:.5, borderRadius:5, borderColor: '#E0E0E0' }} >
-                  <Text style={{ paddingLeft:10, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:0 }} >{startDate?startDate: 'Start Date'}</Text>
+                  <Text style={{ paddingLeft:10, fontSize:14, fontFamily:'Lato-Medium', paddingTop:0 }} >{startDate?startDate: 'Start Date'}</Text>
                   <TouchableOpacity onPress={() => setStartDateVisible(true)} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                     <Text style={{ fontSize:20,}} >📅</Text>
                   </TouchableOpacity>
@@ -563,7 +555,7 @@ export default function EmployeAttendance({ navigation, route }) {
                    />
                 </View>
                 <View style={{ flex:1, flexDirection:'row', height:40, justifyContent:'space-between', alignItems:'center', borderWidth:.5, borderRadius:5, borderColor: '#E0E0E0' }} >
-                  <Text style={{ paddingLeft:10, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:0 }} >{endDate ? endDate: 'End Date'}</Text>
+                  <Text style={{ paddingLeft:10, fontSize:14, fontFamily:'Lato-Medium', paddingTop:0 }} >{endDate ? endDate: 'End Date'}</Text>
                   <TouchableOpacity onPress={() => setEndDateVisible(true)} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                     <Text style={{ fontSize:20,}} >📅</Text>
                   </TouchableOpacity>
@@ -581,7 +573,7 @@ export default function EmployeAttendance({ navigation, route }) {
                 </View>
                 <View style={{ height:45, justifyContent:'space-between', alignItems:'center', }} >
                 <TouchableOpacity onPress={handleResetFilters} style={{ height:40, paddingHorizontal:8, justifyContent:'center', alignItems:'center', backgroundColor: '#6a8ff3', borderRadius: 5 }}>
-                  <Text style={{ color: '#fff', fontFamily: 'Poppins-Medium' }}>Reset</Text>
+                  <Text style={{ color: '#fff', fontFamily: 'Lato-Medium' }}>Reset</Text>
                 </TouchableOpacity>
                 </View>
               </View>
@@ -593,85 +585,93 @@ export default function EmployeAttendance({ navigation, route }) {
                     placeholder='Select Leave Type'
                 />
               </View>
-            <View style={styles.container}>
-              <ScrollView horizontal style={{ marginBottom: 10 }}>
-                <View>
-                  <View style={styles.row}>
-                    {headers.map((header, index) => (
-                      <Text key={index} style={[styles.cell, styles.headerCell]}>{header}</Text>
-                    ))}
-                  </View>
-
-                  {currentData.length === 0 ? (
-                    <View style={{ padding: 20, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#666', fontSize: 16 }}>No records found</Text>
+              {
+                loading ? (<ActivityIndicator size="large" color="#007BFF" />): currentData.length === 0 ? (
+                  <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
+                     <View style={{ width:100, height:100 }} >
+                      <Image
+                        source={require('../../../assets/Images/notFound.png')}
+                        style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+                      />
                     </View>
-                  ) : (
-                    <FlatList
-                      data={currentData}
-                      keyExtractor={(item) => item._id.toString()}
-                      renderItem={({ item, index }) => (
-                        <View
-                          style={[
-                            styles.row,
-                            index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                          ]}
-                        >
-                          <Text style={styles.cell}>{page * rowsPerPage + index + 1}</Text>
-                          <Text style={styles.cell}>{moment(item.attendanceDate).format('DD-MM-YYYY')}</Text>
-                          <Text style={styles.cell}>{item?.checkInTime?moment(item.checkInTime).format('hh:mm A'): '-'}</Text>                   
-                          <Text style={styles.cell}>{item.checkOutTime?moment(item.checkOutTime).format('hh:mm A'): '-'}</Text>
-                          <Text style={styles.cell}>
-                            {item?.checkInTime && item?.checkOutTime
-                             ? moment
-                                 .utc(
-                                   moment(item.checkOutTime).diff(
-                                     moment(item.checkInTime)
-                                   )
-                                 )
-                                 .format('HH:mm:ss')
-                             : '-'
-                            }
-                          </Text>                   
-                          <Text style={styles.cell}>{!item.pendingHRS || item.pendingHRS === 0 ? "-" : `${Math.floor(item.pendingHRS / 60)}:${(item.pendingHRS % 60).toString().padStart(2, "0")}`}</Text>                  
-                          <Text style={styles.cell}>{!item.overtimeHRS || item.overtimeHRS === 0 ? "-" : `${Math.floor(item.overtimeHRS / 60)}:${(item.overtimeHRS % 60).toString().padStart(2, "0")}`}</Text>
-                          <Text style={styles.cell}>{item.workType === "work_from_office" ? "No" : "Yes"} </Text>                   
-                          <Text style={{width: 175,backgroundColor:item.isPresentDay === "present" ? "#4CAF5040" : item.isPresentDay === "secondHalf" ? "#9C27B020" : item.isPresentDay === "absent" ? "#F5492720" : item.isPresentDay === "off" ? "#80808020" : item.isPresentDay === "firstHalf" ? "#FFD23020" : "#444", 
-                            borderColor:item.isPresentDay === "present" ? "#4CAF50" : item.isPresentDay === "secondHalf" ? "#9C27B0" : item.isPresentDay === "absent" ? "#F54927" : item.isPresentDay === "off" ? "#808080" : item.isPresentDay === "firstHalf" ? "#FFD230" : "#444",
-                            color:item.isPresentDay === "present" ? "#4CAF50" : item.isPresentDay === "secondHalf" ? "#9C27B0" : item.isPresentDay === "absent" ? "#F54927" : item.isPresentDay === "off" ? "#808080" : item.isPresentDay === "firstHalf" ? "#FFD230" : "#444",
-                            borderWidth:1, borderRadius:5, padding: 5, textAlign:'center'}}>{item.isPresentDay === "present" ? "Present" : item.isPresentDay === "secondHalf" ? "Second Half" : item.isPresentDay === "absent" ? "Absent" : item.isPresentDay === "off" ? "Off" : item.isPresentDay === "firstHalf" ? "First Half" : "-"}
-                          </Text>
-                          <Text style={styles.cell}>{item.status === false ? "No" : "Yes"} </Text>                
-                        </View>
-                      )}
-                    />
-                  )}
+                    <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
+                    <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
+                  </View>
+                ) : (
+                  <View style={styles.container}>
+                  <ScrollView horizontal style={{ marginBottom: 10 }}>
+                    <View>
+                      <View style={styles.row}>
+                        {headers.map((header, index) => (
+                          <Text key={index} style={[styles.cell, styles.headerCell]}>{header}</Text>
+                        ))}
+                      </View>
+                        <FlatList
+                          data={currentData}
+                          keyExtractor={(item, index) => `${item._id}-${index}`}
+                          renderItem={({ item, index }) => (
+                            <View
+                              style={[
+                                styles.row,
+                                index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                              ]}
+                            >
+                              <Text style={styles.cell}>{page * rowsPerPage + index + 1}</Text>
+                              <Text style={styles.cell}>{moment(item.attendanceDate).format('DD-MM-YYYY')}</Text>
+                              <Text style={styles.cell}>{item?.checkInTime?moment(item.checkInTime).format('hh:mm A'): '-'}</Text>                   
+                              <Text style={styles.cell}>{item.checkOutTime?moment(item.checkOutTime).format('hh:mm A'): '-'}</Text>
+                              <Text style={styles.cell}>
+                                {item?.checkInTime && item?.checkOutTime
+                                 ? moment
+                                     .utc(
+                                       moment(item.checkOutTime).diff(
+                                         moment(item.checkInTime)
+                                       )
+                                     )
+                                     .format('HH:mm:ss')
+                                 : '-'
+                                }
+                              </Text>                   
+                              <Text style={styles.cell}>{!item.pendingHRS || item.pendingHRS === 0 ? "-" : `${Math.floor(item.pendingHRS / 60)}:${(item.pendingHRS % 60).toString().padStart(2, "0")}`}</Text>                  
+                              <Text style={styles.cell}>{!item.overtimeHRS || item.overtimeHRS === 0 ? "-" : `${Math.floor(item.overtimeHRS / 60)}:${(item.overtimeHRS % 60).toString().padStart(2, "0")}`}</Text>
+                              <Text style={styles.cell}>{item.workType === "work_from_office" ? "No" : "Yes"} </Text>                   
+                              <Text style={{width: 175,backgroundColor:item.isPresentDay === "present" ? "#4CAF5040" : item.isPresentDay === "secondHalf" ? "#9C27B020" : item.isPresentDay === "absent" ? "#F5492720" : item.isPresentDay === "off" ? "#80808020" : item.isPresentDay === "firstHalf" ? "#FFD23020" : item.isPresentDay === "leave"? '#6a8ff320' : "#44440", 
+                                borderColor:item.isPresentDay === "present" ? "#4CAF50" : item.isPresentDay === "secondHalf" ? "#9C27B0" : item.isPresentDay === "absent" ? "#F54927" : item.isPresentDay === "off" ? "#808080" : item.isPresentDay === "firstHalf" ? "#FFD230" : item.isPresentDay === "leave"? '#6a8ff3' : "#444",
+                                color:item.isPresentDay === "present" ? "#4CAF50" : item.isPresentDay === "secondHalf" ? "#9C27B0" : item.isPresentDay === "absent" ? "#F54927" : item.isPresentDay === "off" ? "#808080" : item.isPresentDay === "firstHalf" ? "#FFD230" : item.isPresentDay === "leave"? '#6a8ff3' : "#444",
+                                borderWidth:1, borderRadius:5, padding: 5, textAlign:'center'}}>{item.isPresentDay === "present" ? "Present" : item.isPresentDay === "secondHalf" ? "Second Half" : item.isPresentDay === "absent" ? "Absent" : item.isPresentDay === "off" ? "Off" : item.isPresentDay === "firstHalf" ? "First Half" : item.isPresentDay === "leave"? 'Leave' : "-"}
+                              </Text>
+                              <Text style={styles.cell}>{item.status === false ? "No" : "Yes"} </Text>                
+                            </View>
+                          )}
+                        />
+                    </View>
+                  </ScrollView>
+                  <View style={styles.pagination}>
+                    <TouchableOpacity
+                      onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
+                      style={[styles.pageButton, page === 0 && styles.disabledButton]}
+                    >
+                      <Text style={styles.pageText}>Previous</Text>
+                    </TouchableOpacity>
+            
+                    <Text style={{ marginHorizontal: 10 }}>
+                      Page {page + 1} of {totalPages}
+                    </Text>
+            
+                    <TouchableOpacity
+                      onPress={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
+                      style={[styles.pageButton, page === totalPages - 1 && styles.disabledButton]}
+                    >
+                      <Text style={styles.pageText}>Next</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </ScrollView>
-              <View style={styles.pagination}>
-                <TouchableOpacity
-                  onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-                  style={[styles.pageButton, page === 0 && styles.disabledButton]}
-                >
-                  <Text style={styles.pageText}>Previous</Text>
-                </TouchableOpacity>
-        
-                <Text style={{ marginHorizontal: 10 }}>
-                  Page {page + 1} of {totalPages}
-                </Text>
-        
-                <TouchableOpacity
-                  onPress={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
-                  style={[styles.pageButton, page === totalPages - 1 && styles.disabledButton]}
-                >
-                  <Text style={styles.pageText}>Next</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                )
+              }
             </ScrollView>
           <View style={{ width:'100%', height:60, backgroundColor:'#fff', justifyContent:'center', alignItems:'center', padding:20 }} >
             <TouchableOpacity onPress={()=> setAttendanceModal(true)} style={{ width:'100%', height:45, backgroundColor:'#6a8ff3', borderRadius:6, justifyContent:'center', alignItems:'center', }} >
-                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Poppins-SemiBold" }} >+ Manual Attendance</Text>
+                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Lato-SemiBold" }} >+ Manual Attendance</Text>
             </TouchableOpacity>
              <Modal
                animationType="slide"
@@ -680,15 +680,15 @@ export default function EmployeAttendance({ navigation, route }) {
                onRequestClose={() => {
                 setAttendanceModal(!attendanceModal);
                }}>
-               <View style={{ flex:1, justifyContent:'center',  backgroundColor:'#ffffff80', padding:10 }} >
+               <View style={{ flex:1, justifyContent:'center',  backgroundColor:'#00000060', padding:10 }} >
                  <View style={{ width:'100%', backgroundColor:'#fff', padding:20, borderRadius:10, shadowOffset: { width: 0, height: 5, }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, }} >
                     <View>
-                      <Text style={{ color:'#444', fontSize:16, fontFamily:'Poppins-SemiBold', marginBottom:10 }} >Add Manual Attendance</Text>
+                      <Text style={{ color:'#444', fontSize:16, fontFamily:'Lato-SemiBold', marginBottom:10 }} >Add Manual Attendance</Text>
                     </View>
                     <View>
-                    <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5 }} >Check-In Date/Time</Text>
+                    <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5 }} >Check-In Date/Time</Text>
                      <View style={{ width:'100%', marginBottom:10, height:40, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:.5, borderRadius:5, borderColor: '#E0E0E0' }} >
-                       <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', color:'#868686', paddingTop:5 }} >{checkInDate ? `${checkInDate} ${checkInTime ? `- ${checkInTime}` : ''}` : 'Select Check-In Date & Time'}</Text>
+                       <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', color:'#868686', paddingTop:5 }} >{checkInDate ? `${checkInDate} ${checkInTime ? `- ${checkInTime}` : ''}` : 'Select Check-In Date & Time'}</Text>
                        <TouchableOpacity onPress={showDatePicker} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                          <Text style={{ fontSize:20,}} >📅</Text>
                        </TouchableOpacity>
@@ -703,9 +703,9 @@ export default function EmployeAttendance({ navigation, route }) {
                       minimumDate={new Date()}
                     />
                     <View style={{ marginTop:0 }}>
-                      <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5 }} >Check-Out Date/Time</Text>
+                      <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5 }} >Check-Out Date/Time</Text>
                       <View style={{ width:'100%', marginBottom:0, height:40, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:.5, borderRadius:5, borderColor: '#E0E0E0' }} >
-                        <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', color:'#868686', paddingTop:5 }} >{checkOutDate ? `${checkOutDate} ${checkOutTime ? `- ${checkOutTime}` : ''}` : 'Select Date & Time'}</Text>
+                        <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', color:'#868686', paddingTop:5 }} >{checkOutDate ? `${checkOutDate} ${checkOutTime ? `- ${checkOutTime}` : ''}` : 'Select Date & Time'}</Text>
                         <TouchableOpacity onPress={showCheckoutPicker} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', }} >
                           <Text style={{ fontSize:20,}} >📅</Text>
                         </TouchableOpacity>
@@ -720,13 +720,13 @@ export default function EmployeAttendance({ navigation, route }) {
                       />
                     </View>
                     <View>
-                    <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5 }} >Reason</Text>
+                    <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5 }} >Reason</Text>
                     <View style={{ width:'100%', height:45, backgroundColor:'#fff', borderWidth:.5, borderColor: '#E0E0E0', borderRadius:5, marginBottom:10, padding:5,  }}>
-                       <TextInput value={reason} onChangeText={value=> setReason(value)} placeholder="Reason" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#fff', borderRadius:5, padding:5, color:"#074173", fontFamily:'Poppins-Mediumkk' }} />
+                       <TextInput value={reason} onChangeText={value=> setReason(value)} placeholder="Reason" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#fff', borderRadius:5, padding:5, color:"#074173", fontFamily:'Lato-Mediumkk' }} />
                     </View>
                     </View>
                     <View>
-                    <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Poppins-Medium', paddingTop:5 }} >Select Shift</Text>
+                    <Text style={{ paddingLeft:5, fontSize:14, fontFamily:'Lato-Medium', paddingTop:5 }} >Select Shift</Text>
                      <View style={{ width:'100%', marginBottom:20,}} >
                       <SelectList 
                           setSelected={(val) => setShift(shiftMap[val])}
@@ -739,10 +739,10 @@ export default function EmployeAttendance({ navigation, route }) {
                      
                     <View style={{ flexDirection:'row', gap:20 }} >
                       <TouchableOpacity onPress={() => { setAttendanceModal(false)}} style={{ flex:1, height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#6a8ff320', borderWidth:1, borderColor:'#6a8ff3', borderRadius:6 }} >
-                        <Text style={{ color:'#6a8ff3', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Cancel</Text>
+                        <Text style={{ color:'#6a8ff3', fontSize:16, fontFamily:"Lato-SemiBold" }} >Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={handleManualConfirm} style={{ flex:1, height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#6a8ff3', borderWidth:1, borderColor:'#6a8ff3', borderRadius:6 }} >
-                        <Text style={{ color:'#fff', fontSize:16, fontFamily:"Poppins-SemiBold" }} >Confirm</Text>
+                        <Text style={{ color:'#fff', fontSize:16, fontFamily:"Lato-SemiBold" }} >Confirm</Text>
                       </TouchableOpacity>
                     </View>
                  </View>
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     textAlign: 'center',
     fontSize: 14,
-    fontFamily:'Poppins-Medium',
+    fontFamily:'Lato-Medium',
   },
   headerCell: {
     fontWeight: 'bold',

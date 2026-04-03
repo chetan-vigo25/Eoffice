@@ -1,17 +1,19 @@
-
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BASE_URL from '../Urls/DomainUrl';
-
+import { useDispatch, useSelector } from 'react-redux';
+import { personalInfo } from "../Redux/Services/ClientService/Client.Services";
+import { logout } from "../Redux/Reducer/Auth/Auth.reducers";
+ 
 export default function AutoLogin({navigation}) {
-
+ const dispatch = useDispatch()
   useEffect(() => {
     const autoLogin = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
         const userData = await AsyncStorage.getItem('user');
-
+ 
         if (token && userData) {
           // Check if token is still valid by calling profile API
           const res = await fetch(`${BASE_URL}/client/auth/profile`, {
@@ -21,7 +23,7 @@ export default function AutoLogin({navigation}) {
               Authorization: `Bearer ${token}`,
             },
           });
-
+ 
           if (res.status === 200) {
             // Token is still valid
             const profile = await res.json();
@@ -29,6 +31,16 @@ export default function AutoLogin({navigation}) {
               index: 0,
               routes: [{ name: 'ClientDash', params: { userData: JSON.parse(userData)}}],
             });
+          } else if(res.status === 401) {
+            // Token expired, clear storage and redirect to login
+            await AsyncStorage.removeItem('token');
+            await AsyncStorage.removeItem('user');
+            dispatch(logout());
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Splash' }],
+            });
+
           } else {
             // Token invalid (maybe logged in from another device)
             await AsyncStorage.removeItem('token');
@@ -55,7 +67,7 @@ export default function AutoLogin({navigation}) {
     };
     autoLogin();
   }, []);
-
+ 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       {/* Loading spinner while checking login status */}
