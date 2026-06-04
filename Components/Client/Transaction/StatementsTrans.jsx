@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, TouchableOpacity, Animated, SafeAreaView, RefreshControl, Platform, FlatList, Modal, StyleSheet, StatusBar, ToastAndroid, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, Animated, RefreshControl, FlatList, Modal, StyleSheet, StatusBar, ToastAndroid, ActivityIndicator, Platform } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
@@ -7,7 +8,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 
 import { AntDesign, Feather, Fontisto } from "@expo/vector-icons";
@@ -15,11 +15,7 @@ import Style from "../../../Style/Style";
 import BASE_URL from '../../../Urls/DomainUrl';
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 function formatAmount(val) {
@@ -42,6 +38,7 @@ export default function StatementsTrans({ navigation, route }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [activeDatePicker, setActiveDatePicker] = useState(null);
+  const [activeQuickFilter, setActiveQuickFilter] = useState(null);
 
   const logoutHandled = useRef(false);
 
@@ -64,10 +61,13 @@ export default function StatementsTrans({ navigation, route }) {
   }, [dispatch, navigation]);
 
   // Fetch statement data
-  const fetchStatement = async (isRefresh = false) => {
+  const fetchStatement = async (isRefresh = false, overrides = {}) => {
     if (logoutHandled.current) return;
     if (activeTab === 'Group' && isGroupDisabled) return;
     if (!isRefresh) setLoading(true);
+
+    const sd = 'startDate' in overrides ? overrides.startDate : startDate;
+    const ed = 'endDate' in overrides ? overrides.endDate : endDate;
 
     try {
       const token = await AsyncStorage.getItem("token");
@@ -86,8 +86,8 @@ export default function StatementsTrans({ navigation, route }) {
 
       const body = {
         _id: activeTab === 'Client' ? userData?._id : userData?.groupId,
-        startDate: startDate ? moment(startDate).format('YYYY-MM-DD') : "",
-        endDate: endDate ? moment(endDate).format('YYYY-MM-DD') : "",
+        startDate: sd ? moment(sd).format('YYYY-MM-DD') : "",
+        endDate: ed ? moment(ed).format('YYYY-MM-DD') : "",
       };
 
       const requestOptions = {
@@ -100,11 +100,11 @@ export default function StatementsTrans({ navigation, route }) {
       const response = await fetch(endpoint, requestOptions);
       const result = await response.json();
 
-      console.log(`[${activeTab} Statement Response]:`, JSON.stringify(result, null, 2));
+      // console.log(`[${activeTab} Statement Response]:`, JSON.stringify(result, null, 2));
 
       if (result.statusCode === 200) {
         setResponseData(result?.data || null);
-        console.log(`[${activeTab} Statement Data]:`, result?.data);
+        // console.log(`[${activeTab} Statement Data]:`, result?.data);
       } else if (result.statusCode === 401) {
         handleLogout();
       } else {
@@ -136,6 +136,7 @@ export default function StatementsTrans({ navigation, route }) {
     setResponseData(null);
     setStartDate('');
     setEndDate('');
+    setActiveQuickFilter(null);
   };
 
   // Derived data
@@ -152,8 +153,18 @@ export default function StatementsTrans({ navigation, route }) {
   const resetFilters = () => {
     setStartDate('');
     setEndDate('');
+    setActiveQuickFilter(null);
     setModalVisible(false);
-    setTimeout(() => fetchStatement(), 100);
+    fetchStatement(false, { startDate: '', endDate: '' });
+  };
+
+  const applyQuickFilter = (key) => {
+    const end = new Date();
+    const monthsMap = { '1m': 1, '3m': 3, '6m': 6 };
+    const start = moment().subtract(monthsMap[key], 'months').toDate();
+    setStartDate(start);
+    setEndDate(end);
+    setActiveQuickFilter(key);
   };
 
   const handleRefresh = () => {
@@ -167,6 +178,7 @@ export default function StatementsTrans({ navigation, route }) {
   const handleConfirm = (date) => {
     if (activeDatePicker === 'start') setStartDate(date);
     else setEndDate(date);
+    setActiveQuickFilter('custom');
     hideDatePicker();
   };
 
@@ -276,11 +288,29 @@ export default function StatementsTrans({ navigation, route }) {
       `;
 
       const { uri } = await Print.printToFileAsync({ html });
-      const pdfName = `${name.replace(/\s+/g, '_')}_Statement_${moment().format('DDMMYYYY')}.pdf`;
-      const newUri = `${FileSystem.documentDirectory}${pdfName}`;
-      await FileSystem.moveAsync({ from: uri, to: newUri });
+      const pdfName = `${name.replace(/\s+/g, '_')}_Statement_${moment().format('DDMMYYYY')}`;
 
-      await Sharing.shareAsync(newUri, { mimeType: 'application/pdf' });
+      if (Platform.OS === 'android') {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (!permissions.granted) {
+          showToast("Storage permission is required to download PDF.");
+          return;
+        }
+        const base64Data = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const safUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          pdfName,
+          'application/pdf'
+        );
+        await FileSystem.writeAsStringAsync(safUri, base64Data, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        showToast("PDF saved to Downloads folder.");
+      } else {
+        showToast("PDF downloaded successfully.");
+      }
     } catch (error) {
       console.error("[PDF Error]:", error);
       showToast("Failed to download PDF");
@@ -324,9 +354,25 @@ export default function StatementsTrans({ navigation, route }) {
       const csvName = `${name.replace(/\s+/g, '_')}_Statement_${moment().format('DDMMYYYY')}.csv`;
       const tempUri = `${FileSystem.documentDirectory}${csvName}`;
 
-      await FileSystem.writeAsStringAsync(tempUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
-
-      await Sharing.shareAsync(tempUri, { mimeType: 'text/csv' });
+      if (Platform.OS === 'android') {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (!permissions.granted) {
+          showToast("Storage permission is required to download Excel.");
+          return;
+        }
+        const safUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          csvName.replace('.csv', ''),
+          'text/csv'
+        );
+        await FileSystem.writeAsStringAsync(safUri, csvContent, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+        showToast("Excel saved to Downloads folder.");
+      } else {
+        await FileSystem.writeAsStringAsync(tempUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+        showToast("Excel downloaded successfully.");
+      }
     } catch (error) {
       console.error("[Excel Error]:", error);
       showToast("Failed to download Excel");
@@ -372,7 +418,7 @@ export default function StatementsTrans({ navigation, route }) {
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={[styles.transAmount, { color: isDebit ? '#e53935' : '#23a26d' }]}>
-            {isDebit ? '+' : '-'} Rs {formatAmount(item.amount)}
+            {isDebit ? 'Dr' : 'Cr'} Rs {formatAmount(item.amount)}
           </Text>
           <Text style={styles.transBalance}>Bal: Rs {formatAmount(item.currentBalance)}</Text>
         </View>
@@ -466,7 +512,7 @@ export default function StatementsTrans({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
 
       {/* Filter Modal */}
@@ -486,24 +532,39 @@ export default function StatementsTrans({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.filterLabel}>Start Date</Text>
+            {/* Quick Filters */}
+            <Text style={styles.filterLabel}>Quick Filters</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+              {[{ label: '1 Month', key: '1m' }, { label: '3 Months', key: '3m' }, { label: '6 Months', key: '6m' }].map(({ label, key }) => (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => applyQuickFilter(key)}
+                  style={[styles.quickChip, activeQuickFilter === key && styles.quickChipActive]}
+                >
+                  <Text style={[styles.quickChipText, activeQuickFilter === key && styles.quickChipTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Custom Date Range */}
+            <Text style={[styles.filterLabel, { marginTop: 16 }]}>Custom Date Range</Text>
             <TouchableOpacity onPress={() => showDatePicker('start')} style={styles.datePickerBtn}>
-              <Text style={{ flex: 1, color: Style.headerBgColor, fontFamily: 'Lato-SemiBold', fontSize: 13 }}>{formattedStartDate}</Text>
+              <Text style={{ flex: 1, color: startDate ? Style.headerBgColor : '#aaa', fontFamily: 'Lato-SemiBold', fontSize: 13 }}>{formattedStartDate}</Text>
               <Feather name="calendar" size={20} color={Style.basicTextColor} />
             </TouchableOpacity>
 
             <Text style={styles.filterLabel}>End Date</Text>
             <TouchableOpacity onPress={() => showDatePicker('end')} style={styles.datePickerBtn}>
-              <Text style={{ flex: 1, color: Style.headerBgColor, fontFamily: 'Lato-SemiBold', fontSize: 13 }}>{formattedEndDate}</Text>
+              <Text style={{ flex: 1, color: endDate ? Style.headerBgColor : '#aaa', fontFamily: 'Lato-SemiBold', fontSize: 13 }}>{formattedEndDate}</Text>
               <Feather name="calendar" size={20} color={Style.basicTextColor} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              disabled={!startDate && !endDate}
+              disabled={!activeQuickFilter}
               onPress={applyFilters}
-              style={[styles.applyBtn, { backgroundColor: (!startDate && !endDate) ? '#cccccc40' : Style.headerBgColor }]}
+              style={[styles.applyBtn, { backgroundColor: activeQuickFilter ? Style.headerBgColor : '#cccccc40' }]}
             >
-              <Text style={{ fontFamily: 'Lato-SemiBold', fontSize: 14, color: (!startDate && !endDate) ? '#999' : '#fff' }}>Apply</Text>
+              <Text style={{ fontFamily: 'Lato-SemiBold', fontSize: 14, color: activeQuickFilter ? '#fff' : '#999' }}>Apply</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -520,9 +581,9 @@ export default function StatementsTrans({ navigation, route }) {
       {/* Header */}
       <Animated.View style={{ paddingHorizontal: 20, transform: [{ scale }] }}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <AntDesign name="arrowleft" size={24} color="#fff" />
-          </TouchableOpacity>
+           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+             <AntDesign name="arrowleft" size={24} color="#fff" />
+           </TouchableOpacity>
           <Text style={styles.headerTitle}>Statements</Text>
           <View style={{ width: 50 }} />
         </View>
@@ -836,6 +897,28 @@ const styles = StyleSheet.create({
     color: '#8a8fa8',
     marginBottom: 6,
     marginTop: 12,
+  },
+  quickChip: {
+    flex: 1,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#eef0f4',
+  },
+  quickChipActive: {
+    backgroundColor: Style.headerBgColor,
+    borderColor: Style.headerBgColor,
+  },
+  quickChipText: {
+    fontSize: 12,
+    fontFamily: 'Lato-SemiBold',
+    color: '#8a8fa8',
+  },
+  quickChipTextActive: {
+    color: '#fff',
   },
   datePickerBtn: {
     width: '100%',

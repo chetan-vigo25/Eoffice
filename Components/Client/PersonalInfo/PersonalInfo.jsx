@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, ScrollView, Animated, SafeAreaView, LayoutAnimation, UIManager, Platform } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, ScrollView, Animated, LayoutAnimation, UIManager, Platform } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Style from "../../../Style/Style";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -36,7 +37,7 @@ const [expanded, setExpanded] = useState(false);
   }, []);
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
            <View style={{ flexDirection: 'row', width: '100%',  marginTop: 0, alignItems:'center',  }}>

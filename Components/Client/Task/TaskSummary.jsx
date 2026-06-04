@@ -1,439 +1,486 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, TextInput, Linking, Image, Alert, Animated, SafeAreaView, LayoutAnimation, UIManager, Platform, ScrollView, ToastAndroid, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Linking, Alert, Animated, ScrollView, ToastAndroid, ActivityIndicator, Image, StatusBar } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../../Urls/DomainUrl';
 import moment from "moment";
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import { useFocusEffect } from '@react-navigation/native';
-
-import { AntDesign, FontAwesome, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { AntDesign, FontAwesome, Feather, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
+
+const PRIORITY_COLORS = {
+  high:   { bg: '#fdecea', text: '#c0392b' },
+  medium: { bg: '#fff4e5', text: '#d97706' },
+  low:    { bg: '#edfaf1', text: '#27ae60' },
+};
+
+const STATUS_COLORS = {
+  Task_Stop:   { bg: '#fdecea', text: '#c0392b' },
+  Completed:   { bg: '#edfaf1', text: '#27ae60' },
+  Assigned:    { bg: '#eaf0fb', text: '#1d64c8' },
+};
+function getStatusStyle(status) {
+  return STATUS_COLORS[status] || { bg: '#fff4e5', text: '#d97706' };
+}
+function formatStatus(status) {
+  return status?.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) || '-';
+}
+
+const SectionTitle = ({ title }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
+    <View style={{ width: 3, height: 16, backgroundColor: Style.headerBgColor, borderRadius: 2, marginRight: 8 }} />
+    <Text style={{ fontSize: 15, fontFamily: 'Lato-SemiBold', color: Style.primaryTextColor }}>{title}</Text>
+  </View>
+);
+
+const Card = ({ children, style }) => (
+  <View style={[{
+    backgroundColor: Style.basicbgColor,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 0.5,
+    borderColor: '#e6e6e6',
+  }, style]}>
+    {children}
+  </View>
+);
+
+const Row = ({ label, value, highlight = false }) => (
+  <View style={{ marginBottom: 12 }}>
+    <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginBottom: 3 }}>{label}</Text>
+    <Text style={{
+      fontSize: 13, fontFamily: 'Lato-SemiBold',
+      color: highlight ? Style.headerBgColor : Style.basicTextColor,
+    }}>{value || '-'}</Text>
+  </View>
+);
+
+const TwoCol = ({ children }) => (
+  <View style={{ flexDirection: 'row', gap: 16 }}>
+    <View style={{ flex: 1 }}>{children[0]}</View>
+    <View style={{ flex: 1 }}>{children[1]}</View>
+  </View>
+);
+
+const Divider = () => <View style={{ height: 0.5, backgroundColor: '#f0f0f0', marginVertical: 10 }} />;
 
 export default function TaskSummary({ navigation, route }) {
   const dispatch = useDispatch();
-
-  const { _id } = route.params; 
+  const { _id } = route.params;
   const maxStars = 5;
-  const [rating, setRating] = useState(0);
-  const [slideAnim] = useState(new Animated.Value(30)); 
-  const [loading, setLoading] = useState(false);  
-  const [taskSumry, setTaskSumry] = useState([]);
-  const [review, setReview] = useState('');
-  const [taskReview, setTaskReview] = useState('');
-  const logoutHandled = useRef(false);
+  const [rating, setRating]           = useState(0);
+  const [slideAnim]                   = useState(new Animated.Value(30));
+  const [loading, setLoading]         = useState(false);
+  const [taskSumry, setTaskSumry]     = useState(null);
+  const [review, setReview]           = useState('');
+  const [taskReview, setTaskReview]   = useState(null);
+  const logoutHandled                 = useRef(false);
 
-    const handleCallPress = () => {
-      const phoneNumber = `tel:${taskSumry?.departmentData?.mobile?.code}${taskSumry?.departmentData?.mobile?.number}`; 
-      Linking.openURL(phoneNumber).catch(err => console.error("Failed to open dialer", err));
-    };
+  useEffect(() => {
+    Animated.timing(slideAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+  }, []);
 
-    const handleEmailPress = () => {
-      const email = `mailto:${taskSumry?.departmentData?.email}`; 
-      Linking.openURL(email).catch(err => console.error("Failed to open email app", err));
-    };
+  useFocusEffect(React.useCallback(() => { taskDetail(); }, []));
 
-    useEffect(() => {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    }, []);  
+  const taskDetail = async () => {
+    if (logoutHandled.current) return;
+    setLoading(true);
+    const token = await AsyncStorage.getItem("token");
+    if (!token) { navigation.navigate('Autologin'); return; }
+    const headers = new Headers();
+    headers.append("Authorization", "Bearer " + token);
+    headers.append("Content-Type", "application/json");
+    fetch(`${BASE_URL}/client/task/view`, { method: "POST", headers, body: JSON.stringify({ _id }), redirect: "follow" })
+      .then(r => r.json())
+      .then(async result => {
+        if (result.statusCode === 200) {
+          // console.log('Task Summary:', JSON.stringify(result.data, null, 2));
+          setTaskSumry(result.data);
+          setRating(result.data?.taskRatingData?.rating || 0);
+          const rv = result.data?.taskReviewData || null;
+          setTaskReview(rv);
+          setReview(rv?.feedback || '');
+        } else if (result.statusCode === 401) {
+          dispatch(logout()); await AsyncStorage.clear(); navigation.navigate('Autologin');
+        } else { showToast(result.message); }
+      })
+      .catch(e => console.error(e))
+      .finally(() => setLoading(false));
+  };
 
-      // useEffect(()=>{
-      //   taskDetail();
-      // },[])
-      
-     useFocusEffect(
-       React.useCallback(() => {
-         taskDetail();
-       },[])
-     );
-    const taskDetail = async ()=>{
-      if (logoutHandled.current) return;
-      setLoading(true)
-       let token = await AsyncStorage.getItem("token");
-       if(!token) {
-        navigation.navigate('Autologin');
-        return;
-       }
-      const myHeaders = new Headers();
-      myHeaders.append("Authorization", "Bearer " + token);
-      myHeaders.append("Content-Type", "application/json");
+  const sendReview = async () => {
+    setLoading(true);
+    const token = await AsyncStorage.getItem("token");
+    if (!token) { navigation.navigate('Autologin'); return; }
+    const headers = new Headers();
+    headers.append("Authorization", "Bearer " + token);
+    headers.append("Content-Type", "application/json");
+    fetch(`${BASE_URL}/client/taskReview/create`, { method: "POST", headers, body: JSON.stringify({ taskId: _id, feedback: review }), redirect: "follow" })
+      .then(r => r.json())
+      .then(async result => {
+        if (result.statusCode === 200) { showToast(result.message); setReview(''); taskDetail(); }
+        else if (result.statusCode === 401) { dispatch(logout()); await AsyncStorage.clear(); navigation.navigate('Autologin'); }
+        else { showToast(result.message); }
+      })
+      .catch(e => console.error(e))
+      .finally(() => setLoading(false));
+  };
 
-      const raw = JSON.stringify({
-        "_id": _id
-      });
-      
-      const requestOptions = {
-        method: "POST",
-        headers: myHeaders,
-        body: raw,
-        redirect: "follow"
-      };
-      
-      fetch(`${BASE_URL}/client/task/view`, requestOptions)
-       .then((response) => response.json())
-        .then(async(result) => {
-          if(result.statusCode == 200){
-            setLoading(false)
-            setTaskSumry(result.data) 
-            // console.log("Task Summary Data: ", result?.data);
-            setRating(result?.data?.taskRatingData?.rating || 0);
-            const reviewData = result?.data?.taskReviewData || 0;
-            setTaskReview(reviewData)
-            // console.log("Task Review Data: ", reviewData);
-            setReview(reviewData?.feedback || '');
-          }else if(result.statusCode === 401) {
-          //  showToast("🔒 Unauthorized - Token may be invalid or expired");
-           dispatch(logout());
-           await AsyncStorage.removeItem('token');
-           await AsyncStorage.clear();
-           navigation.navigate('Autologin');
-           setLoading(false);
-          } 
-          else{
-            showToast(result.message)
-          }
-        })
-        .catch((error) => console.error(error))
-        .finally(() => setLoading(false));
-    }
+  const updateReview = async () => {
+    setLoading(true);
+    const token = await AsyncStorage.getItem("token");
+    const headers = new Headers();
+    headers.append("Authorization", "Bearer " + token);
+    headers.append("Content-Type", "application/json");
+    fetch(`${BASE_URL}/client/taskReview/update`, { method: "POST", headers, body: JSON.stringify({ _id: taskReview?._id, taskId: _id, feedback: review }), redirect: "follow" })
+      .then(r => r.json())
+      .then(result => {
+        if (result.statusCode === 200) { showToast(result.message); setReview(''); taskDetail(); }
+        else { showToast(result.message); }
+      })
+      .catch(e => console.error(e))
+      .finally(() => setLoading(false));
+  };
 
-    const sendReview = async ()=>{
-      if (logoutHandled.current) return;
-       setLoading(true);
-       let token = await AsyncStorage.getItem("token");
-       if (!token) {
-          Alert.alert(
-           "Error",
-           "Session expired. Please log in again.",
-           [
-             {
-               text: "OK",
-               onPress: async () => {
-                 dispatch(logout());
-                 await AsyncStorage.clear();
-                 navigation.replace("Autologin");
-               }
-             }
-           ],
-       { cancelable: false }
-          )
-         return;
-      }
-      const myHeaders = new Headers();
-      myHeaders.append("Authorization", "Bearer " + token);
-      myHeaders.append("Content-Type", "application/json");
+  const sendRating = async (value) => {
+    setLoading(true);
+    const token = await AsyncStorage.getItem("token");
+    if (!token) { navigation.navigate('Autologin'); return; }
+    const headers = new Headers();
+    headers.append("Authorization", "Bearer " + token);
+    headers.append("Content-Type", "application/json");
+    fetch(`${BASE_URL}/client/taskReview/rating`, { method: "POST", headers, body: JSON.stringify({ taskId: _id, rating: value }), redirect: "follow" })
+      .then(r => r.json())
+      .then(async result => {
+        if (result.statusCode === 200) { setRating(value); taskDetail(); }
+        else if (result.statusCode === 401) { dispatch(logout()); await AsyncStorage.clear(); navigation.navigate('Autologin'); }
+        else { showToast(result.message); }
+      })
+      .catch(e => console.error(e))
+      .finally(() => setLoading(false));
+  };
 
-      const raw = JSON.stringify({
-        "taskId": _id,
-        "feedback": review,
-      });
-      
-      const requestOptions = {
-        method: "POST",
-        headers: myHeaders,
-        body: raw,
-        redirect: "follow"
-      };
-      
-      fetch(`${BASE_URL}/client/taskReview/create`, requestOptions)
-       .then((response) => response.json())
-        .then(async(result) => {
-          if(result.statusCode === 200){
-            setLoading(false)
-            showToast(result.message)
-            setReview('')
-            taskDetail()
-          }else if(result.statusCode === 401) {
-            dispatch(logout());
-            AsyncStorage.removeItem('token');
-            AsyncStorage.clear();
-            navigation.navigate('Splash');
-            showToast('Session expired, please login again');
-          }else{
-            showToast(result.message)
-          }
-        })
-        .catch((error) => console.error(error))
-        .finally(() => setLoading(false));
-    }
-
-    const sendRating = async (value)=>{
-      if (logoutHandled.current) return;
-      setLoading(true)
-       let token = await AsyncStorage.getItem("token");
-       if(!token) {
-        navigation.navigate('Autologin');
-        return;
-       }
-      myHeaders.append("Authorization", "Bearer " + token);
-      myHeaders.append("Content-Type", "application/json");
-
-      const raw = JSON.stringify({
-        "taskId": _id,
-        "rating": value,
-      });
-      
-      const requestOptions = {
-        method: "POST",
-        headers: myHeaders,
-        body: raw,
-        redirect: "follow"
-      };
-      
-      fetch(`${BASE_URL}/client/taskReview/rating`, requestOptions)
-       .then((response) => response.json())
-        .then(async(result) => {
-          if(result.statusCode == 200){
-            setLoading(false)
-            setRating(value); 
-            // showToast(result.message)
-            taskDetail()
-          }else if(result.statusCode === 401) {
-            dispatch(logout());
-            AsyncStorage.removeItem('token');
-            AsyncStorage.clear();
-            navigation.navigate('Autologin');
-            showToast('Session expired, please login again');
-          }else{
-            showToast(result.message)
-          }
-        })
-        .catch((error) => console.error(error))
-        .finally(() => setLoading(false));
-    }
-     const handlePress = (value) => {
-      sendRating(value);
-    };
-
-    const updateReview = async ()=>{
-      setLoading(true)
-      let token = await AsyncStorage.getItem("token");
-      const myHeaders = new Headers();
-      myHeaders.append("Authorization", "Bearer " + token);
-      myHeaders.append("Content-Type", "application/json");
-      
-      const raw = JSON.stringify({
-       "_id": taskReview?._id,
-       "taskId": _id,
-       "feedback": review
-      });
-      
-      const requestOptions = {
-       method: "POST",
-       headers: myHeaders,
-       body: raw,
-       redirect: "follow"
-      };
-
-      fetch(`${BASE_URL}/client/taskReview/update`, requestOptions)
-      .then((response) => response.json())
-       .then((result) => {
-        if(result.statusCode == 200){
-          setLoading(false)
-          showToast(result.message)
-          setReview('');
-          taskDetail();
-        }else{
-          showToast(result.message);
-          setLoading(false);
-        }
-       })
-       .catch((error) => console.error(error))
-       .finally(() => setLoading(false));
-    }
+  const comments = taskSumry?.assignTaskList?.[0]?.commentData || [];
+  const employees = taskSumry?.assignTaskList?.[0]?.employeData || [];
+  const branch = taskSumry?.clientBranch;
+  const dept = taskSumry?.departmentData;
+  const statusStyle = getStatusStyle(taskSumry?.status);
+  const priorityStyle = PRIORITY_COLORS[taskSumry?.priority?.toLowerCase()] || PRIORITY_COLORS.medium;
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-    <View style={{ paddingHorizontal:20 }}>
-      <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
-        <View style={{ flexDirection: 'row', flex:8, width: '100%', marginTop: 0, alignItems:'center' }}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start',}}>
-            <AntDesign name="arrowleft" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={{color: '#fff',fontSize: 14, fontWeight: '500', flex: 1, }}>Task Summary</Text>
-      </View>
-      <View style={{ flex:2, gap:10, height: 50, flexDirection:"row", justifyContent:'space-between', alignItems:"center" }} >
-        {taskSumry?.departmentData?.mobile?.number ? (
-          <TouchableOpacity 
-            onPress={handleCallPress} 
-            style={{ flex: 1, height: 50, justifyContent: "center", alignItems: "center" }}
-          >
-            <Feather name="phone-call" size={20} color="#fff" />
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+      <StatusBar backgroundColor={Style.headerBgColor} barStyle="light-content" />
+
+      {/* ── Header ── */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'flex-start' }}>
+            <AntDesign name="arrowleft" size={22} color="#fff" />
           </TouchableOpacity>
-        ) : null }
-        {taskSumry?.departmentData?.email ? (
-           <TouchableOpacity onPress={handleEmailPress} style={{ flex:1, height: 50, justifyContent:"center", alignItems:"center" }}>
-             <MaterialCommunityIcons name="email-plus-outline" size={24} color="#fff" />
-           </TouchableOpacity>
-        ):null }
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontSize: 17, fontFamily: 'Lato-SemiBold' }} numberOfLines={1}>
+              {/* {taskSumry?.taskName || 'Task Summary'} */}
+              Task Summary
+            </Text>
+            {taskSumry?.code ? (
+              <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontFamily: 'Lato-Medium', marginTop: 2 }}>
+                {taskSumry.code}
+              </Text>
+            ) : null}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, marginLeft: 8 }}>
+            {dept?.mobile?.number ? (
+              <TouchableOpacity
+                onPress={() => Linking.openURL(`tel:${dept.mobile.code}${dept.mobile.number}`)}
+                style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }}
+              >
+                <Feather name="phone-call" size={17} color="#fff" />
+              </TouchableOpacity>
+            ) : null}
+            {dept?.email ? (
+              <TouchableOpacity
+                onPress={() => Linking.openURL(`mailto:${dept.email}`)}
+                style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }}
+              >
+                <MaterialCommunityIcons name="email-outline" size={18} color="#fff" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
       </View>
-      </View>
-    </View>
-      <Animated.View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20, transform: [{ translateY: slideAnim }] }} >
-        {
-          loading?(
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-              <ActivityIndicator size="large" color={Style.headerBgColor} />
+
+      {/* ── Body ── */}
+      <Animated.View style={{
+        flex: 1, backgroundColor: Style.primaryBgColor,
+        borderTopLeftRadius: 20, borderTopRightRadius: 20,
+        transform: [{ translateY: slideAnim }],
+      }}>
+        {loading && !taskSumry ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Style.headerBgColor} />
+          </View>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+
+            {/* ── Status + Priority strip ── */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+              <View style={{ flex: 1, backgroundColor: statusStyle.bg, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: statusStyle.text, marginBottom: 2 }}>Status</Text>
+                <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: statusStyle.text }}>
+                  {formatStatus(taskSumry?.status)}
+                </Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: priorityStyle.bg, borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: priorityStyle.text, marginBottom: 2 }}>Priority</Text>
+                <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: priorityStyle.text, textTransform: 'capitalize' }}>
+                  {taskSumry?.priority || '-'}
+                </Text>
+              </View>
+              {taskSumry?.isOverDue && (
+                <View style={{ flex: 1, backgroundColor: '#fdecea', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: '#c0392b', marginBottom: 2 }}>Overdue</Text>
+                  <Ionicons name="warning-outline" size={16} color="#c0392b" />
+                </View>
+              )}
             </View>
-          ):(
-            <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
-                <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginVertical:10, paddingBottom:10 }} >
-                  <Text style={{ flex:5, fontSize:14, fontWeight:"600", color:Style.headerBgColor }}>Task Details</Text>
-                   <View style={{ flex:5, backgroundColor:taskSumry.status =='Task_Stop'?'#E51E1E':taskSumry.status =='Completed'?'#85BD2A':taskSumry.status =='Assigned'?'#1AA4FF':'#eb984e', height:30, justifyContent:'center', alignItems:'center', borderRadius:5 }} >
-                       <Text style={{ fontSize:12, fontFamily:'Lato-Medium', color:'#fff' }}>{taskSumry.status ?.replace(/_/g, ' ')
-                        .toLowerCase()
-                        .replace(/\b\w/g, char => char.toUpperCase())}</Text>
-                   </View>
-                </View>
-                <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2 }} >
-                  <View>
-                    <Text style={{ fontSize:12, fontWeight:500, color:Style.secondryTextColor, paddingBottom:5 }}>Task Name</Text>
-                      <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                        <Text>{taskSumry?.taskName || 'No Task Name avilable'}</Text>
-                      </View>
-                  </View>
-                  <View>
-                    <Text style={{ fontSize:12, fontWeight:500, color:Style.secondryTextColor, paddingBottom:5 }}>Department</Text>
-                      <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                        <Text numberOfLines={1} ellipsizeMode="tail" >{taskSumry?.departmentData?.name || 'No Department avilable'}</Text>
-                      </View>
-                  </View>
-                  <View style={{ flexDirection:'row', gap:20 }} >
-                   <View style={{ flex:1 }}>
-                     <Text style={{ fontSize:12, fontWeight:500, color:Style.secondryTextColor, paddingBottom:5 }}>Code No.</Text>
-                       <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                         <Text numberOfLines={1} ellipsizeMode="tail" >{taskSumry?.code || 'No code avilable'}</Text>
-                       </View>
-                   </View>
-                   <View style={{ flex:1 }}>
-                     <Text style={{ fontSize:12, fontWeight:500, color:Style.secondryTextColor, paddingBottom:5 }}>Fees</Text>
-                       <View style={{ width:'100%', height:40, justifyContent:'center', justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                         <Text>{taskSumry?.fee || 'No fee avilable'}</Text>
-                       </View>
-                   </View>
-                  </View>
-                  <View style={{ flexDirection:'row', gap:20 }} >
-                   <View style={{ flex:1 }}>
-                     <Text style={{ fontSize:12, fontWeight:500, color:Style.secondryTextColor, paddingBottom:5 }}>Financial Year</Text>
-                       <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                         <Text>{ taskSumry?.financialYear || 'No Financial Year avilable'}</Text>
-                       </View>
-                   </View>
-                   <View style={{ flex:1 }}>
-                     <Text style={{ fontSize:12, fontWeight:500, color:Style.secondryTextColor, paddingBottom:5 }}>Assigned By</Text>
-                       <View style={{ width:'100%', height:40, justifyContent:"center", borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                        <Text numberOfLines={1} ellipsizeMode='tail' >{taskSumry?.creatorData?.fullName || 'Unknown'}</Text>
-                       </View>
-                   </View>
-                  </View>
-                  <View style={{ flexDirection:'row', gap:20 }} >
-                   <View style={{ flex:1 }}>
-                     <Text style={{ fontSize:12, fontWeight:500, color:Style.secondryTextColor, paddingBottom:5 }}>Assigned On</Text>
-                       <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                         <Text>{moment(taskSumry?.assignDate).format('DD/MM/YYYY') || 'No Date avilable'}</Text>
-                       </View>
-                   </View>
-                   <View style={{ flex:1 }}>
-                     <Text style={{ fontSize:12, fontWeight:500, color:Style.secondryTextColor, paddingBottom:5 }}>Due Date</Text>
-                       <View style={{ width:'100%', height:40, justifyContent:"center", borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                          <Text>{moment(taskSumry?.dueDate).format('DD/MM/YYYY') || 'No Date avilable'}</Text>
-                       </View>
-                   </View>
-                  </View>
-                  <View>
-                    <Text style={{ fontSize:12, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Remark</Text>
-                      <View style={{ width:'100%', justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:10, elevation:4 }}>
-                       <Text numberOfLines={1} ellipsizeMode="tail" >{taskSumry?.remarks || 'No Remarks avilable'}</Text>
-                      </View>
-                  </View>
-                </View>
-                <Text style={{ fontSize:14, fontWeight:"600", color:Style.headerBgColor, paddingBottom:10 }}>Internal Updates</Text>
-                <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2, marginBottom:10 }} >
-                  <Text style={{ fontSize:14, fontWeight:"600", color:Style.headerBgColor, paddingBottom:10 }}>Comment</Text>
-                  {
-                    taskSumry?.assignTaskList?.[0]?.commentData?.length > 0 ? (
-                      taskSumry.assignTaskList[0].commentData.map((item, index) => (
-                        <View key={index} style={{ width:'100%', backgroundColor:Style.inputBgColor, borderRadius:10, elevation:1, padding:10, marginBottom:10 }}>
-                          <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
-                            <Text style={{ fontSize:14, fontFamily:'Lato-Medium', color:Style.secondryTextColor, paddingBottom:5 }}>
-                              {item.creatorData?.fullName || "Unknown"}
-                            </Text>
-                            <Text style={{ fontSize:14, fontFamily:'Lato-Medium',color: item?.status === 'Task_Stop' ? '#E51E1E' : taskSumry?.status === 'Completed' ? '#85BD2A' : taskSumry?.status === 'Assigned' ? '#1AA4FF' : '#eb984e' }}>
-                               {item?.status === 'reAssign_to_other'? `Reassign to ${item?.employeIdData?.fullName ?? ""} Request Sent`: item?.status}</Text>
-                          </View>
-                
-                          <Text style={{ fontSize:14, fontFamily:'Lato-Medium', color:Style.placeHolderTextColor }}>{item.message} </Text>
-                
-                          <View style={{ flexDirection:'row', justifyContent:'space-between', paddingTop:5 }}>
-                            <Text style={{ flex:1, fontSize:12, fontFamily:'Lato-Medium', color:Style.placeHolderTextColor }}>
-                              {moment(item.createdAt).format('DD/MM/YYYY | hh:mm A') || 'No Date avilable'}
-                            </Text>
-                            <Text numberOfLines={1} ellipsizeMode='tail' style={{ flex:1, fontSize:12, fontFamily:'Lato-Medium', color:Style.placeHolderTextColor }}>
-                              Assigned to: {item.employeData?.fullName || "Unknown"}
-                            </Text>
-                          </View>
+
+            {/* ── Task Info ── */}
+            <SectionTitle title="Task Information" />
+            <Card>
+              <Row label="Task Name" value={taskSumry?.taskName} highlight />
+              <Divider />
+              <TwoCol>
+                <Row label="Task Code" value={taskSumry?.code} />
+                <Row label="Fees" value={taskSumry?.fee ? `₹ ${taskSumry.fee}` : '-'} />
+              </TwoCol>
+              <TwoCol>
+                <Row label="Type" value={taskSumry?.type} />
+                <Row label="Financial Year" value={taskSumry?.financialYear} />
+              </TwoCol>
+              {taskSumry?.monthName ? (
+                <TwoCol>
+                  <Row label="Month" value={taskSumry?.monthName} />
+                  <Row label="Quarter" value={taskSumry?.monthQuaters || '-'} />
+                </TwoCol>
+              ) : null}
+              <TwoCol>
+                <Row label="Due Date" value={taskSumry?.dueDate ? moment.utc(taskSumry.dueDate).format('DD MMM YYYY') : '-'} />
+                <Row label="Assigned On" value={taskSumry?.createdAt ? moment(taskSumry.createdAt).format('DD MMM YYYY') : '-'} />
+              </TwoCol>
+              {taskSumry?.remarks ? (
+                <>
+                  <Divider />
+                  <Row label="Remarks" value={taskSumry.remarks} />
+                </>
+              ) : null}
+              {taskSumry?.description ? (
+                <Row label="Description" value={taskSumry.description} />
+              ) : null}
+            </Card>
+
+            {/* ── Client & Branch ── */}
+            <SectionTitle title="Client & Branch" />
+            <Card>
+              <Row label="Client Name" value={taskSumry?.clientData?.fullName} highlight />
+              {branch ? (
+                <>
+                  <Divider />
+                  <Row label="Branch Name" value={branch.fullName} />
+                  <TwoCol>
+                    <Row label="Branch Email" value={branch.email} />
+                    <Row label="Branch Phone" value={branch.mobile?.number ? `${branch.mobile.code} ${branch.mobile.number}` : '-'} />
+                  </TwoCol>
+                  {branch.branchProfile?.GSTNumber ? (
+                    <Row label="GST Number" value={branch.branchProfile.GSTNumber} />
+                  ) : null}
+                  {branch.addresses?.primary?.street ? (
+                    <Row
+                      label="Address"
+                      value={[
+                        branch.addresses.primary.street,
+                        branch.addresses.primary.city,
+                        branch.addresses.primary.state,
+                        branch.addresses.primary.pinCode,
+                        branch.addresses.primary.country,
+                      ].filter(Boolean).join(', ')}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+            </Card>
+
+            {/* ── Department ── */}
+            <SectionTitle title="Department" />
+            <Card>
+              <Row label="Department Name" value={dept?.name} highlight />
+              <TwoCol>
+                <Row label="Email" value={dept?.email} />
+                <Row label="Phone" value={dept?.mobile?.number ? `${dept.mobile.code} ${dept.mobile.number}` : '-'} />
+              </TwoCol>
+            </Card>
+
+            {/* ── Assigned To ── */}
+            <SectionTitle title="Assigned By" />
+            <Card>
+              <Row label="Assigned By" value={taskSumry?.creatorData?.fullName} />
+              {employees.length > 0 && (
+                <>
+                  <Divider />
+                  <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginBottom: 8 }}>
+                    Team Members
+                  </Text>
+                  {employees.map((emp, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: i < employees.length - 1 ? 10 : 0 }}>
+                      {emp.profileImage && !emp.profileImage.includes('placeholder') ? (
+                        <Image source={{ uri: emp.profileImage }} style={{ width: 34, height: 34, borderRadius: 17, marginRight: 10, backgroundColor: '#eee' }} />
+                      ) : (
+                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: `${Style.headerBgColor}18`, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                          <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor }}>
+                            {emp.fullName?.charAt(0) || 'U'}
+                          </Text>
                         </View>
-                      ))
-                    ) : (
-                      <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.placeHolderTextColor }}>
-                        No comments yet.
-                      </Text>
-                    )
-                  }
-                </View>
-                <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.headerBgColor, paddingBottom:0 }}>Task Review</Text>
-                <View style={{ width:'100%', marginBottom:10, backgroundColor:'#fff', padding:10, borderRadius:10, elevation:2 }} >
-                  <View>
-                    <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center' }} >
-                      <Text style={{ fontSize:12, fontFamily:'Lato-Medium', color:'#999', paddingBottom:5 }}>Your Review</Text>
-                      <Text style={{ fontSize:12, fontFamily:'Lato-Medium', color:'#999', paddingBottom:5 }}>{taskReview?.updatedAt ? moment(taskReview.updatedAt).format("DD-MM-YYYY | hh:mm") : "  "}</Text>
+                      )}
+                      <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.basicTextColor }}>{emp.fullName}</Text>
                     </View>
-                      <View style={{ width:'100%', height:40, borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:0, elevation:4 }}>
-                         <TextInput value={review} onChangeText={value=> setReview(value)} placeholder="No Review" placeholderTextColor="#999" style={{ flex:1, backgroundColor:'#eee', borderRadius:5, padding:5, color:"#074173", fontFamily:'Lato-Mediumkk' }} />
+                  ))}
+                </>
+              )}
+            </Card>
+
+            {/* ── Activity / Comments ── */}
+            <SectionTitle title="Activity" />
+            <Card>
+              {comments.length > 0 ? (
+                comments.map((item, index) => {
+                  const cs = getStatusStyle(item.status);
+                  const isTaskReq = item.type === 'taskReq';
+                  return (
+                    <View key={index}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                        {/* Avatar */}
+                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: `${Style.headerBgColor}18`, justifyContent: 'center', alignItems: 'center', marginRight: 10, marginTop: 2 }}>
+                          <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor }}>
+                            {item.creatorData?.fullName?.charAt(0) || 'U'}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          {/* Name + status badge */}
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.primaryTextColor }}>
+                              {item.creatorData?.fullName || 'Unknown'}
+                            </Text>
+                            {item.status ? (
+                              <View style={{ backgroundColor: cs.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+                                <Text style={{ fontSize: 10, fontFamily: 'Lato-SemiBold', color: cs.text }}>
+                                  {formatStatus(item.status)}
+                                </Text>
+                              </View>
+                            ) : isTaskReq ? (
+                              <View style={{ backgroundColor: item.isReqApproved === 'approved' ? '#edfaf1' : '#fff4e5', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+                                <Text style={{ fontSize: 10, fontFamily: 'Lato-SemiBold', color: item.isReqApproved === 'approved' ? '#27ae60' : '#d97706' }}>
+                                  {item.isReqApproved === 'approved' ? 'Approved' : 'Task Request'}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          {/* Message */}
+                          {item.message ? (
+                            <Text style={{ fontSize: 13, fontFamily: 'Lato-Medium', color: Style.basicTextColor, lineHeight: 18, marginBottom: 4 }}>
+                              {item.message}
+                            </Text>
+                          ) : null}
+                          {/* Date */}
+                          <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>
+                            {moment(item.createdAt).format('DD MMM YYYY, hh:mm A')}
+                          </Text>
+                        </View>
                       </View>
-                      <TouchableOpacity disabled={review.trim() === ""} onPress={taskReview ? updateReview : sendReview} style={{ width:'50%', height:40, backgroundColor:review===""?'#cbcbcb': Style.headerBgColor, borderRadius:5, justifyContent:'center', alignItems:'center', elevation:5, marginTop:10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1 }} >
-                         {
-                          loading?(
-                            <ActivityIndicator size="small" color="#fff" />
-                          ):(
-                            <Text style={{ fontSize:14, fontFamily:'Lato-Medium', color:'#fff' }}>{taskReview ? "Update Review" : "Submit a Review"}</Text>
-                          )
-                         }
-                      </TouchableOpacity>
-                  </View>
+                      {index < comments.length - 1 && <Divider />}
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                  <Feather name="message-circle" size={36} color="#ccc" />
+                  <Text style={{ fontSize: 13, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginTop: 8 }}>No activity yet</Text>
                 </View>
-                <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.headerBgColor, paddingBottom:0 }}>Task Rating</Text>
-                <View style={{ width:'100%', marginBottom:10, backgroundColor:'#fff', padding:10, borderRadius:6, elevation:2 }} >
-                  <View>
-                      <View style={{ flexDirection:'row',}}>
-                        {Array.from({ length: maxStars }, (_, index) => (
-                          <TouchableOpacity key={index} onPress={() => handlePress(index + 1)}>
-                            <FontAwesome
-                              name={index < rating ? 'star' : 'star-o'}
-                              size={14}
-                              color="#FFD700"
-                              style={{ marginHorizontal: 2 }}
-                            />
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                  </View>
-                </View>
-             </ScrollView>
-          )
-        }
+              )}
+            </Card>
+
+            {/* ── Rating ── */}
+            <SectionTitle title="Task Rating" />
+            <Card style={{ alignItems: 'center', paddingVertical: 20 }}>
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                {Array.from({ length: maxStars }, (_, i) => (
+                  <TouchableOpacity key={i} onPress={() => sendRating(i + 1)} activeOpacity={0.7}>
+                    <FontAwesome name={i < rating ? 'star' : 'star-o'} size={30} color="#FBBF24" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>
+                {rating > 0 ? `You rated ${rating} out of 5` : 'Tap a star to rate this task'}
+              </Text>
+              {taskSumry?.taskRatingData?.createdAt ? (
+                <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginTop: 4 }}>
+                  Rated on {moment(taskSumry.taskRatingData.createdAt).format('DD MMM YYYY')}
+                </Text>
+              ) : null}
+            </Card>
+
+            {/* ── Review ── */}
+            <SectionTitle title="Your Review" />
+            <Card>
+              {taskReview?.updatedAt && (
+                <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginBottom: 10 }}>
+                  Last updated: {moment(taskReview.updatedAt).format('DD MMM YYYY, hh:mm A')}
+                </Text>
+              )}
+              <TextInput
+                value={review}
+                onChangeText={setReview}
+                placeholder="Write your review here..."
+                placeholderTextColor={Style.placeHolderTextColor}
+                style={{
+                  backgroundColor: Style.inputBgColor,
+                  borderRadius: 10, padding: 12,
+                  color: Style.basicTextColor,
+                  fontSize: 13, fontFamily: 'Lato-Medium',
+                  borderWidth: 1, borderColor: '#e0e0e0',
+                  minHeight: 80, textAlignVertical: 'top',
+                  marginBottom: 12,
+                }}
+                multiline
+                numberOfLines={3}
+              />
+              <TouchableOpacity
+                disabled={review.trim() === '' || loading}
+                onPress={taskReview ? updateReview : sendReview}
+                activeOpacity={0.8}
+                style={{
+                  height: 46, borderRadius: 10,
+                  backgroundColor: review.trim() === '' ? '#e0e0e0' : Style.headerBgColor,
+                  justifyContent: 'center', alignItems: 'center',
+                }}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: review.trim() === '' ? '#999' : '#fff' }}>
+                    {taskReview ? 'Update Review' : 'Submit Review'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </Card>
+
+          </ScrollView>
+        )}
       </Animated.View>
     </SafeAreaView>
   );

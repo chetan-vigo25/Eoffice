@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { StatusBar, View, Text, TouchableOpacity, Animated, SafeAreaView, ScrollView, ActivityIndicator } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -52,7 +53,7 @@ export default function ClientService({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center', paddingHorizontal: 20 }}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'flex-start' }}>
@@ -76,11 +77,11 @@ export default function ClientService({ navigation }) {
                   borderRadius: 12,
                   padding: 16,
                   marginBottom: 12,
-                  elevation: 2,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 4,
+                  // elevation: 2,
+                  // shadowColor: '#000',
+                  // shadowOffset: { width: 0, height: 1 },
+                  // shadowOpacity: 0.08,
+                  // shadowRadius: 4,
                 }}
               >
                 {/* Service Header */}

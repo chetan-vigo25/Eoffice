@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Modal, StyleSheet, Linking, UIManager, Platform, ToastAndroid, ActivityIndicator, RefreshControl } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, ScrollView, Modal, StyleSheet, Linking, UIManager, Platform, ToastAndroid, ActivityIndicator, RefreshControl } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
@@ -15,11 +16,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function Statements({ navigation }) {
@@ -119,7 +116,7 @@ export default function Statements({ navigation }) {
 
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
         <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center' }}>

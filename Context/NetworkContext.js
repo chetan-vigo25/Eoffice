@@ -14,6 +14,7 @@ export const NetworkProvider = ({ children }) => {
         Alert.alert('No Internet', 'You have lost connection.');
         setIsConnected(false);
       }
+
       if (state.isConnected && !isConnected) {
         Alert.alert('Connected', 'Internet connection restored.');
         setIsConnected(true);

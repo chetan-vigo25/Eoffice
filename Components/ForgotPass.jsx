@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { SafeAreaView, ScrollView, View, Text, Image, Animated, TextInput, TouchableOpacity, Platform, ActivityIndicator, Alert, StatusBar, ToastAndroid } from "react-native";
+import { ScrollView, View, Text, Image, Animated, TextInput, TouchableOpacity, Platform, ActivityIndicator, Alert, StatusBar, ToastAndroid } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import Style from "../Style/Style";

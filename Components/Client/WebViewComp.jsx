@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SafeAreaView, View, StatusBar, Text, TouchableOpacity, ToastAndroid, BackHandler, Platform, ActivityIndicator } from "react-native";
+import { View, StatusBar, Text, TouchableOpacity, ToastAndroid, BackHandler, Platform, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import BASE_URL from '../../Urls/DomainUrl';
+import BASE_URL, { WEBVIEW_BASE_URL } from '../../Urls/DomainUrl';
 import Style from '../../Style/Style';
 import { MaterialIcons, AntDesign } from "@expo/vector-icons";
 
@@ -100,6 +101,21 @@ export default function WebViewComp() {
     return unsubscribe;
   }, [canGoBackWeb]);
 
+  // Back arrow — clear session so re-login starts fresh
+  const handleGoBack = async () => {
+    if (webviewRef.current) {
+      webviewRef.current.injectJavaScript(`
+        try {
+          window.localStorage && window.localStorage.clear();
+          window.sessionStorage && window.sessionStorage.clear();
+        } catch(e) {}
+        true;
+      `);
+    }
+    await AsyncStorage.multiRemove(['authToken', 'userData', 'checkInData', 'attendanceRecordId']);
+    navigation.goBack();
+  };
+
   // Logout
   const logout = async () => {
     const token = await AsyncStorage.getItem("authToken");
@@ -125,8 +141,8 @@ export default function WebViewComp() {
         try {
           const result = JSON.parse(text);
           if (result.statusCode === 200) {
-            // Clear native storage token first
-            await AsyncStorage.removeItem("authToken");
+            // Clear all auth data before navigating so Splash's autoLoginCheck finds nothing
+            await AsyncStorage.multiRemove(["authToken", "userData", "checkInData", "attendanceRecordId"]);
 
             // Proactively clear WebView storage/cookies in-page (cross-platform)
             if (webviewRef.current) {
@@ -137,7 +153,7 @@ export default function WebViewComp() {
                   window.sessionStorage && window.sessionStorage.clear();
                   // Clear cookies by expiring them
                   if (document && document.cookie) {
-                    document.cookie.split(';').forEach(function(c) { 
+                    document.cookie.split(';').forEach(function(c) {
                       document.cookie = c
                         .replace(/^\s+/, '')
                         .replace(/=.*/, '=;expires=' + new Date(0).toUTCString() + ';path=/;SameSite=Lax');
@@ -152,7 +168,7 @@ export default function WebViewComp() {
             setWebViewLoading(true);
             setWebviewKey(prev => prev + 1);
             showToast(result.message);
-            navigation.navigate('Splash');
+            navigation.reset({ index: 0, routes: [{ name: 'Splash' }] });
           } else {
             showToast(result.message);
           }
@@ -163,15 +179,15 @@ export default function WebViewComp() {
       .catch((error) => console.error("Logout error:", error));
   };
 
-  const handleMessage = (event) => {
+  const handleMessage = async (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'LOGOUT') {
-        // Navigate to login screen on logout
+        // Clear storage before navigating so Splash's autoLoginCheck finds no session
+        await AsyncStorage.multiRemove(["authToken", "userData", "checkInData", "attendanceRecordId"]);
         setToken(null);
         setWebViewLoading(true);
-        navigation.navigate('Splash');
-        console.log('login errr',data)
+        navigation.reset({ index: 0, routes: [{ name: 'Splash' }] });
       }
     } catch (e) {
       console.log('Invalid message from WebView', e);
@@ -179,14 +195,14 @@ export default function WebViewComp() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
       <StatusBar translucent={false} backgroundColor={'#074173'} barStyle='light-content' />
       {/* Header */}
       <View style={{ flexDirection: 'row', width: '100%', backgroundColor: '#074173', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
         <View style={{ flexDirection:'row', gap:10, }} >
-          <TouchableOpacity onPress={()=> navigation.goBack()} style={{ width:20, height:20, justifyContent:'center' }} >
+          {/* <TouchableOpacity onPress={handleGoBack} style={{ width:20, height:20, justifyContent:'center' }} >
              <AntDesign name="arrowleft" size={20} color="#fff" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ color: '#fff', fontFamily: 'Lato-SemiBold', fontSize: 16 }}>EASY </Text>
             <Text style={{ color: '#7ac943', fontFamily: 'Lato-SemiBold', fontSize: 16 }}>MY OFFICE</Text>
@@ -211,12 +227,11 @@ export default function WebViewComp() {
               ref={webviewRef}
               key={`${token}-${webviewKey}`}
               originWhitelist={['*']}
-              source={{ uri: `https://vieasyoffice.com/login/${token}`}}
-              // source={{ uri: `https://eoffice.vigorousit.com/login/${token}`}}
+              source={{ uri: `${WEBVIEW_BASE_URL}/login/${token}`}}
               style={{ flex: 1 }}
-              sharedCookiesEnabled={Platform.OS === 'ios'}
-              thirdPartyCookiesEnabled={Platform.OS === 'ios'}
-              incognito={Platform.OS === 'ios'}
+              sharedCookiesEnabled={false}
+              thirdPartyCookiesEnabled={false}
+              incognito={true}
               cacheEnabled={true}
               javaScriptCanOpenWindowsAutomatically={false}
               javaScriptEnabled={true}

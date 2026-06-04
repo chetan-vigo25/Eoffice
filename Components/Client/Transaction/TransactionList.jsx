@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, RefreshControl, FlatList, Modal, StyleSheet, UIManager, Platform, StatusBar, ToastAndroid, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Image, Animated, RefreshControl, FlatList, Modal, StyleSheet, UIManager, Platform, StatusBar, ToastAndroid, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown'
 import moment from "moment";
@@ -14,11 +15,7 @@ import Style from "../../../Style/Style";
 import BASE_URL from '../../../Urls/DomainUrl';
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function TransactionList({ navigation }) {
@@ -167,7 +164,7 @@ export default function TransactionList({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Modal
            animationType="slide"

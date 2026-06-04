@@ -10,64 +10,79 @@ export const EmployeeDashboardProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [userData, setUserData] = useState(null);
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const storedUserData = await AsyncStorage.getItem('userData');
-        if (storedUserData) setUserData(JSON.parse(storedUserData));
-      } catch (error) {
-        console.error("Failed to load userData:", error);
+  const fetchDashboard = async (user) => {
+    if (!user) return;
+    try {
+      setLoading(true);
+
+      const token = await AsyncStorage.getItem('authToken');
+
+      const response = await fetch(
+        `${BASE_URL}/admin/employe/hrmsDashboard`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            branchId: user.branchId,
+            companyId: user.companyId,
+            departmentId: "",
+            designationId: "",
+            employeId: user._id,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.statusCode === 200) {
+        // console.log('Fetched dashboardData:', result.data);
+        setDashboardData(result.data);
+        await AsyncStorage.setItem('dashboardData', JSON.stringify(result.data));
+      } else {
+        setError(result.message);
       }
-    };
-    loadUserData();
-  }, []);
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!userData) return; // ⛔ wait until userData exists
-  
-    const fetchDashboard = async () => {
+    const loadData = async () => {
       try {
-        setLoading(true);
-  
-        const token = await AsyncStorage.getItem('authToken');
-  
-        const response = await fetch(
-          `${BASE_URL}/admin/employe/hrmsDashboard`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              branchId: userData.branchId,
-              companyId: userData.companyId,
-              departmentId: "",
-              designationId: "",
-              employeId: userData._id,
-            }),
-          }
-        );
-  
-        const result = await response.json();
-  
-        if (result.statusCode === 200) {
-          setDashboardData(result.data);
-        } else {
-          setError(result.message);
+        const storedUserData = await AsyncStorage.getItem('userData');
+        const storedDashboardData = await AsyncStorage.getItem('dashboardData');
+        // console.log('Loaded userData:', storedUserData);
+        // console.log('Loaded dashboardData:', storedDashboardData);
+        if (storedUserData) {
+          const parsedUser = JSON.parse(storedUserData);
+          setUserData(parsedUser);
+          // Fetch fresh data
+          await fetchDashboard(parsedUser);
         }
-      } catch (err) {
-        setError(err.message || "Something went wrong");
-      } finally {
+        if (storedDashboardData) setDashboardData(JSON.parse(storedDashboardData));
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to load data:", error);
         setLoading(false);
       }
     };
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (!userData) return;
   
-    fetchDashboard();
+    fetchDashboard(userData);
   }, [userData]);
 
   return (
-    <EmployeeDashboardContext.Provider value={{ dashboardData, loading, error }} >
+    <EmployeeDashboardContext.Provider value={{ dashboardData, loading, error, fetchDashboard }} >
       {children}
     </EmployeeDashboardContext.Provider>
   );

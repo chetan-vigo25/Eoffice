@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StatusBar, View, Text, Dimensions, Image, Platform, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { StyleSheet, StatusBar, View, Text, Dimensions, Image, ToastAndroid, Alert, Platform, NativeModules, } from 'react-native';
 
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 // import Login from './Components/Login';
 import Splash from './Components/Splash';
@@ -33,6 +33,8 @@ import MyDocuments from './Components/Client/Documents/MyDocuments';
 import RegDocument from './Components/Client/Documents/RegDocument';
 import FinDocument from './Components/Client/Documents/FinDocument';
 import Support from './Components/Client/Support';
+import SupportCreate from './Components/Client/SupportCreate';
+import SupportChat from './Components/Client/SupportChat';
 import Notifikation from './Components/Client/Notifikation';
 import Events from './Components/Client/Events';
 import ForgotPass from './Components/ForgotPass';
@@ -47,10 +49,11 @@ import WebViewComp from './Components/Client/WebViewComp';
 import NoInternetScreen from './Components/Client/NoInternetScreen';
 import Statements from './Components/Client/Statements';
 import AddAdvance from './Components/Client/AddAdvance';
-import Autologin from './Components/AutoLogin';
+import AdvancedPaymentDetail from './Components/Client/AdvancedPaymentDetail';
+import Autologin from './Components/Autologin';
 import StatementsTrans from './Components/Client/Transaction/StatementsTrans';
-{/* EMPLOYEE */}
-import HrDashboard from './Components/HRMS/HR/HrDashboard';
+import UnPaidInvoice from './Components/Client/Invoice/UnPaidInvoice';
+{/* EMPLOYEE SCREEN */}
 import EmployeDashboard from './Components/HRMS/Employe/EmployeDashboard';
 import ApplyLeave from './Components/HRMS/Employe/ApplyLeave';
 import EmployeAttendance from './Components/HRMS/Employe/EmployeAttendance';
@@ -62,159 +65,98 @@ import EmployeChangePass from './Components/HRMS/Employe/EmployeChangePass';
 import EmployePaySlip from './Components/HRMS/Employe/EmployePaySlip';
 import EmployeIcard from './Components/HRMS/Employe/EmployeIcard';
 
-import { NetworkProvider } from './Context/NetworkContext';
+
 import { DeviceLocationProvider } from './Context/DeviceLoc';
-import { MapWebViewProvider } from './Context/MapWebViewContext';
+import { DeviceInfoProvider } from './Context/DeviceInfoContext';
 import { ContactsProvider } from './Context/Contact';
+import { NetworkProvider } from './Context/NetworkContext';
 import { EmployeeDashboardProvider } from './Context/EmployeeDashboardContext';
 import { UserProvider } from './Context/UserProvider';
-import messaging from '@react-native-firebase/messaging';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from './Redux/Reducer/Auth/Auth.reducers';
+
 import * as Notifications from 'expo-notifications';
 import 'react-native-gesture-handler';
 import { TransitionPresets } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Style from './Style/Style';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
+function showToast(message) {
+  ToastAndroid.show(message, ToastAndroid.SHORT);
+}
+
+const { StatusBarManager } = NativeModules;
+const STATUSBAR_HEIGHT = Platform.OS === 'android' ? 30 : StatusBarManager?.HEIGHT || 4;
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true, // <-- This makes the pop-up appear
+    shouldShowBanner: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowList: true,
   }),
-});
+})
 
 export default function App() {
-
+  const dispatch = useDispatch();
   const [isConnected, setIsConnected] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [statusBarBg, setStatusBarBg] = useState('#ffffff');
-  const navigationRef = useRef(null);
+  const wasConnectedRef = React.useRef(true);
 
-  const getActiveRouteName = (state) => {
-    if (!state) return undefined;
-    const route = state.routes[state.index];
-    if (route.state) return getActiveRouteName(route.state);
-    return route.name;
+  useEffect(() => {
+    requestUserPermission();
+    // Foreground notification listener
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      const { title, body } = notification.request.content;
+      // Handle foreground notification
+      // Alert.alert(title, body);
+    });
+
+    // Handle notification when app is opened from notification
+    Notifications.getLastNotificationResponseAsync().then(response => {
+      if (response) {
+        const { title, body } = response.notification.request.content;
+        // Handle initial notification
+        // Alert.alert(title, body);
+      }
+    });
+
+    // Cleanup
+    return () => subscription.remove();
+  }, []);
+
+  // Request permission for notifications 
+  const requestUserPermission = async () => {
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status === 'granted') {
+        console.log('Notification permission granted!');
+        const token = await Notifications.getDevicePushTokenAsync();
+        console.log("fcmToken---", token.data);
+      } else {
+        console.log('Notification permission denied.');
+      }
+    } catch (error) {
+      console.error('Permission request failed', error);
+    }
   };
 
-  // Global StatusBar fallback for Android 14/15
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      try {
-        StatusBar.setTranslucent(false);
-        StatusBar.setBackgroundColor('#ebf1fd', true);
-        StatusBar.setBarStyle('dark-content');
-      } catch (e) {}
-    }
-  }, []);
-
-  useEffect(() => {
-    // ✅ Track last messageId to prevent duplicate local pop-up
-    let lastMessageId = null;
-  
-    // Foreground handler
-    const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
-      const { notification, data, messageId } = remoteMessage;
-  
-      const title = notification?.title || data?.title || 'Notification';
-      const body = notification?.body || data?.body || '';
-  
-      if (Platform.OS === 'ios') {
-        if (messageId === lastMessageId) {
-          console.log('Duplicate iOS notification skipped');
-          return;
-        }
-        lastMessageId = messageId;
-  
-        await Notifications.scheduleNotificationAsync({
-          content: { title, body },
-          trigger: null,
-        });
-      }
-    });
-  
-    // Background handler (same logic)
-    messaging().setBackgroundMessageHandler(async remoteMessage => {
-      const { notification, data, messageId } = remoteMessage;
-  
-      const title = notification?.title || data?.title || 'Notification';
-      const body = notification?.body || data?.body || '';
-  
-      if (Platform.OS === 'ios') {
-        if (messageId === lastMessageId) {
-          console.log('Duplicate iOS background notification skipped');
-          return;
-        }
-        lastMessageId = messageId;
-  
-        await Notifications.scheduleNotificationAsync({
-          content: { title, body },
-          trigger: null,
-        });
-      }
-    });
-  
-    // Notification when app is in background and user taps it
-    const unsubscribeOnNotificationOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
-      // console.log('App opened from background notification:', remoteMessage);
-      const { notification, data } = remoteMessage;
-      const title = notification?.title ?? data?.title;
-      const body = notification?.body ?? data?.body;
-      // Optional: Alert.alert(title, body);
-    });
-  
-    // Notification when app is launched from quit state
-    messaging()
-     .getInitialNotification()
-      .then(remoteMessage => {
-        if (remoteMessage) {
-          // console.log('App opened by notification at launch:', remoteMessage);
-          const { notification, data } = remoteMessage;
-          const title = notification?.title ?? data?.title;
-          const body = notification?.body ?? data?.body;
-          // Optional: Alert.alert(title, body);
-        }
-      });
-  
-    return () => {
-      unsubscribeOnMessage();
-      unsubscribeOnNotificationOpenedApp();
-    };
-  }, []);
-  
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
-      setIsConnected(state.isConnected);
-    }); 
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const requestUserPermission = async () => {
-      try {
-        const authStatus = await messaging().requestPermission();
-        const enabled =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-        if (enabled) {
-          const fcmtoken = await messaging().getToken();
-          console.log("fcmToken App---", fcmtoken);
-          // Optionally store in state or AsyncStorage
-        } else {
-          console.log("Notification permission denied.");
-        }
-      } catch (error) {
-        console.error("Permission request failed", error);
+      const nowConnected = !!state.isConnected;
+      if (nowConnected && !wasConnectedRef.current) {
+        // Coming back online — remount the navigator with a fresh key
+        setRefreshKey(prev => prev + 1);
       }
-    };
-    requestUserPermission();
+      wasConnectedRef.current = nowConnected;
+      setIsConnected(nowConnected);
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleRetry = async () => {
@@ -222,23 +164,11 @@ export default function App() {
     const state = await NetInfo.fetch();
     setIsRetrying(false);
     if (state.isConnected) {
+      wasConnectedRef.current = true;
       setIsConnected(true);
       setRefreshKey(prev => prev + 1);
     }
   };
-
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      if (state.isConnected && !isConnected) {
-        setIsConnected(true);
-        setRefreshKey(prev => prev + 1);
-      }
-    });
-    return () => unsubscribe();
-  }, [isConnected]);
-
-
-// console.log("isConnected", isConnected)
 
   const [fontsLoaded] = useFonts({
     'Roboto-Bold': require('./assets/Fonts/Roboto-Bold.ttf'), 
@@ -246,83 +176,36 @@ export default function App() {
     'Roboto-Medium': require('./assets/Fonts/Roboto-Medium.ttf'), 
     'Roboto-Regular': require('./assets/Fonts/Roboto-Regular.ttf'), 
     'Roboto-SemiBold': require('./assets/Fonts/Roboto-SemiBold.ttf'), 
-    'Poppins-Regular': require('./assets/Fonts/Poppins-Regular.ttf'), 
-    'Poppins-Bold': require('./assets/Fonts/Poppins-Bold.ttf'), 
-    'Poppins-Medium': require('./assets/Fonts/Poppins-Medium.ttf'), 
-    'Poppins-SemiBold': require('./assets/Fonts/Poppins-SemiBold.ttf'), 
+    'Lato-Regular': require('./assets/Fonts/Lato-Regular.ttf'),
+    'Lato-Bold': require('./assets/Fonts/Lato-Bold.ttf'),
+    'Lato-Light': require('./assets/Fonts/Lato-Light.ttf'),
+    'Lato-Medium': require('./assets/Fonts/Lato-Regular.ttf'),
+    'Lato-SemiBold': require('./assets/Fonts/Lato-Bold.ttf'),
   });
 
   if (!fontsLoaded) {
     return null;
   }
-   
-//   return (
-//     <SafeAreaProvider style={{ flex:1 }}>
-//        <NetworkProvider>
-//           <StatusBar translucent={false} backgroundColor={statusBarBg} barStyle='dark-content' />
-//         <SafeAreaView
-//           style={{ flex: 1, backgroundColor:'transparent' }}
-//           edges={['left','right','bottom']}
-//         >
-//          {
-//             isConnected ? 
-//               <View style={{ flex: 1, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0, backgroundColor: statusBarBg }}>
-//                 <NavigationContainer
-//                   ref={navigationRef}
-//                   key={refreshKey}
-//                   onStateChange={(state) => {
-//                     const routeName = getActiveRouteName(state);
-//                     if (routeName === 'Splash') {
-//                       setStatusBarBg('#ffffff');
-//                     } else if (routeName === 'ClientDash') {
-//                       setStatusBarBg("#ebf1fd");
-//                     } else if (routeName === 'WebViewComp') {
-//                       setStatusBarBg('#074173');
-//                     } else {
-//                       setStatusBarBg(Style.headerBgColor);
-//                     }
-//                   }}
-//                 >
-//                   <EmployeeDashboardProvider>
-//                     <MapWebViewProvider>
-//                       <UserProvider>
-//                         <MyStack />
-//                       </UserProvider>
-//                     </MapWebViewProvider>
-//                   </EmployeeDashboardProvider>
-//                 </NavigationContainer>
-//               </View>
-//             : 
-//               <NoInternetScreen onRetry={handleRetry} isRetrying={isRetrying} />
-//           }
-//          </SafeAreaView>
-//        </NetworkProvider>
-//     </SafeAreaProvider>
-//   );
-// }
 
-
-return (
-  <SafeAreaProvider style={{ flex:1 }}>
-     <ContactsProvider>
-      <NetworkProvider>
-        <StatusBar backgroundColor={'#074173'} barStyle='dark-content' />
-         {
-           isConnected ? 
-             <NavigationContainer key={refreshKey} >
-              <EmployeeDashboardProvider>
-                  <UserProvider>
-                    <MyStack />
-                  </UserProvider>
-              </EmployeeDashboardProvider>
-             </NavigationContainer>
-           : 
-             <NoInternetScreen onRetry={handleRetry} isRetrying={isRetrying} />
-         }
-      </NetworkProvider>
-     </ContactsProvider>
-  </SafeAreaProvider>
-);
+  return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+       <ContactsProvider>
+        <NetworkProvider>
+          <StatusBar translucent backgroundColor={'transparent'} barStyle='light-content' />
+           {
+             isConnected ? 
+               <NavigationContainer key={refreshKey} >
+                    <UserProvider>
+                      <MyStack />
+                    </UserProvider>
+               </NavigationContainer>
+             : 
+               <NoInternetScreen onRetry={handleRetry} isRetrying={isRetrying} />
+           }
+        </NetworkProvider>
+       </ContactsProvider>
+    </SafeAreaProvider>
+  );
 }
 
 function MyStack ({ route }){
@@ -352,6 +235,8 @@ function MyStack ({ route }){
       <Stack.Screen name="RegDocument" component={RegDocument} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="FinDocument" component={FinDocument} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="Support" component={Support} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="SupportCreate" component={SupportCreate} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="SupportChat" component={SupportChat} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="Notifikation" component={Notifikation} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="Events" component={Events} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="ForgotPass" component={ForgotPass} options={{ ...TransitionPresets.SlideFromRightIOS }} />
@@ -366,6 +251,8 @@ function MyStack ({ route }){
       <Stack.Screen name="Statements" component={Statements} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="AddAdvance" component={AddAdvance} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="StatementsTrans" component={StatementsTrans} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="AdvancedPaymentDetail" component={AdvancedPaymentDetail} options={{ ...TransitionPresets.SlideFromRightIOS }} />
+      <Stack.Screen name="UnPaidInvoice" component={UnPaidInvoice} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       {/* EMPLOYEE SCREEN */}
       <Stack.Screen name="EmployeDashboard" component={EmployeDashboard} options={{ ...TransitionPresets.SlideFromRightIOS }} />
       <Stack.Screen name="ApplyLeave" component={ApplyLeave} options={{ ...TransitionPresets.SlideFromRightIOS }} />
@@ -380,23 +267,109 @@ function MyStack ({ route }){
     </Stack.Navigator>
   )
 }
+ 
 function MyTabs({ route }) {
-  const insets = useSafeAreaInsets();
   const userData = route?.params?.userData;
-   return (
-       <Tab.Navigator screenOptions={{ tabBarLabelStyle:{ fontSize:10, paddingBottom:0, paddingTop:20 }, headerShown:false, tabBarStyle:{ backgroundColor:'#fff', }, tabBarShowLabel:false, tabBarActiveTintColor: '#175a93', tabBarInactiveTintColor: "grey",}}>
-           <Tab.Screen name="ClientDash" component={ClientDash} options={{'tabBarLabel':"EmpDasboard", 'tabBarIcon': ( ({focused, color}) => (
-              <Image source={focused?require('./assets/home-active.png'):require('./assets/home-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
-           ))}} initialParams={{ userData }} />
-           <Tab.Screen name="ClientMessage" component={ClientMessage} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
-              <Image source={focused?require('./assets/contactActive.png'):require('./assets/contactInactive.png')} style={{width:focused?25:25, height:focused?25:25}} />
-           ))}}/>
-           <Tab.Screen name="Events" component={Events} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
-              <Image source={focused?require('./assets/calendarActive.png'):require('./assets/calendar-inactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
-           ))}} initialParams={{ userData }} />
-           <Tab.Screen name="ClientProfile" component={ClientProfile} options={{'tabBarLabel':"", 'tabBarIcon': ( ({focused, color}) => (
-              <Image source={focused?require('./assets/userActive.png'):require('./assets/userInactive.png')} style={{width:focused?50:25, height:focused?50:25}} />
-           ))}}/>
-       </Tab.Navigator>  
-   );
- }
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarShowLabel: true,
+        tabBarActiveTintColor: '#175a93',
+        tabBarInactiveTintColor: '#8e8e93',
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          marginBottom: 6,
+          marginTop: 2,
+        },
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName = '';
+          let iconSize = focused ? 26 : 24;
+
+          switch (route.name) {
+            case 'ClientDash':
+              iconName = focused ? 'grid' : 'grid-outline';
+              break;
+            case 'ClientMessage':
+              iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+              break;
+            case 'Events':
+              iconName = focused ? 'calendar' : 'calendar-outline';
+              break;
+            case 'ClientProfile':
+              iconName = focused ? 'person-circle' : 'person-circle-outline';
+              break;
+            default:
+              iconName = 'help-circle-outline';
+          }
+
+          return (
+            <Icon
+              name={iconName}
+              size={iconSize}
+              color={color}
+              style={styles.icon}
+            />
+          );
+        },
+        tabBarStyle: styles.tabBar,
+        tabBarItemStyle: styles.tabBarItem,
+      })}
+    >
+      <Tab.Screen
+        name="ClientDash"
+        component={ClientDash}
+        options={{
+          tabBarLabel: 'Dashboard',
+        }}
+        initialParams={{ userData }}
+      />
+      <Tab.Screen
+        name="ClientMessage"
+        component={ClientMessage}
+        options={{
+          tabBarLabel: 'Messages',
+        }}
+      />
+      <Tab.Screen
+        name="Events"
+        component={Events}
+        options={{
+          tabBarLabel: 'Events',
+        }}
+        initialParams={{ userData }}
+      />
+      <Tab.Screen
+        name="ClientProfile"
+        component={ClientProfile}
+        options={{
+          tabBarLabel: 'Profile',
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#ffffff',
+    height: 70,
+    paddingBottom: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e5e5',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  tabBarItem: {
+    paddingVertical: 4,
+  },
+  icon: {
+    marginBottom: -2,
+  },
+});

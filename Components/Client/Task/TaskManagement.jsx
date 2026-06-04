@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StatusBar, View, Text, TouchableOpacity, TextInput, Animated, Platform, SafeAreaView, RefreshControl, FlatList, Modal, StyleSheet, ToastAndroid, ActivityIndicator } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, TextInput, Animated, RefreshControl, FlatList, Modal, StyleSheet, ToastAndroid, ActivityIndicator, Platform } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import BASE_URL from '../../../Urls/DomainUrl';
 import moment from "moment";
 import { useDispatch } from 'react-redux';
@@ -11,13 +13,10 @@ import usePaginatedList from '../../../hooks/usePaginatedList';
 
 import { AntDesign, Feather, Entypo, Fontisto, MaterialCommunityIcons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
+import NotificationBell from "../NotificationBell";
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function TaskManagement({ navigation }) {
@@ -69,8 +68,73 @@ const CLIENT_TASK_STATUS_ARR = [
   const [departmentData, setDepartmentData] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredData, setFilteredData] = useState(null);
+  const [dateFilter, setDateFilter] = useState(null);
+  const [customStartDate, setCustomStartDate] = useState(null);
+  const [customEndDate, setCustomEndDate] = useState(null);
 
-  const filtersRef = useRef({ deparement: '', statusD: '' });
+  const filtersRef = useRef({ deparement: '', statusD: '', startDate: '', endDate: '' });
+
+  const DATE_FILTERS = [
+    { key: 'latest_month', label: 'This Month' },
+    { key: 'one_month',    label: '1 Month' },
+    { key: 'three_month',  label: '3 Months' },
+    { key: 'six_month',    label: '6 Months' },
+    { key: 'yearly',       label: 'Yearly' },
+    { key: 'custom',       label: 'Custom' },
+  ];
+
+  // Updated: Return dates in YYYY/MM/DD format
+  const computeDateRange = (filterKey, start, end) => {
+    const now = moment();
+    switch (filterKey) {
+      case 'latest_month':
+        return { 
+          startDate: now.clone().startOf('month').format('YYYY/MM/DD'), 
+          endDate: now.clone().format('YYYY/MM/DD') 
+        };
+      case 'one_month':
+        return { 
+          startDate: now.clone().subtract(1, 'months').format('YYYY/MM/DD'), 
+          endDate: now.clone().format('YYYY/MM/DD') 
+        };
+      case 'three_month':
+        return { 
+          startDate: now.clone().subtract(3, 'months').format('YYYY/MM/DD'), 
+          endDate: now.clone().format('YYYY/MM/DD') 
+        };
+      case 'six_month':
+        return { 
+          startDate: now.clone().subtract(6, 'months').format('YYYY/MM/DD'), 
+          endDate: now.clone().format('YYYY/MM/DD') 
+        };
+      case 'yearly':
+        return { 
+          startDate: now.clone().subtract(1, 'year').format('YYYY/MM/DD'), 
+          endDate: now.clone().format('YYYY/MM/DD') 
+        };
+      case 'custom':
+        return {
+          startDate: start ? moment(start).format('YYYY/MM/DD') : '',
+          endDate: end ? moment(end).format('YYYY/MM/DD') : '',
+        };
+      default:
+        return { startDate: '', endDate: '' };
+    }
+  };
+
+  const openDatePicker = (target) => {
+    DateTimePickerAndroid.open({
+      value: target === 'start' ? (customStartDate || new Date()) : (customEndDate || new Date()),
+      mode: 'date',
+      maximumDate: new Date(),
+      onChange: (event, selectedDate) => {
+        if (event.type === 'set' && selectedDate) {
+          if (target === 'start') setCustomStartDate(selectedDate);
+          else setCustomEndDate(selectedDate);
+        }
+      },
+    });
+  };
 
   const onUnauthorized = useCallback(async () => {
     dispatch(logout());
@@ -79,13 +143,19 @@ const CLIENT_TASK_STATUS_ARR = [
     navigation.navigate('Autologin');
   }, [dispatch, navigation]);
 
-  const buildBody = useCallback(() => ({
-    text: "",
-    sort: true,
-    status: filtersRef.current.statusD || "",
-    departmentId: filtersRef.current.deparement || "",
-    isPagination: false,
-  }), []);
+  const buildBody = useCallback(() => {
+    const body = {
+      text: "",
+      sort: true,
+      status: filtersRef.current.statusD || "",
+      departmentId: filtersRef.current.deparement || "",
+      isPagination: false,
+    };
+    if (filtersRef.current.startDate) body.startDate = filtersRef.current.startDate;
+    if (filtersRef.current.endDate) body.endDate = filtersRef.current.endDate;
+    // console.log("date filter", JSON.stringify(body, null, 2))
+    return body;
+  }, []);
 
   const extractDocs = useCallback((result) => result.data?.docs, []);
 
@@ -106,9 +176,10 @@ const CLIENT_TASK_STATUS_ARR = [
 
   useFocusEffect(
     useCallback(() => {
-      filtersRef.current = { deparement, statusD };
+      const { startDate, endDate } = computeDateRange(dateFilter, customStartDate, customEndDate);
+      filtersRef.current = { deparement, statusD, startDate, endDate };
       loadFirst();
-    }, [])
+    }, [deparement, statusD, dateFilter, customStartDate, customEndDate]) // Added dependencies
   );
 
   useEffect(() => {
@@ -149,7 +220,8 @@ const CLIENT_TASK_STATUS_ARR = [
     } else {
       const results = allData().filter(item =>
         item.taskName?.toLowerCase().includes(text.toLowerCase()) ||
-        item.departmentData?.name?.toLowerCase().includes(text.toLowerCase())
+        item.departmentData?.name?.toLowerCase().includes(text.toLowerCase()) ||
+        item.code?.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredData(results);
     }
@@ -159,24 +231,23 @@ const CLIENT_TASK_STATUS_ARR = [
     setModalVisible(false);
     setSearchQuery('');
     setFilteredData(null);
-    filtersRef.current = { deparement, statusD };
-    loadFirst();
+    // useFocusEffect will automatically trigger loadFirst with new filters
   };
 
   const resetFilters = () => {
     setDepartment('');
     setStatusD('');
+    setDateFilter(null);
+    setCustomStartDate(null);
+    setCustomEndDate(null);
     setModalVisible(false);
     setSearchQuery('');
     setFilteredData(null);
-    filtersRef.current = { deparement: '', statusD: '' };
-    loadFirst();
   };
 
   const handleRefresh = () => {
     setSearchQuery('');
     setFilteredData(null);
-    filtersRef.current = { deparement, statusD };
     refresh();
   };
 
@@ -184,7 +255,12 @@ const CLIENT_TASK_STATUS_ARR = [
     if (status === "Task_Stop") return { bg: '#ffebee', text: '#c62828' };
     if (status === "Completed") return { bg: '#e8f5e9', text: '#2e7d32' };
     if (status === "Assigned") return { bg: '#e3f2fd', text: '#1565c0' };
-    return { bg: '#fff3e0', text: '#e65100' };
+    if (status === "Work_in_progress") return { bg: '#fff3e0', text: '#e65100' };
+    return { bg: '#f5f5f5', text: '#757575' };
+  };
+
+  const getStatusDisplayName = (status) => {
+    return status?.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
   };
 
   const renderItem = useCallback(({ item }) => {
@@ -195,8 +271,9 @@ const CLIENT_TASK_STATUS_ARR = [
         activeOpacity={0.7}
         style={{
           width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 12,
-          marginBottom: 12, padding: 14, elevation: 2,
-          shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
+          marginBottom: 12, padding: 14,
+          shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05, shadowRadius: 2, elevation: 1,
         }}
       >
         {/* Header: Task Name + Status */}
@@ -204,14 +281,14 @@ const CLIENT_TASK_STATUS_ARR = [
           <Text numberOfLines={1} ellipsizeMode="tail" style={{ fontSize: 15, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor, flex: 1, marginRight: 10 }}>{item.taskName}</Text>
           <View style={{ backgroundColor: statusStyle.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
             <Text style={{ fontSize: 11, fontFamily: 'Lato-SemiBold', color: statusStyle.text }}>
-              {item.status?.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, char => char.toUpperCase())}
+              {getStatusDisplayName(item.status)}
             </Text>
           </View>
         </View>
 
         {/* Department */}
         <Text style={{ fontSize: 13, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginBottom: 6 }}>
-          {item.departmentData?.name}
+          {item.departmentData?.name || 'No Department'}
         </Text>
 
         {/* Code */}
@@ -231,7 +308,11 @@ const CLIENT_TASK_STATUS_ARR = [
         {/* Footer: Date */}
         <View style={{ flexDirection: 'row', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: '#eee', paddingTop: 10, marginTop: 8 }}>
           <Feather name="calendar" size={13} color={Style.secondryTextColor} style={{ marginRight: 6 }} />
-          <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>{moment(item.updatedAt).format('DD/MM/YYYY')}</Text>
+          {
+            item.status === 'Completed' ?
+            <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>{moment(item.taskCompletedAt).format('DD/MM/YYYY')}</Text> :
+            <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>{moment(item.createdAt).format('DD/MM/YYYY')}</Text>
+          }
         </View>
       </TouchableOpacity>
     );
@@ -252,14 +333,22 @@ const CLIENT_TASK_STATUS_ARR = [
       <View style={{ alignItems: 'center', paddingVertical: 40 }}>
         <MaterialCommunityIcons name="clipboard-text-outline" size={50} color="#ccc" />
         <Text style={{ fontSize: 16, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor, textAlign: 'center', marginTop: 12 }}>
-          {deparement || statusD ? 'No tasks match your filters.' : 'No Tasks Available.'}
+          {deparement || statusD || dateFilter ? 'No tasks match your filters.' : 'No Tasks Available.'}
         </Text>
       </View>
     );
   };
 
+  const getFilterSummary = () => {
+    if (dateFilter) {
+      const filterLabel = DATE_FILTERS.find(f => f.key === dateFilter)?.label;
+      return `${filterLabel} Tasks`;
+    }
+    return 'All Tasks';
+  };
+
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Modal
            animationType="slide"
@@ -269,7 +358,7 @@ const CLIENT_TASK_STATUS_ARR = [
              setModalVisible(false);
            }}>
          <TouchableOpacity activeOpacity={1} onPress={() => setModalVisible(false)} style={{ flex: 1, backgroundColor: '#00000050', justifyContent: 'flex-end' }}>
-          <View style={{ width: '100%', backgroundColor: Style.basicbgColor, borderTopStartRadius: 24, borderTopEndRadius: 24, paddingHorizontal: 20, paddingBottom: 20 }}>
+          <View style={{ width: '100%', backgroundColor: Style.basicbgColor, borderTopStartRadius: 24, borderTopEndRadius: 24, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20 }}>
             {/* Handle bar */}
             <View style={{ width: 40, height: 4, backgroundColor: '#d0d0d0', alignSelf: 'center', marginTop: 12, marginBottom: 16, borderRadius: 2 }} />
 
@@ -277,7 +366,7 @@ const CLIENT_TASK_STATUS_ARR = [
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <Text style={{ fontSize: 17, fontFamily: 'Lato-SemiBold', color: Style.primaryTextColor }}>Filters</Text>
               <TouchableOpacity onPress={resetFilters} style={{ paddingHorizontal: 14, height: 34, backgroundColor: '#f5f5f5', justifyContent: 'center', alignItems: 'center', borderRadius: 20 }}>
-                <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor }}>Reset</Text>
+                <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor }}>Reset All</Text>
               </TouchableOpacity>
             </View>
 
@@ -285,10 +374,13 @@ const CLIENT_TASK_STATUS_ARR = [
             <Text style={{ fontSize: 12, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor, marginBottom: 8 }}>Department</Text>
             <View style={{ marginBottom: 16 }}>
               <SelectDropdown
-                data={departmentData.length === 0 ? [{ name: 'No Departments...' }] : departmentData}
-                onSelect={(selectedDepartment, index) => {
-                  setDepartment(selectedDepartment._id);
+                data={departmentData}
+                defaultValue={deparement}
+                onSelect={(selectedDepartment) => {
+                  setDepartment(selectedDepartment?._id || '');
                 }}
+                buttonTextAfterSelection={(selectedDepartment) => selectedDepartment?.name || 'Select Department'}
+                rowTextForSelection={(item) => item?.name || ''}
                 renderButton={(selectedDepartment, isOpened) => {
                   return (
                     <View style={styles.dropdownButtonStyle}>
@@ -299,10 +391,10 @@ const CLIENT_TASK_STATUS_ARR = [
                     </View>
                   );
                 }}
-                renderItem={(departmentData, index, isSelected) => {
+                renderItem={(item, index, isSelected) => {
                   return (
                     <View style={{ ...styles.dropdownItemStyle, ...(isSelected && { backgroundColor: '#D2D9DF' }) }}>
-                      <Text style={styles.dropdownItemTxtStyle}>{departmentData.name}</Text>
+                      <Text style={styles.dropdownItemTxtStyle}>{item.name}</Text>
                     </View>
                   );
                 }}
@@ -315,27 +407,27 @@ const CLIENT_TASK_STATUS_ARR = [
             <Text style={{ fontSize: 12, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor, marginBottom: 8 }}>Status</Text>
             <View style={{ marginBottom: 24 }}>
               <SelectDropdown
-                data={CLIENT_TASK_STATUS_ARR.length === 0 ? ['No data found'] : CLIENT_TASK_STATUS_ARR}
-                onSelect={(CLIENT_TASK_STATUS_ARR, index) => {
-                  setStatusD(CLIENT_TASK_STATUS_ARR);
-                  showToast(`Selected: ${CLIENT_TASK_STATUS_ARR}`);
+                data={CLIENT_TASK_STATUS_ARR}
+                defaultValue={statusD}
+                onSelect={(selectedStatus) => {
+                  setStatusD(selectedStatus);
                 }}
-                renderButton={(CLIENT_TASK_STATUS_ARR, isOpened) => {
+                buttonTextAfterSelection={(selectedStatus) => getStatusDisplayName(selectedStatus)}
+                rowTextForSelection={(item) => getStatusDisplayName(item)}
+                renderButton={(selectedStatus, isOpened) => {
                   return (
                     <View style={styles.dropdownButtonStyle}>
                       <Text style={styles.dropdownButtonTxtStyle}>
-                        {(CLIENT_TASK_STATUS_ARR && CLIENT_TASK_STATUS_ARR) || 'Select Status'}
+                        {selectedStatus ? getStatusDisplayName(selectedStatus) : 'Select Status'}
                       </Text>
                       <Entypo name={isOpened ? 'chevron-up' : 'chevron-down'} style={styles.dropdownButtonArrowStyle} />
                     </View>
                   );
                 }}
-                renderItem={(CLIENT_TASK_STATUS_ARR, index, isSelected) => {
+                renderItem={(item, index, isSelected) => {
                   return (
                     <View style={{ ...styles.dropdownItemStyle, ...(isSelected && { backgroundColor: '#D2D9DF' }) }}>
-                      <Text style={styles.dropdownItemTxtStyle}>{CLIENT_TASK_STATUS_ARR?.replace(/_/g, ' ')
-                        .toLowerCase()
-                        .replace(/\b\w/g, char => char.toUpperCase())}</Text>
+                      <Text style={styles.dropdownItemTxtStyle}>{getStatusDisplayName(item)}</Text>
                     </View>
                   );
                 }}
@@ -344,17 +436,91 @@ const CLIENT_TASK_STATUS_ARR = [
               />
             </View>
 
+            {/* Date Filter */}
+            <Text style={{ fontSize: 12, fontFamily: 'Lato-SemiBold', color: Style.secondryTextColor, marginBottom: 10 }}>Date Range</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: dateFilter === 'custom' ? 12 : 24 }}>
+              {DATE_FILTERS.map(f => {
+                const isActive = dateFilter === f.key;
+                return (
+                  <TouchableOpacity
+                    key={f.key}
+                    onPress={() => {
+                      setDateFilter(isActive ? null : f.key);
+                      if (f.key !== 'custom') { 
+                        setCustomStartDate(null); 
+                        setCustomEndDate(null); 
+                      }
+                    }}
+                    activeOpacity={0.75}
+                    style={{
+                      paddingHorizontal: 14, paddingVertical: 8,
+                      borderRadius: 20,
+                      backgroundColor: isActive ? Style.headerBgColor : '#f5f5f5',
+                      borderWidth: 1.5,
+                      borderColor: isActive ? Style.headerBgColor : '#e8e8e8',
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 13, fontFamily: 'Lato-SemiBold',
+                      color: isActive ? '#fff' : Style.primaryTextColor,
+                    }}>{f.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Custom Date Pickers */}
+            {dateFilter === 'custom' && (
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
+                <TouchableOpacity
+                  onPress={() => openDatePicker('start')}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1, height: 46, borderRadius: 10,
+                    backgroundColor: '#f5f5f5', borderWidth: 1,
+                    borderColor: customStartDate ? Style.headerBgColor : '#e0e0e0',
+                    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12,
+                  }}
+                >
+                  <Feather name="calendar" size={15} color={customStartDate ? Style.headerBgColor : Style.secondryTextColor} style={{ marginRight: 8 }} />
+                  <Text style={{
+                    fontSize: 13, fontFamily: 'Lato-SemiBold',
+                    color: customStartDate ? Style.primaryTextColor : Style.secondryTextColor,
+                  }}>
+                    {customStartDate ? moment(customStartDate).format('DD MMM YYYY') : 'Start Date'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => openDatePicker('end')}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1, height: 46, borderRadius: 10,
+                    backgroundColor: '#f5f5f5', borderWidth: 1,
+                    borderColor: customEndDate ? Style.headerBgColor : '#e0e0e0',
+                    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12,
+                  }}
+                >
+                  <Feather name="calendar" size={15} color={customEndDate ? Style.headerBgColor : Style.secondryTextColor} style={{ marginRight: 8 }} />
+                  <Text style={{
+                    fontSize: 13, fontFamily: 'Lato-SemiBold',
+                    color: customEndDate ? Style.primaryTextColor : Style.secondryTextColor,
+                  }}>
+                    {customEndDate ? moment(customEndDate).format('DD MMM YYYY') : 'End Date'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Apply Button */}
             <TouchableOpacity
-              disabled={!deparement && !statusD}
               onPress={applyFilters}
               style={{
                 width: '100%', height: 48,
-                backgroundColor: (!deparement && !statusD) ? '#e0e0e0' : Style.headerBgColor,
+                backgroundColor: Style.headerBgColor,
                 borderRadius: 12, justifyContent: 'center', alignItems: 'center',
               }}
             >
-              <Text style={{ fontFamily: 'Lato-SemiBold', fontSize: 15, color: (!deparement && !statusD) ? '#999' : '#fff' }}>Apply Filters</Text>
+              <Text style={{ fontFamily: 'Lato-SemiBold', fontSize: 15, color: '#fff' }}>Apply Filters</Text>
             </TouchableOpacity>
           </View>
          </TouchableOpacity>
@@ -368,9 +534,7 @@ const CLIENT_TASK_STATUS_ARR = [
           <View style={{ flex: 1 }}>
             <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lato-SemiBold' }}>Task Management</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Notifikation')} style={{ width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' }}>
-            <Feather name="bell" size={22} color="#fff" />
-          </TouchableOpacity>
+          <NotificationBell navigation={navigation} />
         </View>
 
         {/* Search Bar */}
@@ -395,13 +559,18 @@ const CLIENT_TASK_STATUS_ARR = [
         <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
           {/* Toolbar */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor }}>All Tasks</Text>
+            <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor }}>
+              {getFilterSummary()}
+            </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <TouchableOpacity onPress={resetFilters} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Style.basicbgColor, justifyContent: 'center', alignItems: 'center', elevation: 1 }}>
                 <Fontisto name="spinner-refresh" size={16} color={Style.secondryTextColor} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setModalVisible(true)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Style.basicbgColor, justifyContent: 'center', alignItems: 'center', elevation: 1 }}>
-                <Feather name="sliders" size={16} color={Style.secondryTextColor} />
+                <Feather name="sliders" size={16} color={(deparement || statusD || dateFilter) ? Style.headerBgColor : Style.secondryTextColor} />
+                {(deparement || statusD || dateFilter) && (
+                  <View style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: '#e65100', borderWidth: 1.5, borderColor: '#fff' }} />
+                )}
               </TouchableOpacity>
             </View>
           </View>

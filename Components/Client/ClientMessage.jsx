@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  StyleSheet, SafeAreaView, View, Text, StatusBar,
-  Linking, ScrollView, Alert, Image, TouchableOpacity, ToastAndroid,
-  ActivityIndicator, Platform
-} from "react-native";
+import { StyleSheet, View, Text, StatusBar, Linking, ScrollView, Alert, Image, TouchableOpacity, ToastAndroid, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import SelectDropdown from 'react-native-select-dropdown';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,11 +11,7 @@ import Style from '../../Style/Style';
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function ClientMessage({ navigation }) {
@@ -104,7 +97,7 @@ export default function ClientMessage({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
 
       {/* Header */}

@@ -1,21 +1,35 @@
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import BASE_URL from '../Urls/DomainUrl';
-import { useDispatch, useSelector } from 'react-redux';
-import { personalInfo } from "../Redux/Services/ClientService/Client.Services";
+import BASE_URL, { EMPLOYEE_SCREEN } from '../Urls/DomainUrl';
+import { useDispatch } from 'react-redux';
 import { logout } from "../Redux/Reducer/Auth/Auth.reducers";
- 
+
 export default function AutoLogin({navigation}) {
- const dispatch = useDispatch()
+  const dispatch = useDispatch();
+
   useEffect(() => {
     const autoLogin = async () => {
       try {
-        const token = await AsyncStorage.getItem('token');
+        // ── Employee auto-login (checked first) ──────────────────────────
+        const authToken    = await AsyncStorage.getItem('authToken');
+        const empUserDataStr = await AsyncStorage.getItem('userData');
+        if (authToken && empUserDataStr) {
+          const empUserData = JSON.parse(empUserDataStr);
+          if (empUserData?._id || empUserData?.id) {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: EMPLOYEE_SCREEN, params: { userData: empUserData } }],
+            });
+            return;
+          }
+        }
+
+        // ── Client auto-login ─────────────────────────────────────────────
+        const token    = await AsyncStorage.getItem('token');
         const userData = await AsyncStorage.getItem('user');
- 
+
         if (token && userData) {
-          // Check if token is still valid by calling profile API
           const res = await fetch(`${BASE_URL}/client/auth/profile`, {
             method: 'POST',
             headers: {
@@ -23,46 +37,28 @@ export default function AutoLogin({navigation}) {
               Authorization: `Bearer ${token}`,
             },
           });
- 
+
           if (res.status === 200) {
-            // Token is still valid
-            const profile = await res.json();
             navigation.reset({
               index: 0,
-              routes: [{ name: 'ClientDash', params: { userData: JSON.parse(userData)}}],
+              routes: [{ name: 'ClientDash', params: { userData: JSON.parse(userData) } }],
             });
-          } else if(res.status === 401) {
-            // Token expired, clear storage and redirect to login
+          } else if (res.status === 401) {
             await AsyncStorage.removeItem('token');
             await AsyncStorage.removeItem('user');
             dispatch(logout());
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Splash' }],
-            });
-
+            navigation.reset({ index: 0, routes: [{ name: 'Splash' }] });
           } else {
-            // Token invalid (maybe logged in from another device)
             await AsyncStorage.removeItem('token');
             await AsyncStorage.removeItem('user');
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Splash' }],
-            });
+            navigation.reset({ index: 0, routes: [{ name: 'Splash' }] });
           }
         } else {
-          // No token or userData, stay at splash or go to login
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Splash' }],
-          });
+          navigation.reset({ index: 0, routes: [{ name: 'Splash' }] });
         }
       } catch (error) {
         console.error('Auto login error:', error);
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Splash' }],
-        });
+        navigation.reset({ index: 0, routes: [{ name: 'Splash' }] });
       }
     };
     autoLogin();

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, View, Text, StatusBar, ScrollView, Image, TouchableOpacity } from "react-native";
+import { View, Text, StatusBar, ScrollView, Image, TouchableOpacity } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 import Style from '../Style/Style';
@@ -10,7 +11,7 @@ import { AntDesign } from "@expo/vector-icons";
 export default function TermCondition({ navigation }) {
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
         <StatusBar backgroundColor={'#074173'} barStyle='light-content' />
          <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', paddingHorizontal:20 }}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>

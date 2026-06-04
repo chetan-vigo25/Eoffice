@@ -44,11 +44,4 @@ export const DeviceLocationProvider = ({ children }) => {
   );
 };
 
-export const useDeviceLocation = () => {
-  const context = useContext(DeviceLocationContext);
-  // If provider is not mounted, return safe defaults to avoid crashes
-  if (context === undefined) {
-    return { location: null, address: null, errorMsg: 'DeviceLocationProvider not mounted' };
-  }
-  return context;
-};
+export const useDeviceLocation = () => useContext(DeviceLocationContext);

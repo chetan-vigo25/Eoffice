@@ -4,15 +4,10 @@ import { Alert } from "react-native";
 import { ToastAndroid } from "react-native";
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 async function login(data) {
-    console.log("Login data:", data);
     try {
         const user = await apiCall("POST", "/client/auth/login", data);
         // console.log("usertttttt", user)
@@ -23,7 +18,7 @@ async function login(data) {
             return { userinfo: user };
         }
     } catch (error) {
-        // console.error("Login error:", error);
+        // console.error(":", error);
         console.error("Login error:", error);
         return Promise.reject(error);
     }

@@ -25,7 +25,7 @@ async function authHeader() {
 export const apiCall = async (method, path, payload) => {
     try {
         const headers = await authHeader();
-        console.log("test-console",`${BACKEND_URL}${path}`, "headers",headers, "payload", payload);
+        // console.log("test-console",`${BACKEND_URL}${path}`, "headers",headers, "payload", payload);
         const response = await axios({
             method,
             url: `${BACKEND_URL}${path}`,

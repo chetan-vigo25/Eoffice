@@ -1,16 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, ScrollView, Text, StyleSheet, ImageBackground, SafeAreaView, Platform, Linking, Image, TouchableOpacity, Alert, StatusBar, ToastAndroid, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, ImageBackground, Linking, Image, TouchableOpacity, Alert, StatusBar, ToastAndroid, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import Style from '../../../Style/Style';
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function TransferSuccess({ navigation, route }) {

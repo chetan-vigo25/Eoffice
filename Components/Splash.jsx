@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
-import { SafeAreaView, ScrollView, View, Text, StyleSheet, Image, Animated, StatusBar, Platform, Alert, TextInput, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, LinearGradient } from "react-native";
+import { ScrollView, View, Text, StyleSheet, Image, Animated, StatusBar, Platform, Alert, TextInput, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, LinearGradient } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
 import { useDispatch, useSelector } from 'react-redux';
@@ -11,7 +12,7 @@ import { UserContext } from '../Context/UserProvider';
 import { checkAutoLogin } from '../Context/EmployeeAutoLogin';
 import Style from "../Style/Style.js";
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import BASE_URL from "../Urls/DomainUrl";
+import BASE_URL, { EMPLOYEE_SCREEN } from "../Urls/DomainUrl";
 import * as Notifications from 'expo-notifications';
 import { io } from 'socket.io-client';
 
@@ -95,7 +96,7 @@ export default function Splash({ navigation }) {
       if (isLoggedIn) {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'EmployeDashboard', params: { userData } }],
+          routes: [{ name: EMPLOYEE_SCREEN, params: { userData } }],
         });
       }
     };
@@ -331,9 +332,8 @@ export default function Splash({ navigation }) {
       .finally(() => { setIsLoading(false)});
   }
 
-  const empLogin = async () => {
+    const empLogin = async () => {
       setIsLoading(true);
-      
       // Wait for FCM token if it's not available yet
       let currentFcmToken = fcmToken;
       if (!currentFcmToken) {
@@ -374,7 +374,13 @@ export default function Splash({ navigation }) {
               await setUserAfterLogin(result.data, result.token);
               // console.log("User Data after login:", result.data);
               // console.log("Token-----",result.token);
-              navigation.navigate('EmployeDashboard', { userData: result?.data });
+              await AsyncStorage.setItem('authToken', result?.token);
+               if (result?.data) {
+                 await AsyncStorage.setItem('userData', JSON.stringify(result?.data));
+               }
+              navigation.replace(EMPLOYEE_SCREEN, { userData: result?.data });
+              showToast(result.message);
+              setIsLoading(false);
               // showToast(result.message);
               setIsLoading(false);
           } else if (result.statusCode === 400) {
@@ -506,18 +512,19 @@ export default function Splash({ navigation }) {
             <View style={styles.logoContainer}>
               <View style={styles.logoWrapper}>
                 <Image
-                  source={require("../assets/Eofficelogo.png")}
+                  source={require("../assets/coloricon.png")}
                   resizeMode="contain"
                   style={styles.logo}
                 />
               </View>
             </View>
             
-            <View style={styles.welcomeContainer}>
+            {/* <View style={styles.welcomeContainer}>
               <Text style={styles.welcomeText}>Welcome to</Text>
+              
               <Text style={styles.appNameText}>E-Office</Text>
               <Text style={styles.subtitleText}>Your digital workspace solution</Text>
-            </View>
+            </View> */}
           </View>
 
           {/* Tab Selector */}
@@ -538,12 +545,12 @@ export default function Splash({ navigation }) {
                 </Text>
               </TouchableOpacity>
               
-              {/* <TouchableOpacity onPress={() => setActiveTab('Employee')} style={[ styles.tabButton, activeTab === 'Employee' && styles.activeTabButton ]}>
+              <TouchableOpacity onPress={() => setActiveTab('Employee')} style={[ styles.tabButton, activeTab === 'Employee' && styles.activeTabButton ]}>
                 <MaterialIcons name="work" size={20} color={activeTab === 'Employee' ? '#fff' : '#666'} />
                 <Text style={[ styles.tabText, activeTab === 'Employee' && styles.activeTabText ]}>
                   Employee
                 </Text>
-              </TouchableOpacity> */}
+              </TouchableOpacity> 
             </View>
           </View>
           {/* Form Section */}
@@ -802,18 +809,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoContainer: {
-    marginBottom: 10,
+    marginBottom: 0,
   },
   logoWrapper: {
     // backgroundColor: '#f8f9fa',
     borderRadius: 15,
-    padding: 20,
+    padding: 10,
     // borderWidth: 1,
     // borderColor: '#e9ecef',
   },
   logo: {
-    width: 120,
-    height: 50,
+    width: 180,
+    height: 180,
   },
   welcomeContainer: {
     alignItems: 'center',
@@ -881,14 +888,14 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderWidth: 1,
     borderColor: '#e9ecef',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.05,
+    // shadowRadius: 8,
+    // elevation: 3,
   },
   inputContainer: {
     marginBottom: 20,
@@ -908,14 +915,14 @@ const styles = StyleSheet.create({
     borderColor: '#e9ecef',
     paddingHorizontal: 16,
     height: 56,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.05,
+    // shadowRadius: 4,
+    // elevation: 2,
   },
   inputIcon: {
     marginRight: 12,
@@ -943,14 +950,14 @@ const styles = StyleSheet.create({
     borderColor: '#e9ecef',
     paddingHorizontal: 16,
     height: 56,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2,
+    // },
+    // shadowOpacity: 0.05,
+    // shadowRadius: 4,
+    // elevation: 2,
   },
   modernDropdownText: {
     flex: 1,
@@ -964,14 +971,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e9ecef',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 4,
+    // },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 8,
+    // elevation: 5,
   },
   modernDropdownItem: {
     paddingHorizontal: 16,
@@ -1010,14 +1017,14 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 12,
     backgroundColor: '#074173',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    // shadowColor: '#000',
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 4,
+    // },
+    // shadowOpacity: 0.1,
+    // shadowRadius: 8,
+    // elevation: 4,
   },
   loginButtonContent: {
     flex: 1,

@@ -1,34 +1,32 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { authServices } from "../../Services/Auth.services";
-import { ToastAndroid, Platform, Alert } from "react-native";
+import { ToastAndroid, Alert } from "react-native";
 
 const initialState = {
   
 };
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message); // iOS fallback
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export const login = createAsyncThunk(
   "authentication/login",
   async (userData, { rejectWithValue }) => {
     try {
-      if (!userData.userName || !userData.password ) {
+      if (!userData.userName || !userData.password) {
         showToast("Please fill in all fields");
         return rejectWithValue("Empty fields");
       }
+      // console.log("Sending login request with data:", userData);
       const user = await authServices.login(userData);
       // console.log("user--------", user)
+      showToast(user.userinfo.message)
       if (user) {
-        // console.log("message............",user);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+        // console.log("message............",user);
         return user;
       } else {
-        // showToast("Try again...!");
+        showToast("Try again...!");
         return rejectWithValue("Invalid login");
       }
     } catch (error) {

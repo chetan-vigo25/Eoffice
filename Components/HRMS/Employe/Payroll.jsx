@@ -1,16 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, StatusBar, Button, ScrollView, Modal, FlatList, Platform, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
-import SelectDropdown from 'react-native-select-dropdown';
-import { SelectList } from 'react-native-dropdown-select-list';
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import moment from "moment";
-import DateTimePicker from '@react-native-community/datetimepicker';
-import DateTimePickerModal from "react-native-modal-datetime-picker";
-import EmployeHeader from './EmployeComponent/EmployeHeader';
+import React, { useState, useEffect, useContext } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  StatusBar,
+  ScrollView,
+  Platform,
+  Alert,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  ToastAndroid,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import moment from 'moment';
 import BASE_URL from '../../../Urls/DomainUrl';
+import { UserContext } from '../../../Context/UserProvider';
+import { handleEmployeUnauthorized, isUnauthorized } from '../../../Context/EmployeeAutoLogin';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AntDesign, FontAwesome5, FontAwesome } from "@expo/vector-icons";
+import { AntDesign, Feather, FontAwesome } from '@expo/vector-icons';
+
+const PRIMARY = '#6a8ff3';
+const PRIMARY_DARK = '#4c72d9';
+const PRIMARY_TINT = '#eef2ff';
+const TEXT_DARK = '#1f2440';
+const TEXT_MUTED = '#7c84a3';
+const BORDER = '#eef0fa';
+const SUCCESS = '#22a06b';
+const WARNING = '#e6a400';
+const DANGER = '#e94e4e';
+const BG = '#f6f7fb';
+const PAGE_SIZE = 10;
 
 function showToast(message, onOk = null) {
   if (Platform.OS === 'android') {
@@ -35,498 +56,775 @@ function showToast(message, onOk = null) {
   }
 }
 
-export default function Payroll({ navigation, route }) {
+const statusColor = (s) => {
+  const str = (s || '').toLowerCase();
+  if (str.includes('active') || str.includes('approved') || str.includes('paid')) return SUCCESS;
+  if (str.includes('pending') || str.includes('hold')) return WARNING;
+  if (str.includes('reject') || str.includes('inactive') || str.includes('unpaid')) return DANGER;
+  return PRIMARY_DARK;
+};
 
+const formatINR = (n) => {
+  if (n === null || n === undefined || n === '') return '₹0';
+  try {
+    return `₹${Number(n).toLocaleString('en-IN')}`;
+  } catch {
+    return `₹${n}`;
+  }
+};
+
+const initialsOf = (name) => {
+  if (!name) return '?';
+  return (
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0])
+      .join('')
+      .toUpperCase() || '?'
+  );
+};
+
+export default function Payroll({ navigation, route }) {
+  const { logout } = useContext(UserContext);
   const [activeTab, setActiveTab] = useState('StandardPayroll');
-  const [manualRecords, setManualRecords] = useState([]);
-  const [page, setPage] = useState(0);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [standardData, setStandardData] = useState([]);
   const [actualData, setActualData] = useState([]);
 
+  const [standardVisibleCount, setStandardVisibleCount] = useState(PAGE_SIZE);
+  const [actualVisibleCount, setActualVisibleCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   useEffect(() => {
     const loadUserData = async () => {
       try {
         const storedUserData = await AsyncStorage.getItem('userData');
-  
+
         if (storedUserData) {
           const parsedData = JSON.parse(storedUserData);
           setUserData(parsedData);
-          // Call API functions after userData is set
           await StandardPayList(parsedData);
           await actualPayList(parsedData);
         }
       } catch (error) {
-        console.error("Failed to load userData:", error);
+        console.error('Failed to load userData:', error);
       }
     };
 
     loadUserData();
   }, []);
-    
-    const rowsPerPage = 10;
-    const combinedStandardData = standardData; 
-    const combinedActualData = actualData;
-  
-    const totalPagesStandard = Math.max(1, Math.ceil(combinedStandardData.length / rowsPerPage));
-    const totalPagesActual = Math.max(1, Math.ceil(combinedActualData.length / rowsPerPage));
-  
-    const currentStandardData = combinedStandardData.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
-    const currentActualData = combinedActualData.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
-     const headersStandard = [
-       'S.No',
-       'Name',
-       'Created By',
-       'Base Salary',
-       'CTC',
-       'Status',
-  ];
-     const headersActual = [
-       'S.No',
-       'Employee Name',
-       'Start Date',
-       'End Date',
-       'Basic Salary',
-       'Gross Salary',
-       'Net Salary',
-       'Status',
-       'Action',
-  ];
 
-  const StandardPayList = async(userDataParam) => {
+  const StandardPayList = async (userDataParam) => {
     setLoading(true);
     try {
-      let token = await AsyncStorage.getItem("authToken");
-       if (!token) {
-         showToast("Authentication token not found");
-         setLoading(false);
-         setStandardData([]);
-         return;
+      let token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        showToast('Authentication token not found');
+        setLoading(false);
+        setStandardData([]);
+        return;
       }
 
-      const myHeaders = new Headers();  
-      myHeaders.append("Content-Type", "application/json");  
-      myHeaders.append("Authorization", "Bearer " + token);
+      const myHeaders = new Headers();
+      myHeaders.append('Content-Type', 'application/json');
+      myHeaders.append('Authorization', 'Bearer ' + token);
 
       const raw = JSON.stringify({
-        "branchId": userDataParam?.branchId,
-        "companyId": userDataParam?.companyId,
-        "directorId": "",
-        "employeId": userDataParam?._id,
-        "isPagination": false,
-        "sort": true,
-        "status": "Active",
-        "text": ""
+        branchId: userDataParam?.branchId,
+        companyId: userDataParam?.companyId,
+        directorId: '',
+        employeId: userDataParam?._id,
+        isPagination: false,
+        sort: true,
+        status: 'Active',
+        text: '',
       });
 
       const requestOptions = {
         method: 'POST',
         headers: myHeaders,
         body: raw,
-        redirect: 'follow'
+        redirect: 'follow',
       };
-// console.log("standard raw data:", raw);
+
       const response = await fetch(`${BASE_URL}/admin/employe/payroll/standerd/list`, requestOptions);
       const result = await response.json();
 
       if (result.statusCode === 200) {
-        // console.log(" fetch Standard Payroll data:", result.data.docs);
         setStandardData(result.data.docs || []);
+        setStandardVisibleCount(PAGE_SIZE);
+      } else if (isUnauthorized(result)) {
+        await handleEmployeUnauthorized(navigation, logout);
+        setStandardData([]);
       } else {
-        showToast(result.message || "Failed to fetch Standard Payroll data");
+        showToast(result.message || 'Failed to fetch Standard Payroll data');
         setStandardData([]);
       }
     } catch (error) {
-      console.log("Error fetching Standard Payroll data:", error);
+      console.log('Error fetching Standard Payroll data:', error);
       setStandardData([]);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  const actualPayList = async(userDataParam) => {
+  const actualPayList = async (userDataParam) => {
     setLoading(true);
     try {
-      let token = await AsyncStorage.getItem("authToken");
-       if (!token) {
-         showToast("Authentication token not found");
-         setLoading(false);
-         return;
+      let token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        showToast('Authentication token not found');
+        setLoading(false);
+        return;
       }
 
-      const myHeaders = new Headers();  
-      myHeaders.append("Content-Type", "application/json");  
-      myHeaders.append("Authorization", "Bearer " + token);
+      const myHeaders = new Headers();
+      myHeaders.append('Content-Type', 'application/json');
+      myHeaders.append('Authorization', 'Bearer ' + token);
 
       const raw = JSON.stringify({
-        "branchId": userDataParam?.branchId,
-        "companyId": userDataParam?.companyId,
-        "directorId": "",
-        "employeId": userDataParam?._id,
-        "isPagination": false,
-        "sort": true,
-        "status": "Active",
-        "text": ""
+        branchId: userDataParam?.branchId,
+        companyId: userDataParam?.companyId,
+        directorId: '',
+        employeId: userDataParam?._id,
+        isPagination: false,
+        sort: true,
+        status: 'Active',
+        text: '',
       });
 
       const requestOptions = {
         method: 'POST',
         headers: myHeaders,
         body: raw,
-        redirect: 'follow'
+        redirect: 'follow',
       };
-// console.log("actual raw data:", raw);
+
       const response = await fetch(`${BASE_URL}/admin/employe/payroll/list`, requestOptions);
       const result = await response.json();
 
       if (result.statusCode === 200) {
-        // console.log(" fetch Actual Payroll data:", result);
         setActualData(result.data.docs || []);
+        setActualVisibleCount(PAGE_SIZE);
+      } else if (isUnauthorized(result)) {
+        await handleEmployeUnauthorized(navigation, logout);
+        setActualData([]);
       } else {
-        showToast(result.message || "Failed to fetch Actual Payroll data");
-        // setLoading(false);
+        showToast(result.message || 'Failed to fetch Actual Payroll data');
         setActualData([]);
       }
     } catch (error) {
-      console.log("Error fetching Actual Payroll data:", error);
+      console.log('Error fetching Actual Payroll data:', error);
       setActualData([]);
     } finally {
       setLoading(false);
     }
-  }
+  };
+
+  const isStandard = activeTab === 'StandardPayroll';
+  const sourceData = isStandard ? standardData : actualData;
+  const currentVisibleCount = isStandard ? standardVisibleCount : actualVisibleCount;
+  const visibleData = sourceData.slice(0, currentVisibleCount);
+  const hasMoreData = currentVisibleCount < sourceData.length;
+
+  const handleScroll = (event) => {
+    if (isLoadingMore || !hasMoreData) return;
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 120;
+    const isNearBottom =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+
+    if (isNearBottom) {
+      setIsLoadingMore(true);
+      setTimeout(() => {
+        if (isStandard) {
+          setStandardVisibleCount((prev) => Math.min(prev + PAGE_SIZE, standardData.length));
+        } else {
+          setActualVisibleCount((prev) => Math.min(prev + PAGE_SIZE, actualData.length));
+        }
+        setIsLoadingMore(false);
+      }, 400);
+    }
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#6a8ff3' }}>
-       <StatusBar backgroundColor={'#6a8ff3'} barStyle='light-content' />
-        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', paddingHorizontal:20 }}>
-           <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
-              <AntDesign name="arrowleft" size={24} color="#fff" />
-           </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', flex: 1, }}>Payroll Management</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: PRIMARY }}>
+      <StatusBar backgroundColor={PRIMARY} barStyle="light-content" />
+
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <AntDesign name="arrowleft" size={22} color="#fff" />
+        </TouchableOpacity>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={styles.topTitle}>Payroll Management</Text>
+          <Text style={styles.topSubtitle}>Review your salary & payslips</Text>
         </View>
-        <View style={{ flex:1, backgroundColor:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, }} >
-            {/* <View style={{ padding: 20, borderBottomWidth: 0.5, borderBottomColor: '#E0E0E0', }} >
-              <EmployeHeader navigation={navigation} />
-            </View> */}
-            <View style={{ flexDirection:'row', width:'100%', padding:20, paddingHorizontal:10, }} >
-                <TouchableOpacity onPress={() => { setActiveTab('StandardPayroll'); setPage(0); }} style={{ backgroundColor:activeTab == 'StandardPayroll' ? '#6a8ff3' : '#fff', justifyContent:'center', alignItems:'center', paddingVertical:10, paddingHorizontal:20, borderTopStartRadius:6, borderBottomStartRadius:6, borderWidth:.5, borderColor:'#e0e0e0' }} >
-                    <Text style={{ color:activeTab == 'StandardPayroll' ? '#FFF' : '#6a8ff3', fontSize:16, fontFamily:"Lato-Medium" }} >Standard Payroll</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { setActiveTab('ActualPayroll'); setPage(0); }} style={{ backgroundColor:activeTab == 'ActualPayroll' ? '#6a8ff3' : '#fff', justifyContent:'center', alignItems:'center', paddingVertical:10, paddingHorizontal:20, borderTopEndRadius:6, borderBottomEndRadius:6, borderWidth:.5, borderColor:'#e0e0e0' }} >
-                    <Text style={{ color:activeTab == 'ActualPayroll' ? '#FFF' : '#6a8ff3', fontSize:16, fontFamily:"Lato-Medium" }} >Actual Payroll</Text>
-                </TouchableOpacity>
+        <View style={styles.headerBadge}>
+          <FontAwesome name="rupee" size={16} color="#fff" />
+        </View>
+      </View>
+
+      <View style={styles.sheet}>
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setActiveTab('StandardPayroll')}
+            style={[styles.tabBtn, isStandard && styles.tabBtnActive]}
+          >
+            <Feather name="file-text" size={14} color={isStandard ? '#fff' : PRIMARY_DARK} />
+            <Text style={[styles.tabBtnText, isStandard && styles.tabBtnTextActive]}>
+              Standard
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setActiveTab('ActualPayroll')}
+            style={[styles.tabBtn, !isStandard && styles.tabBtnActive]}
+          >
+            <Feather name="credit-card" size={14} color={!isStandard ? '#fff' : PRIMARY_DARK} />
+            <Text style={[styles.tabBtnText, !isStandard && styles.tabBtnTextActive]}>
+              Actual
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionHead}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionTitle}>
+              {isStandard ? 'Standard Payroll' : 'Actual Payroll'}
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              {loading
+                ? 'Loading…'
+                : `${sourceData.length} record${sourceData.length === 1 ? '' : 's'}`}
+            </Text>
+          </View>
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+          {loading ? (
+            <View style={{ paddingVertical: 60, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={PRIMARY} />
+              <Text style={styles.loadingText}>Loading your payroll…</Text>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flex:1, padding:10 }} >
-                {
-                    activeTab == 'StandardPayroll' ?
-                    (<StandardTab data={currentStandardData} headers={headersStandard} page={page} setPage={setPage} totalPages={totalPagesStandard} rowsPerPage={rowsPerPage} loading={loading} />)
-                    :
-                    (<ActualTab data={currentActualData} navigation={navigation} headers={headersActual} page={page} setPage={setPage} totalPages={totalPagesActual} rowsPerPage={rowsPerPage} loading={loading} />)
-                }
-            </ScrollView>
-          {/* <View style={{ width:'100%', height:60, backgroundColor:'#fff', justifyContent:'center', alignItems:'center', padding:20 }} >
-            <TouchableOpacity style={{ width:'100%', height:45, backgroundColor:'#6a8ff3', borderRadius:6, justifyContent:'center', alignItems:'center', }} >
-                <Text style={{ color:'#FFF', fontSize:16, fontFamily:"Lato-SemiBold" }} >Payroll</Text>
-            </TouchableOpacity>
-          </View> */}
-        </View>
-    </SafeAreaView>
-  )
-}
-
-const StandardTab = ({data, headers, page, setPage, totalPages, rowsPerPage, loading}) => {
-  const rpp = rowsPerPage || 10;
-  return (
-    <View>
-        {
-          loading ? (<ActivityIndicator size="large" color="#0000ff" />) : data.length === 0 ? (
-            <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
-               <View style={{ width:100, height:100 }} >
+          ) : visibleData.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyImageWrap}>
                 <Image
                   source={require('../../../assets/Images/notFound.png')}
-                  style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+                  style={styles.emptyImage}
                 />
               </View>
-              <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
-              <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
+              <Text style={styles.emptyTitle}>No Records</Text>
+              <Text style={styles.emptySubtitle}>
+                {isStandard
+                  ? 'No standard payroll data has been assigned yet'
+                  : 'No actual payroll records found'}
+              </Text>
             </View>
           ) : (
-            <View style={styles.container}>
-             <ScrollView horizontal style={{ marginBottom: 10 }}>
-                 <View>
-                   <View style={styles.row}>
-                     {headers.map((header, index) => (
-                       <Text key={index} style={[styles.cell, styles.headerCell]}>
-                         {header}
-                       </Text>
-                     ))}
-                   </View>
-                     <FlatList
-                       data={data}
-                       keyExtractor={(item, index) => `${page}-${index}`}
-                       renderItem={({ item, index }) => (
-                         <View key={`${page}-${index}`}
-                           style={[
-                             styles.row,
-                             index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                           ]}
-                         >
-                          <Text style={styles.cell}>{page * rpp + index + 1}</Text>
-                           <Text style={styles.cell}>{item.employeName}</Text>
-                           <Text style={styles.cell}>{item.createdBy}</Text>
-                           <Text style={styles.cell}>{item.baseSalary === null ? '0' : item.baseSalary}.00 ₹</Text>
-                           <Text style={styles.cell}>{item.ctc === null ? '0' : item.ctc}.00 ₹</Text>
-                           <Text style={styles.cell}>{item.status}</Text>
-                         </View>
-                       )}
-                     />
-                 </View>
-             </ScrollView>
-            
-             <View style={styles.pagination}>
-               <TouchableOpacity
-                 onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-                 style={[styles.pageButton, page === 0 && styles.disabledButton]}
-               >
-                 <Text style={styles.pageText}>Previous</Text>
-               </TouchableOpacity>
-           
-               <Text style={{ marginHorizontal: 10 }}>
-                 Page {page + 1} of {totalPages}
-               </Text>
-           
-               <TouchableOpacity
-                 onPress={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
-                 style={[styles.pageButton, page === totalPages - 1 && styles.disabledButton]}
-               >
-                 <Text style={styles.pageText}>Next</Text>
-               </TouchableOpacity>
-             </View>
+            <View style={{ gap: 12 }}>
+              {isStandard
+                ? visibleData.map((item, index) => (
+                    <StandardCard key={item._id?.toString() || `s-${index}`} item={item} />
+                  ))
+                : visibleData.map((item, index) => (
+                    <ActualCard
+                      key={item._id?.toString() || `a-${index}`}
+                      item={item}
+                      navigation={navigation}
+                    />
+                  ))}
+
+              {isLoadingMore && (
+                <View style={styles.loadMoreRow}>
+                  <ActivityIndicator size="small" color={PRIMARY} />
+                  <Text style={styles.loadMoreText}>Loading more…</Text>
+                </View>
+              )}
+
+              {!isLoadingMore && !hasMoreData && sourceData.length > PAGE_SIZE && (
+                <View style={styles.endOfListRow}>
+                  <View style={styles.endOfListDivider} />
+                  <Text style={styles.endOfListText}>You're all caught up</Text>
+                  <View style={styles.endOfListDivider} />
+                </View>
+              )}
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function StandardCard({ item }) {
+  const color = statusColor(item.status);
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <View style={styles.cardHeadLeft}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initialsOf(item.employeName)}</Text>
           </View>
-          )
-        }
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.nameText} numberOfLines={1}>
+              {item.employeName || '—'}
+            </Text>
+            <Text style={styles.subText} numberOfLines={1}>
+              Created by {item.createdBy || '—'}
+            </Text>
+          </View>
+        </View>
+        {!!item.status && (
+          <View style={[styles.statusBadge, { backgroundColor: `${color}18` }]}>
+            <View style={[styles.statusDot, { backgroundColor: color }]} />
+            <Text style={[styles.statusText, { color }]}>{item.status}</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.pairGrid}>
+        <View style={styles.pairBox}>
+          <View style={styles.pairIconWrap}>
+            <Feather name="briefcase" size={14} color={PRIMARY_DARK} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.pairLabel}>BASE SALARY</Text>
+            <Text style={styles.pairValue}>{formatINR(item.baseSalary)}</Text>
+          </View>
+        </View>
+        <View style={[styles.pairBox, styles.pairBoxAccent]}>
+          <View style={[styles.pairIconWrap, { backgroundColor: '#fff' }]}>
+            <Feather name="trending-up" size={14} color={PRIMARY_DARK} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={[styles.pairLabel, { color: 'rgba(255,255,255,0.8)' }]}>CTC</Text>
+            <Text style={[styles.pairValue, { color: '#fff' }]}>{formatINR(item.ctc)}</Text>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
 
-const ActualTab = ({data, headers, page, setPage, totalPages, rowsPerPage, navigation, loading}) => {
-  const rpp = rowsPerPage || 10;
+function ActualCard({ item, navigation }) {
+  const color = statusColor(item.status);
+  const fullName = item.employeData?.fullName || '—';
   return (
-    <View>
-       {
-        loading ? (<ActivityIndicator size="large" color="#0000ff" />) : data.length === 0 ? (
-          <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
-               <View style={{ width:100, height:100 }} >
-                <Image
-                  source={require('../../../assets/Images/notFound.png')}
-                  style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
-                />
-              </View>
-              <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
-              <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
-            </View>
-        ) : (
-          <View style={styles.container}>
-             <ScrollView horizontal style={{ marginBottom: 10 }}>
-                 <View>
-                   <View style={styles.row}>
-                     {headers.map((header, index) => (
-                       <Text key={index} style={[styles.cell, styles.headerCell]}>
-                         {header}
-                       </Text>
-                     ))}
-                   </View>
-                    <FlatList
-                      data={data}
-                      keyExtractor={(item, index) => `${page}-${index}`}
-                      renderItem={({ item, index }) => (
-                        <View key={`${page}-${index}`}
-                          style={[
-                            styles.row,
-                            index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                          ]}
-                        >
-                         <Text style={styles.cell}>{page * rpp + index + 1}</Text>
-                          <Text style={styles.cell}>{item.employeData.fullName}</Text>
-                          <Text style={styles.cell}>{moment(item.startDate).format('DD-MM-YYYY')}</Text>
-                          <Text style={styles.cell}>{moment(item.endDate).format('DD-MM-YYYY')}</Text>
-                          <Text style={styles.cell}>{item.basicSalary === null ? '0' : item.basicSalary}.00 ₹</Text>
-                          <Text style={styles.cell}>{item.grossSalary === null ? '0' : item.grossSalary}.00 ₹</Text>
-                          <Text style={styles.cell}>{item.netSalary === null ? '0' : item.netSalary}.00 ₹</Text>
-                          <Text style={styles.cell}>{item.status}</Text>
-                          <Text style={styles.cell}>
-                          <FontAwesome onPress={() => navigation.navigate('EmployePaySlip', {item})} style={{marginRight: 10,}} icon={(item)} name="eye" size={24} color={'#6a8ff3'} />
-                          </Text>
-                        </View>
-                      )}
-                    />
-                 </View>
-             </ScrollView>
-            
-             <View style={styles.pagination}>
-               <TouchableOpacity
-                 onPress={() => setPage((prev) => Math.max(prev - 1, 0))}
-                 style={[styles.pageButton, page === 0 && styles.disabledButton]}
-               >
-                 <Text style={styles.pageText}>Previous</Text>
-               </TouchableOpacity>
-           
-               <Text style={{ marginHorizontal: 10 }}>
-                 Page {page + 1} of {totalPages}
-               </Text>
-           
-               <TouchableOpacity
-                 onPress={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
-                 style={[styles.pageButton, page === totalPages - 1 && styles.disabledButton]}
-               >
-                 <Text style={styles.pageText}>Next</Text>
-               </TouchableOpacity>
-             </View>
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <View style={styles.cardHeadLeft}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initialsOf(fullName)}</Text>
           </View>
-        )
-       }   
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.nameText} numberOfLines={1}>
+              {fullName}
+            </Text>
+            <View style={styles.dateRow}>
+              <Feather name="calendar" size={11} color={TEXT_MUTED} />
+              <Text style={styles.dateRowText}>
+                {moment(item.startDate).format('DD MMM')} — {moment(item.endDate).format('DD MMM YYYY')}
+              </Text>
+            </View>
+          </View>
+        </View>
+        {!!item.status && (
+          <View style={[styles.statusBadge, { backgroundColor: `${color}18` }]}>
+            <View style={[styles.statusDot, { backgroundColor: color }]} />
+            <Text style={[styles.statusText, { color }]}>{item.status}</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.triGrid}>
+        <View style={styles.triBox}>
+          <Text style={styles.triLabel}>BASIC</Text>
+          <Text style={styles.triValue}>{formatINR(item.basicSalary)}</Text>
+        </View>
+        <View style={[styles.triBox, styles.triBoxMiddle]}>
+          <Text style={styles.triLabel}>GROSS</Text>
+          <Text style={styles.triValue}>{formatINR(item.grossSalary)}</Text>
+        </View>
+        <View style={styles.triBox}>
+          <Text style={styles.triLabel}>NET</Text>
+          <Text style={[styles.triValue, { color: SUCCESS }]}>{formatINR(item.netSalary)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFoot}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('EmployePaySlip', { item })}
+          style={styles.slipBtn}
+        >
+          <FontAwesome name="file-text-o" size={12} color="#fff" />
+          <Text style={styles.slipBtnText}>View Payslip</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  modalView: {
-    backgroundColor: 'white',
-    borderTopStartRadius: 20,
-    borderTopEndRadius: 20,
-    padding: 10,
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 5, 
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  header: {
+  backBtn: {
+    width: 42,
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  topTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Lato-SemiBold',
+    letterSpacing: 0.3,
+  },
+  topSubtitle: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 11,
+    fontFamily: 'Lato-Medium',
+    marginTop: 2,
+  },
+  headerBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheet: {
+    flex: 1,
+    backgroundColor: BG,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingTop: 16,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: BORDER,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tabBtnActive: {
+    backgroundColor: PRIMARY,
+    shadowColor: PRIMARY,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  tabBtnText: {
+    color: PRIMARY_DARK,
+    fontSize: 13,
+    fontFamily: 'Lato-SemiBold',
+    letterSpacing: 0.2,
+  },
+  tabBtnTextActive: {
+    color: '#fff',
+  },
+  sectionHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  headerText: {
-    fontSize: 14,
-    color: '#333',
-    fontFamily: 'Lato-SemiBold',
-  },
-  applyButton: {
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  applyButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  employeeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    marginRight: 10,
-    borderWidth: 0.5,
-    borderColor: '#E0E0E0',
-    borderRadius: 10,
-    padding: 8,
-  },
-  avatarContainer: {
-    height: 42,
-    width: 42,
-    borderRadius: 21,
-    backgroundColor: '#E8F1FD',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontWeight: '700',
-    color: '#4A90E2',
-  },
-  employeeInfo: {
-    flex: 1,
-  },
-  employeeName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#222',
-  },
-  employeeRole: {
-    fontSize: 13,
-    color: '#888',
-  },
-  leaveDate: {
-    fontSize: 12,
-    color: '#4A90E2',
-    fontWeight: '600',
-  },
-  noEmployeesText: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: '#888',
-    marginTop: 0,
-    fontFamily: 'Lato-Medium',
-  },
-  container: {
-    padding: 0,
-    // height:520,
-    backgroundColor: '#f2f2f2',
-    borderRadius: 10,
-    marginBottom: 20,
-    marginTop:0,
-  },
-  row: {
-    flexDirection: 'row',
-    minHeight: 40,
-    alignItems: 'center',
-  },
-  cell: {
-    width: 140, // Adjust width as needed
-    paddingHorizontal: 5,
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  headerCell: {
-    fontWeight: 'bold',
-    backgroundColor: '#6a8ff3',
-    color: '#fff',
-    paddingVertical: 8,
-    margin: 0,
-  },
-  evenRow: {
-    backgroundColor: '#fff',
-  },
-  oddRow: {
-    backgroundColor: '#e9e9e9',
-  },
-  pagination: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 18,
     marginBottom: 10,
   },
-  pageButton: {
+  sectionTitle: {
+    fontSize: 15,
+    fontFamily: 'Lato-SemiBold',
+    color: TEXT_DARK,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    fontFamily: 'Lato-Medium',
+    color: TEXT_MUTED,
+    marginTop: 2,
+  },
+  loadingText: {
+    color: TEXT_MUTED,
+    fontSize: 12,
+    fontFamily: 'Lato-Medium',
+    marginTop: 10,
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyImageWrap: {
+    width: 110,
+    height: 110,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontFamily: 'Lato-SemiBold',
+    color: TEXT_DARK,
+    marginTop: 6,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    fontFamily: 'Lato-Medium',
+    color: TEXT_MUTED,
+    marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 30,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    // shadowColor: TEXT_DARK,
+    // shadowOpacity: 0.04,
+    // shadowOffset: { width: 0, height: 3 },
+    // shadowRadius: 8,
+    // elevation: 1,
+  },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  cardHeadLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: 8,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: PRIMARY_TINT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dbe1f5',
+  },
+  avatarText: {
+    fontSize: 13,
+    fontFamily: 'Lato-SemiBold',
+    color: PRIMARY_DARK,
+  },
+  nameText: {
+    fontSize: 13,
+    fontFamily: 'Lato-SemiBold',
+    color: TEXT_DARK,
+    textTransform: 'capitalize',
+  },
+  subText: {
+    fontSize: 11,
+    fontFamily: 'Lato-Medium',
+    color: TEXT_MUTED,
+    marginTop: 2,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  dateRowText: {
+    fontSize: 11,
+    fontFamily: 'Lato-Medium',
+    color: TEXT_MUTED,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 11,
+    fontFamily: 'Lato-SemiBold',
+    textTransform: 'capitalize',
+  },
+
+  /* Standard card salary pair */
+  pairGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  pairBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fafbff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
     padding: 10,
-    backgroundColor: '#6a8ff3',
-    borderRadius: 6,
   },
-  disabledButton: {
-    backgroundColor: '#ccc',
+  pairBoxAccent: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+    // shadowColor: PRIMARY,
+    // shadowOpacity: 0.25,
+    // shadowOffset: { width: 0, height: 3 },
+    // shadowRadius: 6,
+    // elevation: 2,
   },
-  pageText: {
+  pairIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: PRIMARY_TINT,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pairLabel: {
+    fontSize: 9,
+    fontFamily: 'Lato-SemiBold',
+    color: TEXT_MUTED,
+    letterSpacing: 0.5,
+  },
+  pairValue: {
+    fontSize: 14,
+    fontFamily: 'Lato-SemiBold',
+    color: TEXT_DARK,
+    marginTop: 2,
+  },
+
+  /* Actual card salary triplet */
+  triGrid: {
+    flexDirection: 'row',
+    backgroundColor: '#fafbff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 6,
+  },
+  triBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  triBoxMiddle: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: BORDER,
+  },
+  triLabel: {
+    fontSize: 9,
+    fontFamily: 'Lato-SemiBold',
+    color: TEXT_MUTED,
+    letterSpacing: 0.5,
+  },
+  triValue: {
+    fontSize: 13,
+    fontFamily: 'Lato-SemiBold',
+    color: TEXT_DARK,
+    marginTop: 4,
+  },
+  cardFoot: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f4fb',
+  },
+  slipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: PRIMARY,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+    // shadowColor: PRIMARY,
+    // shadowOpacity: 0.3,
+    // shadowOffset: { width: 0, height: 3 },
+    // shadowRadius: 6,
+    // elevation: 2,
+  },
+  slipBtnText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontFamily: 'Lato-SemiBold',
+    letterSpacing: 0.3,
+  },
+
+  /* Infinite scroll footer */
+  loadMoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 18,
+  },
+  loadMoreText: {
+    color: PRIMARY_DARK,
+    fontSize: 12,
+    fontFamily: 'Lato-SemiBold',
+    letterSpacing: 0.3,
+  },
+  endOfListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 10,
+  },
+  endOfListDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: BORDER,
+  },
+  endOfListText: {
+    color: '#9aa0b4',
+    fontSize: 11,
+    fontFamily: 'Lato-Medium',
+    letterSpacing: 0.4,
   },
 });
-
-

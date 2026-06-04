@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, TextInput, Image, Alert, Animated, SafeAreaView, LayoutAnimation, UIManager, Platform, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Image, Alert, Animated, ScrollView, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import moment from "moment";
-
-import { AntDesign, Feather } from "@expo/vector-icons";
+import { AntDesign, Feather, MaterialIcons, Ionicons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 
 export default function PersonalDetail({ navigation }) {
-
   const dispatch = useDispatch();
   const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
-
-const [slideAnim] = useState(new Animated.Value(30)); 
+  const [slideAnim] = useState(new Animated.Value(30));
 
   useEffect(() => {
     Animated.timing(slideAnim, {
@@ -27,23 +25,23 @@ const [slideAnim] = useState(new Animated.Value(30));
   useEffect(() => {
     const checkTokenAndFetchData = async () => {
       try {
-        const token = await AsyncStorage.getItem('token'); 
+        const token = await AsyncStorage.getItem('token');
         if (!token) {
           Alert.alert(
-          "Error",
-          "Session expired. Please log in again.",
-          [
-            {
-              text: "OK",
-              onPress: async () => {
-                dispatch(logout());
-                await AsyncStorage.clear();
-                navigation.replace("Autologin");
+            "Error",
+            "Session expired. Please log in again.",
+            [
+              {
+                text: "OK",
+                onPress: async () => {
+                  dispatch(logout());
+                  await AsyncStorage.clear();
+                  navigation.replace("Autologin");
+                }
               }
-            }
-          ],
-      { cancelable: false }
-    );
+            ],
+            { cancelable: false }
+          );
         } else {
           dispatch(personalInfo());
         }
@@ -55,126 +53,250 @@ const [slideAnim] = useState(new Animated.Value(30));
     checkTokenAndFetchData();
   }, [dispatch]);
 
-  // console.log("personalInfoData---", JSON.stringify(personalInfoData, null, 2))
   const { city, country, pinCode, state, street } = personalInfoData?.addresses?.primary || {};
   const fullAddress = `${street || "Street not available"}, ${city || "City not available"}, ${state || "State not available"} ${pinCode || "PinCode not available"}, ${country || "Country not available"}`;
 
+  // Helper component for detail rows
+  const DetailRow = ({ icon: Icon, iconName, label, value, iconType = Feather }) => (
+    <View style={{ marginBottom: 16 }}>
+      <Text style={{ 
+        fontSize: 11, 
+        fontFamily: 'Lato-SemiBold', 
+        color: '#6B7280', 
+        marginBottom: 6,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase'
+      }}>
+        {label}
+      </Text>
+      <View style={{ 
+        flexDirection: 'row', 
+        alignItems: 'center',
+        backgroundColor: '#F9FAFB',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB'
+      }}>
+        <Icon name={iconName} size={18} color="#9CA3AF" style={{ marginRight: 10 }} />
+        <Text style={{ 
+          color: '#374151', 
+          fontSize: 14, 
+          fontFamily: 'Lato-Medium',
+          flex: 1
+        }}>
+          {value || "Not provided"}
+        </Text>
+      </View>
+    </View>
+  );
+
+  const InfoCard = ({ title, children }) => (
+    <View style={{ 
+      backgroundColor: '#FFFFFF',
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 20,
+      // shadowColor: '#000',
+      // shadowOffset: { width: 0, height: 2 },
+      // shadowOpacity: 0.05,
+      // shadowRadius: 8,
+      // elevation: 2,
+    }}>
+      <Text style={{ 
+        fontSize: 16, 
+        fontWeight: '600', 
+        color: Style.headerBgColor,
+        marginBottom: 16,
+        fontFamily: 'Lato-Bold'
+      }}>
+        {title}
+      </Text>
+      {children}
+    </View>
+  );
+
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-      <View style={{ paddingHorizontal:20, }}>
-        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start',}}>
-             <AntDesign name="arrowleft" size={24} color="#fff" />
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+      {/* Header Section */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()} 
+            style={{ 
+              width: 44, 
+              height: 44, 
+              justifyContent: 'center', 
+              alignItems: 'center',
+              borderRadius: 22,
+              backgroundColor: 'rgba(255,255,255,0.15)'
+            }}
+          >
+            <AntDesign name="arrowleft" size={22} color="#fff" />
           </TouchableOpacity>
-          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '500', flex: 1, }}>Personal Details</Text>
+          <Text style={{ 
+            color: '#fff', 
+            fontSize: 18, 
+            fontWeight: '600', 
+            flex: 1, 
+            textAlign: 'center',
+            fontFamily: 'Lato-Bold'
+          }}>
+            Personal Details
+          </Text>
+          <View style={{ width: 44 }} />
         </View>
       </View>
-      <Animated.View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20, transform: [{ translateY: slideAnim }] }} >
-        {
-          isLoading ? (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-              <ActivityIndicator size="large" color={Style.headerBgColor} />
+
+      {/* Content Section */}
+      <Animated.View style={{ 
+        flex: 1, 
+        backgroundColor: Style.primaryBgColor || '#F3F4F6',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        transform: [{ translateY: slideAnim }]
+      }}>
+        {isLoading ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <ActivityIndicator size="large" color={Style.headerBgColor} />
+            <Text style={{ marginTop: 12, color: '#6B7280', fontSize: 14 }}>Loading details...</Text>
+          </View>
+        ) : (
+          <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: 30 }}
+          >
+            {/* Profile Header Card */}
+            <View style={{ 
+              backgroundColor: '#FFFFFF',
+              borderRadius: 20,
+              padding: 20,
+              marginBottom: 20,
+              alignItems: 'center',
+              // shadowColor: '#000',
+              // shadowOffset: { width: 0, height: 2 },
+              // shadowOpacity: 0.08,
+              // shadowRadius: 12,
+              // elevation: 3,
+            }}>
+              <View style={{ 
+                width: 100, 
+                height: 100, 
+                borderRadius: 50, 
+                borderWidth: 3, 
+                borderColor: Style.headerBgColor,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 12,
+                overflow: 'hidden'
+              }}>
+                <Image 
+                  source={personalInfoData?.profileImage ? { uri: personalInfoData.profileImage } : require('../../../assets/userIcon.jpeg')} 
+                  resizeMode="cover" 
+                  style={{ width: 94, height: 94 }} 
+                />
+              </View>
+              <Text style={{ 
+                fontSize: 20, 
+                color: Style.headerBgColor, 
+                fontFamily: 'Lato-Bold',
+                marginBottom: 4
+              }}>
+                {personalInfoData?.fullName || "Unknown"}
+              </Text>
+              <Text style={{ 
+                color: '#6B7280', 
+                fontSize: 14, 
+                fontFamily: 'Lato-Medium' 
+              }}>
+                Code: {personalInfoData?.userName || "username"}
+                {/* @code: {personalInfoData?.userName || "username"} */}
+              </Text>
             </View>
-          ):
-          (
-            <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
-             <Text style={{ fontSize:14, fontWeight:'600', color:Style.headerBgColor, padding:10 }}>Personal Details</Text>
-               <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2 }} >
-                <View>
-                  <View style={{ width:'100%', height:80, flexDirection:'row', alignItems:'center', gap:20, marginVertical:10 }} >
-                    <View style={{ width:80, height:80, borderRadius:100, borderWidth:2, borderColor:Style.headerBgColor, justifyContent:'center', alignItems:'center' }} >
-                      <Image source={ personalInfoData?.profileImage ? { uri: personalInfoData.profileImage } : require('../../../assets/userIcon.jpeg') } resizeMode="cover" style={{ width:75, height:75, borderRadius:100 }} />
-                    </View>
-                    <View style={{ flex:1, justifyContent:'center', alignItems:'flex-start' }} >
-                      <Text style={{ fontSize:16, color:Style.headerBgColor, fontFamily:'Lato-SemiBold' }} >{personalInfoData?.fullName || "Unknown"}</Text>
-                      <Text style={{ color:Style.placeHolderTextColor, fontSize:14, fontFamily:'Lato-Medium' }} >{personalInfoData?.userName || "No username available"}</Text>
-                    </View>
-                  </View>
+
+            {/* Personal Details Section */}
+            <InfoCard title="Personal Information">
+              <DetailRow 
+                icon={Feather} 
+                iconName="phone" 
+                label="Phone Number" 
+                value={`${personalInfoData?.mobile?.code || ""} ${personalInfoData?.mobile?.number || "No number available"}`}
+              />
+              <DetailRow 
+                icon={Feather} 
+                iconName="mail" 
+                label="Email Address" 
+                value={personalInfoData?.email || "No email available"}
+              />
+              <DetailRow 
+                icon={Feather} 
+                iconName="map-pin" 
+                label="Address" 
+                value={fullAddress}
+              />
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <DetailRow 
+                    icon={Feather} 
+                    iconName="calendar" 
+                    label="Joining Date" 
+                    value={moment(personalInfoData?.clientProfile?.dateOfJoining).format('DD MMM YYYY') || "Not available"}
+                  />
                 </View>
-               <View>
-                 <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Phone No.</Text>
-                  <View style={{ flexDirection:'row', gap:10, marginBottom:10 }} >
-                    <View style={{ flex:1.5, height:40, backgroundColor:Style.inputBgColor, borderRadius:5, justifyContent:'center', alignItems:'center', elevation:4}} >
-                      <Text style={{ color:Style.placeHolderTextColor, fontWeight:'500', fontSize:14 }}>{personalInfoData?.mobile?.code || "-"}</Text>
-                    </View>
-                    <View style={{ flex:8, height:40, backgroundColor:Style.inputBgColor, borderRadius:5, justifyContent:'center', alignItems:'flex-start', paddingLeft:10, elevation:4 }} >
-                     <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.mobile?.number || "No number available"}</Text>
-                    </View>
-                  </View>
+                <View style={{ flex: 1 }}>
+                  <DetailRow 
+                    icon={Feather} 
+                    iconName="calendar" 
+                    label="Date of Birth" 
+                    value={moment(personalInfoData?.generalInfo?.dateOfBirth).format('DD MMM YYYY') || "Not available"}
+                  />
                 </View>
-                 <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>E-mail ID</Text>
-                   <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                    <Text style={{ color:Style.placeHolderTextColor }} >{personalInfoData?.email || "No email available"}</Text>
-                   </View>
-                 </View>
-                 <View>
-                  <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Address</Text>
-                   <View style={{ width:'100%', justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4, }}>
-                    <Text style={{ color:Style.placeHolderTextColor, padding:8 }} >{fullAddress}</Text>
-                   </View>
-                 </View>
-                <View style={{ flexDirection:'row', gap:20 }} >
-                <View style={{ flex:1 }}>
-                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Joining Date</Text>
-                   <View style={{ width:'100%', height:40,  borderRadius:5, flexDirection:'row', backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, justifyContent:"center", alignItems:'center', elevation:4}}>
-                       <View style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
-                           <Feather name="calendar" size={20} color={Style.placeHolderTextColor} />
-                       </View>
-                      <View style={{ flex:9, borderRadius:5, padding:5 }} >
-                       <Text style={{ color:Style.placeHolderTextColor, fontWeight:'500', fontSize:12 }}>{moment(personalInfoData?.clientProfile?.dateOfJoining).format('DD/MM/YYYY') || "No DOJ available"}</Text>
-                      </View>
-                   </View>
-                 </View>
-                <View style={{ flex:1 }}>
-                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>DOB</Text>
-                   <View style={{ width:'100%', height:40,  borderRadius:5, flexDirection:'row', backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, justifyContent:"center", alignItems:'center', elevation:4}}>
-                       <View style={{ flex:1.5, height:50, alignItems:'center', justifyContent:'center',}}>
-                           <Feather name="calendar" size={20} color={Style.placeHolderTextColor} />
-                        </View>
-                      <View style={{ flex:9, borderRadius:5, padding:5 }} >
-                        <Text style={{ color:Style.placeHolderTextColor, fontWeight:'500', fontSize:12 }}>{moment(personalInfoData?.generalInfo?.dateOfBirth).format('DD/MM/YYYY') || "No DOB available"}</Text>
-                      </View>
-                   </View>
-                 </View>
-                </View>
-               </View>
-               <Text style={{ fontSize:14, fontWeight:'600', color:Style.headerBgColor, padding:10 }}>Secondary Detail</Text>
-               <View style={{ width:'100%', marginBottom:10, backgroundColor:Style.basicbgColor, padding:10, borderRadius:10, elevation:2 }} >
-                 <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Organization Type</Text>
-                   <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                     <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.organizationName || "No organization available"}</Text>
-                   </View>
-                 </View>
-                 <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>industry Type</Text>
-                   <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                    <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.industryName || "No organization available"}</Text>
-                   </View>
-                 </View>
-                 <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>GST Number</Text>
-                   <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                    <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.clientProfile?.GSTNumber || "No GST Number available"}</Text>
-                   </View>
-                 </View>
-                 <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>PAN Card Number</Text>
-                   <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                    <Text style={{ color:Style.placeHolderTextColor }}>{personalInfoData?.clientProfile?.penNumber || "No PEN Number available"}</Text>
-                   </View>
-                 </View>
-                 <View>
-                   <Text style={{ fontSize:12, fontFamily: 'Lato-SemiBold', color:Style.secondryTextColor, paddingBottom:5 }}>Aadhar Card</Text>
-                   <View style={{ width:'100%', height:40, justifyContent:'center', borderRadius:5, backgroundColor:Style.inputBgColor, elevation:1, marginBottom:10, padding:5, elevation:4 }}>
-                    <Text style={{ color:Style.placeHolderTextColor }} >{personalInfoData?.clientProfile?.adharNumber || "No Aadhar no available"}</Text>
-                   </View>
-                 </View>
-               </View>
-            </ScrollView>
-          )
-        }
+              </View>
+            </InfoCard>
+
+            {/* Business Details Section */}
+            <InfoCard title="Business Information">
+              <DetailRow 
+                icon={MaterialIcons} 
+                iconName="business" 
+                label="Organization Type" 
+                value={personalInfoData?.organizationName || "Not provided"}
+              />
+              <DetailRow 
+                icon={MaterialIcons} 
+                iconName="factory" 
+                label="Industry Type" 
+                value={personalInfoData?.industryName || "Not provided"}
+              />
+            </InfoCard>
+
+            {/* Tax & ID Details Section */}
+            <InfoCard title="Tax & Identification">
+              <DetailRow 
+                icon={Ionicons} 
+                iconName="document-text" 
+                label="GST Number" 
+                value={personalInfoData?.clientProfile?.GSTNumber || "Not provided"}
+              />
+              <DetailRow 
+                icon={Ionicons} 
+                iconName="card" 
+                label="PAN Card Number" 
+                value={personalInfoData?.clientProfile?.penNumber || "Not provided"}
+              />
+              <DetailRow 
+                icon={Ionicons} 
+                iconName="id-card" 
+                label="Aadhar Card Number" 
+                value={personalInfoData?.clientProfile?.adharNumber || "Not provided"}
+              />
+            </InfoCard>
+          </ScrollView>
+        )}
       </Animated.View>
     </SafeAreaView>
   );

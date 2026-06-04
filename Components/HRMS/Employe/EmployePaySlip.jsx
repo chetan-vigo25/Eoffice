@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { StyleSheet, View, Text, StatusBar, Button, ScrollView, Modal, FlatList, Platform, TextInput, Alert, Image, Animated, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions } from "react-native";
 import SelectDropdown from 'react-native-select-dropdown';
 import { SelectList } from 'react-native-dropdown-select-list';
@@ -7,6 +7,8 @@ import moment from "moment";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import EmployeHeader from './EmployeComponent/EmployeHeader';
+import { UserContext } from '../../../Context/UserProvider';
+import { handleEmployeUnauthorized, isUnauthorized } from '../../../Context/EmployeeAutoLogin';
 import BASE_URL from '../../../Urls/DomainUrl';
 import { WebView } from 'react-native-webview';
 import * as Print from 'expo-print';
@@ -43,6 +45,7 @@ function showToast(message, onOk = null) {
 
 export default function EmployePaySlip({ navigation, route }) {
   const { item } = route.params || {};
+  const { logout } = useContext(UserContext);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [html, setHtml] = useState(null);
@@ -121,6 +124,9 @@ export default function EmployePaySlip({ navigation, route }) {
             </html>
           `;
           setHtml(wrappedHtml);
+          setLoading(false);
+        } else if (isUnauthorized(result)) {
+          await handleEmployeUnauthorized(navigation, logout);
           setLoading(false);
         } else {
           showToast(result.message || "Failed to fetch payslip");

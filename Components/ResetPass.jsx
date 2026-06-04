@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { SafeAreaView, ScrollView, View, Text, Image, Animated, Platform, TextInput, TouchableOpacity, ActivityIndicator, Alert, StatusBar, ToastAndroid } from "react-native";
+import { ScrollView, View, Text, Image, Animated, TextInput, TouchableOpacity, ActivityIndicator, Alert, StatusBar, ToastAndroid } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import Style from "../Style/Style";
@@ -7,11 +8,7 @@ import BASE_URL from "../Urls/DomainUrl";
 import Icon from 'react-native-vector-icons/FontAwesome5';
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function ResetPass({ navigation, route }) {

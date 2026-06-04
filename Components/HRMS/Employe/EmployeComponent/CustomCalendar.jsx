@@ -1,499 +1,386 @@
 
 import React, { useState, useEffect, useContext } from 'react';
-import { ScrollView, StyleSheet, FlatList, View, Text, Modal, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { StyleSheet, FlatList, View, Text, Modal, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useEmployeeDashboard } from '../../../../Context/EmployeeDashboardContext';
 import { UserContext } from '../../../../Context/UserProvider';
 import moment from 'moment';
-import { Entypo, FontAwesome } from '@expo/vector-icons';
+import { Entypo, Ionicons } from '@expo/vector-icons';
 
-// Locale
 LocaleConfig.locales['in'] = {
-  monthNames: [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December'
-  ],
-  monthNamesShort: [
-    'Jan','Feb','Mar','Apr','May','Jun',
-    'Jul','Aug','Sep','Oct','Nov','Dec'
-  ],
-  dayNames: [
-    'Sunday','Monday','Tuesday','Wednesday',
-    'Thursday','Friday','Saturday'
-  ],
+  monthNames: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  monthNamesShort: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  dayNames: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
   dayNamesShort: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
   today: 'Today'
 };
-
 LocaleConfig.defaultLocale = 'in';
+
+const EVENT_ACCENTS = ['#2196F3','#9C27B0','#00897B','#E91E63','#FF5722'];
+const EVENT_BG     = ['#E3F2FD','#F3E5F5','#E0F2F1','#FCE4EC','#FBE9E7'];
 
 const CustomCalendar = () => {
   const { dashboardData, loading, error, fetchDashboard } = useEmployeeDashboard();
   const { userData } = useContext(UserContext);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [dayEvents, setDayEvents] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [holidayModal, setHolidayModal] = useState(false);
-  const [eventsModal, setEventsModal] = useState(false);
-  
-  useEffect(() => {
-    if (!dashboardData && !loading && userData) {
-      fetchDashboard(userData);
-    }
-  }, [dashboardData, loading, userData, fetchDashboard]);
-  
-  const employeesEvents = dashboardData?.eventData || [];
-  const holidayData = dashboardData?.holidayData || [];
+  const [selectedDate, setSelectedDate]   = useState('');
+  const [dayEvents, setDayEvents]         = useState([]);
+  const [modalVisible, setModalVisible]   = useState(false);
+  const [holidayModal, setHolidayModal]   = useState(false);
+  const [eventsModal, setEventsModal]     = useState(false);
 
-  // ✅ DEFINE getMarkedDates
+  useEffect(() => {
+    if (!dashboardData && !loading && userData) fetchDashboard(userData);
+  }, [dashboardData, loading, userData, fetchDashboard]);
+
+  const employeesEvents = dashboardData?.eventData  || [];
+  const holidayData     = dashboardData?.holidayData || [];
+
+  console.log('Calendar data - Events:', employeesEvents);
+
   const getMarkedDates = () => {
     const marked = {};
-  
-    // Employee Events (Green)
+
     employeesEvents.forEach(event => {
       const start = moment.utc(event.startDate).startOf('day');
-      const end = moment.utc(event.endDate).startOf('day');
-  
-      for (let date = start.clone(); date.isSameOrBefore(end); date.add(1, 'day')) {
-        const formattedDate = date.format('YYYY-MM-DD');
-  
-        if (!marked[formattedDate]) {
-          marked[formattedDate] = { dots: [] };
-        }
-  
-        marked[formattedDate].dots.push({
-          key: `event-${event._id}`,
-          color: '#00adf5',
-        });
+      const end   = moment.utc(event.endDate).startOf('day');
+      for (let d = start.clone(); d.isSameOrBefore(end); d.add(1,'day')) {
+        const key = d.format('YYYY-MM-DD');
+        if (!marked[key]) marked[key] = { dots: [] };
+        marked[key].dots.push({ key: `event-${event._id}`, color: '#2196F3' });
       }
     });
-  
-    // Holidays (Red)
+
     holidayData.forEach(holiday => {
-      const formattedDate = moment.utc(holiday.date).local().format('YYYY-MM-DD');
-  
-      if (!marked[formattedDate]) {
-        marked[formattedDate] = { dots: [] };
-      }
-  
-      marked[formattedDate].dots.push({
-        key: `holiday-${holiday._id}`,
-        color: '#FF9800',
-      });
+      const key = moment.utc(holiday.date).local().format('YYYY-MM-DD');
+      if (!marked[key]) marked[key] = { dots: [] };
+      marked[key].dots.push({ key: `holiday-${holiday._id}`, color: '#FF9800' });
     });
-  
-    // Selected date highlight
+
     if (selectedDate) {
-      marked[selectedDate] = {
-        ...marked[selectedDate],
-        selected: true,
-        selectedColor: '#00adf5',
-      };
+      marked[selectedDate] = { ...marked[selectedDate], selected: true, selectedColor: '#4c72d9' };
     }
-  
-    // ✅ Highlight Sundays
+
     const startOfMonth = moment().startOf('month');
-    const endOfMonth = moment().endOf('month');
-  
-    for (
-      let date = startOfMonth.clone();
-      date.isSameOrBefore(endOfMonth);
-      date.add(1, 'day')
-    ) {
-      if (date.day() === 0) { // 0 = Sunday
-        const formattedDate = date.format('YYYY-MM-DD');
-        if (!marked[formattedDate]) {
-          marked[formattedDate] = {};
-        }
-        marked[formattedDate].customStyles = {
-          container: {
-            backgroundColor: '#FFE0E0', // light red for Sunday
-            borderRadius: 6,
-          },
-          text: {
-            color: '#D32F2F', // red text for Sunday
-            fontWeight: 'bold',
-          },
+    const endOfMonth   = moment().endOf('month');
+    for (let d = startOfMonth.clone(); d.isSameOrBefore(endOfMonth); d.add(1,'day')) {
+      if (d.day() === 0) {
+        const key = d.format('YYYY-MM-DD');
+        if (!marked[key]) marked[key] = {};
+        marked[key].customStyles = {
+          container: { backgroundColor: '#FFE0E0', borderRadius: 6 },
+          text:      { color: '#D32F2F', fontWeight: 'bold' },
         };
       }
     }
-  
+
     return marked;
   };
 
   const onDayPress = day => {
     setSelectedDate(day.dateString);
-    const filteredEvents = employeesEvents.filter(event => {
-      const start = moment.utc(event.startDate).format('YYYY-MM-DD');
-      const end = moment.utc(event.endDate).format('YYYY-MM-DD');
-      return day.dateString >= start && day.dateString <= end;
+    const filteredEvents   = employeesEvents.filter(e => {
+      const s = moment.utc(e.startDate).format('YYYY-MM-DD');
+      const en = moment.utc(e.endDate).format('YYYY-MM-DD');
+      return day.dateString >= s && day.dateString <= en;
     });
-    const filteredHolidays = holidayData.filter(holiday => {
-      const holidayDate = moment.utc(holiday.date).local().format('YYYY-MM-DD');
-      return holidayDate === day.dateString;
-    });
+    const filteredHolidays = holidayData.filter(h =>
+      moment.utc(h.date).local().format('YYYY-MM-DD') === day.dateString
+    );
     setDayEvents([
       ...filteredHolidays.map(h => ({ ...h, type: 'holiday' })),
       ...filteredEvents.map(e => ({ ...e, type: 'event' })),
     ]);
     setModalVisible(true);
   };
-const pastelColors = ['#FFB3BA50', '#FFDFBA50', '#FFFFBA50', '#BAFFBA50', '#BAE1FF50'];
-const textColors = ['#b62634', '#c7873d', '#b9b92c', '#3bcf3b', '#2178bb'];
 
-const renderItem = ({ item, index }) => {
-    const date = moment(item.date).format('DD');
-    const day = moment(item.date).format('MMM YYYY');
-    
+  /* ─── Holiday card ─── */
+  const renderHolidayItem = ({ item }) => {
+    const dd  = moment.utc(item.date).local();
     return (
-      <View style={{ flexDirection: 'row', }}>
-          <View style={{ width:60, height:80, alignItems:'center', borderRightWidth:1.5, borderColor:'#ccc' }} >
-            <Text style={{ fontSize:26, fontFamily:'Lato-SemiBold', color:'#ccc' }} >{date}</Text>
-            <Text style={{ fontSize:12, fontFamily:'Lato-Medium', color:'#868686' }} >{day}</Text>
+      <View style={styles.holidayCard}>
+        <View style={styles.holidayDateBox}>
+          <Text style={styles.holidayDD}>{dd.format('DD')}</Text>
+          <Text style={styles.holidayMon}>{dd.format('MMM')}</Text>
+          <View style={styles.dayPill}>
+            <Text style={styles.dayPillText}>{dd.format('ddd')}</Text>
           </View>
-          <View style={{ flex:1, paddingHorizontal:10, backgroundColor:pastelColors[index % pastelColors.length], marginBottom:0, borderRadius:4, margin:5 }} >
-            <Text
-              style={{
-                fontSize: 14,
-                fontFamily: 'Lato-SemiBold',
-                color: textColors[index % textColors.length],
-                paddingHorizontal: 8,
-                borderRadius: 4,
-                alignSelf: 'flex-start', // 👈 important
-              }}
-            >
-              {item.name}
-            </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: 'Lato-Medium',
-                color: "#444",
-                paddingHorizontal: 8,
-                borderRadius: 4,
-                alignSelf: 'flex-start', // 👈 important
-              }}
-            >
-              {item.description}
-            </Text>
-          </View>
+        </View>
+        <View style={styles.holidayBody}>
+          <Text style={styles.holidayName}>{item.name}</Text>
+          {!!item.description && (
+            <Text style={styles.holidayDesc} numberOfLines={2}>{item.description}</Text>
+          )}
+          <Text style={styles.holidayYear}>{dd.format('YYYY')}</Text>
+        </View>
       </View>
     );
   };
 
-const renderItemEvents = ({ item, index }) => {
+  /* ─── Event card ─── */
+  const renderEventItem = ({ item, index }) => {
+    const accent = EVENT_ACCENTS[index % EVENT_ACCENTS.length];
+    const bg     = EVENT_BG[index % EVENT_BG.length];
+    const days   = moment.utc(item.endDate).diff(moment.utc(item.startDate), 'days') + 1;
     return (
-      <View style={{ }}>
-          <View style={{ paddingHorizontal:10, backgroundColor:'#f1f1f1', marginBottom:10, borderRadius:4, margin:5 }} >
-            <View style={{ flexDirection:'row', padding:5 }} >
-              <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >{moment.utc(item.startDate).format('DD MMM YYYY')} to </Text>
-              <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >{moment.utc(item.endDate).format('DD MMM YYYY')}</Text>
-            </View>
-            <Text
-              style={{
-                fontSize: 14,
-                fontFamily: 'Lato-SemiBold',
-                color: textColors[index % textColors.length],
-                paddingHorizontal: 8,
-                borderRadius: 4,
-                alignSelf: 'flex-start', // 👈 important
-              }}
-            >
-              {item.title}
-            </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                fontFamily: 'Lato-Medium',
-                color: "#444",
-                paddingHorizontal: 8,
-                borderRadius: 4,
-                alignSelf: 'flex-start', // 👈 important
-              }}
-            >
-              {item.description}
-            </Text>
-            <View style={{ flexDirection:'row', justifyContent:'center', paddingVertical:4 }} >
-              <View style={{ width:20, height:20, justifyContent:'center', alignItems:'center' }} >
-                <Entypo name="location" size={14} color="#2196F3" />
-              </View>
-               <Text
-                 style={{
-                  flex:1,
-                   fontSize: 14,
-                   fontFamily: 'Lato-SemiBold',
-                   color: "#000",
-                   paddingHorizontal: 8,
-                   borderRadius: 4,
-                   alignSelf: 'flex-start', // 👈 important
-                   textTransform:'capitalize',
-                 }}
-               >
-                 {item.location}
-               </Text>
-            </View>
+      <View style={[styles.eventCard, { borderLeftColor: accent, backgroundColor: bg }]}>
+        <View style={styles.eventDateRow}>
+          <Ionicons name="calendar-outline" size={13} color="#888" />
+          <Text style={styles.eventDateText}>
+            {moment.utc(item.startDate).format('DD MMM')} — {moment.utc(item.endDate).format('DD MMM YYYY')}
+          </Text>
+          <View style={[styles.durationPill, { backgroundColor: accent + '22' }]}>
+            <Text style={[styles.durationText, { color: accent }]}>{days}d</Text>
           </View>
+        </View>
+        <Text style={[styles.eventTitle, { color: accent }]}>{item.title}</Text>
+        {!!item.description && (
+          <Text style={styles.eventDesc} numberOfLines={2}>{item.description}</Text>
+        )}
+        {!!item.location && (
+          <View style={styles.eventLocationRow}>
+            <Entypo name="location-pin" size={14} color={accent} />
+            <Text style={[styles.eventLocationText, { color: accent }]}>{item.location}</Text>
+          </View>
+        )}
       </View>
     );
   };
+
+  /* ─── Empty state ─── */
+  const EmptyState = ({ label }) => (
+    <View style={styles.emptyWrap}>
+      <Image
+        source={require('../../../../assets/Images/notFound.png')}
+        style={styles.emptyImg}
+      />
+      <Text style={styles.emptyTitle}>No {label} Found</Text>
+      <Text style={styles.emptySubtitle}>There are no {label.toLowerCase()} to display right now.</Text>
+    </View>
+  );
+
+  /* ─── Bottom-sheet header ─── */
+  const SheetHeader = ({ title, count, accentColor, badgeBg, badgeBorder, onClose }) => (
+    <>
+      <View style={styles.dragHandle} />
+      <View style={styles.sheetHeader}>
+        <View style={styles.sheetHeaderLeft}>
+          <View style={[styles.headerDot, { backgroundColor: accentColor }]} />
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <View style={[styles.countBadge, { backgroundColor: badgeBg, borderColor: badgeBorder }]}>
+            <Text style={[styles.countText, { color: accentColor }]}>{count}</Text>
+          </View>
+        </View>
+        <TouchableOpacity onPress={onClose} style={styles.closeIconBtn} activeOpacity={0.7}>
+          <Ionicons name="close" size={20} color="#555" />
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
   return (
-    <View style={{ }} >
+    <View>
       {loading ? (
-        <View style={{ height: 320, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#00adf5" />
-          <Text style={{ marginTop: 10, fontSize: 16, color: '#666' }}>Loading calendar...</Text>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#4c72d9" />
+          <Text style={styles.loadingText}>Loading calendar…</Text>
         </View>
       ) : (
         <>
-          <View style={{ width:'100%',}} >
-            <View style={{ width:'100%', flexDirection:'row', gap:10, justifyContent:'space-between', alignItems:'center', marginBottom:10 }} >
-              <TouchableOpacity onPress={()=> setEventsModal(!eventsModal)} style={{ flex:1, padding:10, flexDirection:'row', backgroundColor:'#2196F320', borderRadius:5, justifyContent:'space-between', alignItems:'center'}} >
-                <View style={{ flexDirection:'row', alignItems:'center', gap:5 }}>
-                <View style={{ width:10, height:10, backgroundColor:'#2196F3', borderRadius:50 }} ></View>
-                <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >Events</Text>
-                </View>
-                <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >{employeesEvents.length || 0}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={()=> setHolidayModal(!holidayModal)} style={{ flex:1, padding:10, flexDirection:'row', backgroundColor:'#FF980020', borderRadius:5, justifyContent:'space-between', alignItems:'center'}} >
-                <View style={{ flexDirection:'row', alignItems:'center', gap:5 }}>
-                <View style={{ width:10, height:10, backgroundColor:'#FF9800', borderRadius:50 }} ></View>
-                <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >Holidays</Text>
-                </View>
-                <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >{holidayData.length || 0}</Text>
-              </TouchableOpacity>
-            </View>
+          {/* ── Stat buttons ── */}
+          <View style={styles.calendarHeader}>
+            <Text style={styles.calendarTitle}>Calendar</Text>
+            <View style={styles.accentBar} />
           </View>
-           <Modal
-             visible={holidayModal}
-             transparent
-             animationType="slide"
-             onRequestClose={() => setHolidayModal(false)}
-           >
-             <View style={{ flex:1, backgroundColor:'#fff', justifyContent:'center', alignItems:'center', padding:10 }} >
-               <View style={{ flex:1, width:'100%', }} >
-                  {
-                    holidayData.length === 0 ? (
-                      <>
-                      <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
-                         <View style={{ width:100, height:100 }} >
-                          <Image
-                            source={require('../../../../assets/Images/notFound.png')}
-                            style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
-                          />
-                        </View>
-                        <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
-                        <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
-                      </View>
-                       <TouchableOpacity
-                         style={styles.closeBtn}
-                         onPress={() => setHolidayModal(false)}
-                       >
-                         <Text style={{ color: '#fff' }}>Close</Text>
-                       </TouchableOpacity>
-                      </>
-                    ):(
-                       <>
-                       <View style={{ padding:10, flexDirection:'row', backgroundColor:'#FF980020', borderRadius:5, justifyContent:'space-between', alignItems:'center'}} >
-                          <View style={{ flexDirection:'row', alignItems:'center', gap:5 }}>
-                          <View style={{ width:10, height:10, backgroundColor:'#FF9800', borderRadius:50 }} ></View>
-                          <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >Holidays</Text>
-                          </View>
-                          <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >{holidayData.length || 0}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', borderBottomWidth:1.5, borderColor:'#ccc', marginTop:10, }} >
-                           <View style={{ width:60, justifyContent:'center', alignItems:'center', borderRightWidth:1.5, borderColor:'#ccc' }} >
-                             <Text style={{ fontSize:16, fontFamily:'Lato-Medium', color:'#222' }} >Day</Text>
-                           </View>
-                           <View style={{ flex:1, paddingHorizontal:10, alignItems:'center' }} >
-                             <Text
-                               style={{
-                                 fontSize: 16,
-                                 fontFamily: 'Lato-Medium',
-                                 color: "#222",
-                                 paddingHorizontal: 8,
-                                 paddingVertical: 4,
-                                 borderRadius: 4,
-                                //  alignSelf: 'flex-start',
-                               }}
-                             >
-                               Holidays
-                             </Text>
-                           </View>
-                        </View>
-                        <FlatList
-                          data={holidayData}
-                          keyExtractor={(item) => item._id.toString()}
-                          renderItem={renderItem}
-                          showsVerticalScrollIndicator={false}
-                        />
-                       <TouchableOpacity
-                         style={styles.closeBtn}
-                         onPress={() => setHolidayModal(false)}
-                       >
-                         <Text style={{ color: '#fff' }}>Close</Text>
-                       </TouchableOpacity>
-                       </>
-                    )
-                  }
-               </View>
-             </View>
-           </Modal>
-           <Modal
-             visible={eventsModal}
-             transparent
-             animationType="slide"
-             onRequestClose={() => setEventsModal(false)}
-           >
-             <View style={{ flex:1, backgroundColor:'#fff', justifyContent:'center', alignItems:'center', padding:10 }} >
-               <View style={{ flex:1, width:'100%', }} >
-                  {
-                    employeesEvents.length === 0 ? (
-                      <>
-                      <View style={{ width:'100%', justifyContent:'center', alignItems:'center', padding:20, }} >
-                         <View style={{ width:100, height:100 }} >
-                          <Image
-                            source={require('../../../../assets/Images/notFound.png')}
-                            style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
-                          />
-                        </View>
-                        <Text style={{fontSize: 28, fontFamily:'Lato-SemiBold', color: '#868686',}}>Ooos !</Text>
-                        <Text style={{fontSize: 14, fontFamily:'Lato-SemiBold', color: '#868686',}}>Records not found</Text>
-                      </View>
-                       <TouchableOpacity
-                         style={styles.closeBtn}
-                         onPress={() => setEventsModal(false)}
-                       >
-                         <Text style={{ color: '#fff' }}>Close</Text>
-                       </TouchableOpacity>
-                      </>
-                    ):(
-                       <>
-                       <View style={{ padding:10, flexDirection:'row', backgroundColor:'#2196F320', borderRadius:5, justifyContent:'space-between', alignItems:'center'}} >
-                          <View style={{ flexDirection:'row', alignItems:'center', gap:5 }}>
-                          <View style={{ width:10, height:10, backgroundColor:'#2196F3', borderRadius:50 }} ></View>
-                          <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >Events</Text>
-                          </View>
-                          <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:'#444' }} >{holidayData.length || 0}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', borderBottomWidth:1.5, borderColor:'#ccc', marginTop:10, }} >
-                           {/* <View style={{ width:60, justifyContent:'center', alignItems:'center', borderRightWidth:1.5, borderColor:'#ccc' }} >
-                             <Text style={{ fontSize:16, fontFamily:'Lato-Medium', color:'#222' }} >Day</Text>
-                           </View> */}
-                           <View style={{ flex:1, paddingHorizontal:10, alignItems:'center' }} >
-                             {/* <Text
-                               style={{
-                                 fontSize: 16,
-                                 fontFamily: 'Lato-Medium',
-                                 color: "#222",
-                                 paddingHorizontal: 8,
-                                 paddingVertical: 4,
-                                 borderRadius: 4,
-                                //  alignSelf: 'flex-start',
-                               }}
-                             >
-                               Events
-                             </Text> */}
-                           </View>
-                        </View>
-                        <FlatList
-                          data={employeesEvents}
-                          keyExtractor={(item) => item._id.toString()}
-                          renderItem={renderItemEvents}
-                          showsVerticalScrollIndicator={false}
-                        />
-                       <TouchableOpacity
-                         style={styles.closeBtn}
-                         onPress={() => setEventsModal(false)}
-                       >
-                         <Text style={{ color: '#fff' }}>Close</Text>
-                       </TouchableOpacity>
-                       </>
-                    )
-                  }
-               </View>
-             </View>
-           </Modal>
+
+          <View style={styles.statRow}>
+            <TouchableOpacity
+              activeOpacity={0.82}
+              onPress={() => setEventsModal(!eventsModal)}
+              style={[styles.statCard, { backgroundColor: '#EEF4FF', borderColor: '#C5D5F8' }]}
+            >
+              <View style={styles.statLeft}>
+                <View style={[styles.statDot, { backgroundColor: '#4c72d9' }]} />
+                <View>
+                  <Text style={styles.statLabel}>Events</Text>
+                  <Text style={styles.statSub}>this month</Text>
+                </View>
+              </View>
+              <View style={[styles.statBadge, { backgroundColor: '#4c72d9' }]}>
+                <Text style={styles.statBadgeText}>{employeesEvents.length}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.82}
+              onPress={() => setHolidayModal(!holidayModal)}
+              style={[styles.statCard, { backgroundColor: '#FFF8EE', borderColor: '#FFD89B' }]}
+            >
+              <View style={styles.statLeft}>
+                <View style={[styles.statDot, { backgroundColor: '#FF9800' }]} />
+                <View>
+                  <Text style={styles.statLabel}>Holidays</Text>
+                  <Text style={styles.statSub}>this year</Text>
+                </View>
+              </View>
+              <View style={[styles.statBadge, { backgroundColor: '#FF9800' }]}>
+                <Text style={styles.statBadgeText}>{holidayData.length}</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Holiday bottom-sheet modal ── */}
+          <Modal
+            visible={holidayModal}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setHolidayModal(false)}
+          >
+            <View style={styles.sheetOverlay}>
+              <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setHolidayModal(false)} />
+              <View style={styles.sheetContainer}>
+                <SheetHeader
+                  title="Holidays"
+                  count={holidayData.length}
+                  accentColor="#FF9800"
+                  badgeBg="#FFF4E5"
+                  badgeBorder="#ffe0b3"
+                  onClose={() => setHolidayModal(false)}
+                />
+                {holidayData.length === 0 ? (
+                  <EmptyState label="Holidays" />
+                ) : (
+                  <FlatList
+                    data={holidayData}
+                    keyExtractor={item => item._id.toString()}
+                    renderItem={renderHolidayItem}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.listContent}
+                  />
+                )}
+                <TouchableOpacity style={[styles.sheetCloseBtn, { backgroundColor: '#FF9800' }]} onPress={() => setHolidayModal(false)}>
+                  <Text style={styles.sheetCloseBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ── Events bottom-sheet modal ── */}
+          <Modal
+            visible={eventsModal}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setEventsModal(false)}
+          >
+            <View style={styles.sheetOverlay}>
+              <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setEventsModal(false)} />
+              <View style={styles.sheetContainer}>
+                <SheetHeader
+                  title="Events"
+                  count={employeesEvents.length}
+                  accentColor="#4c72d9"
+                  badgeBg="#EEF4FF"
+                  badgeBorder="#C5D5F8"
+                  onClose={() => setEventsModal(false)}
+                />
+                {employeesEvents.length === 0 ? (
+                  <EmptyState label="Events" />
+                ) : (
+                  <FlatList
+                    data={employeesEvents}
+                    keyExtractor={item => item._id.toString()}
+                    renderItem={renderEventItem}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.listContent}
+                  />
+                )}
+                <TouchableOpacity style={[styles.sheetCloseBtn, { backgroundColor: '#4c72d9' }]} onPress={() => setEventsModal(false)}>
+                  <Text style={styles.sheetCloseBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* ── Calendar widget ── */}
           <Calendar
             onDayPress={onDayPress}
             markedDates={getMarkedDates()}
             markingType="multi-dot"
-            style={{
-              borderWidth: 1,
-              borderColor: '#e0e0e0',
-              height: 320,
-              backgroundColor: '#fff',
-              borderRadius: 10,
-            }}
+            style={styles.calendarWidget}
             theme={{
               backgroundColor: '#ffffff',
               calendarBackground: '#ffffff',
-              textSectionTitleColor: '#b6c1cd',
-              selectedDayBackgroundColor: '#00adf5',
+              textSectionTitleColor: '#7c84a3',
+              selectedDayBackgroundColor: '#4c72d9',
               selectedDayTextColor: '#ffffff',
-              todayTextColor: '#00adf5',
-              dayTextColor: '#2d4150',
-              textDisabledColor: '#b6c1cd'
+              todayTextColor: '#4c72d9',
+              dayTextColor: '#1f2440',
+              textDisabledColor: '#c8cbe0',
+              arrowColor: '#4c72d9',
+              monthTextColor: '#1f2440',
+              textMonthFontFamily: 'Lato-SemiBold',
+              textDayFontFamily: 'Lato-Medium',
+              textDayHeaderFontFamily: 'Lato-SemiBold',
+              textMonthFontSize: 16,
             }}
           />
         </>
       )}
 
+      {/* ── Day events popup modal ── */}
       <Modal
         visible={modalVisible}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.dateTitle}>On this date: {selectedDate}</Text>
+        <View style={styles.popupOverlay}>
+          <View style={styles.popupCard}>
+            <View style={styles.popupHeader}>
+              <View>
+                <Text style={styles.popupHeaderLabel}>Selected Date</Text>
+                <Text style={styles.popupHeaderDate}>
+                  {selectedDate ? moment(selectedDate).format('ddd, DD MMM YYYY') : ''}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.popupCloseIcon}>
+                <Ionicons name="close" size={20} color="#555" />
+              </TouchableOpacity>
+            </View>
 
             {dayEvents.length > 0 ? (
-              dayEvents.map(item => (
-                <View key={item._id} style={{ marginBottom: 15 }}>
-                  <Text style={{fontSize: 14, color: '#444', fontFamily:'Lato-Medium'}}>{item.type === 'holiday' ? '🏖️ Holiday:' : '🎉 Event:'}</Text>
-                  {
-                    item.type === 'event' ? (
-                      <Text style={{ fontSize: 14, color: '#444', fontFamily:'Lato-SemiBold', marginBottom: 4 }}>
-                        {item.title}
-                      </Text>
-                    ):(
-                      <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                        {/* 📅 {moment.utc(item.date).format('DD MMM YYYY')} */}
-                      </Text>
-                    )
-                  }
-                  {!!item.description && (
-                    <Text style={{ fontSize: 12, color: '#999', fontFamily:'Lato-Medium', marginBottom:5, textTransform:'capitalize' }}>
-                      {item.description}
+              dayEvents.map((item, i) => (
+                <View key={item._id} style={[styles.dayEventItem, { borderLeftColor: item.type === 'holiday' ? '#FF9800' : '#4c72d9' }]}>
+                  <View style={styles.dayEventTypeRow}>
+                    <Ionicons
+                      name={item.type === 'holiday' ? 'sunny-outline' : 'calendar-outline'}
+                      size={13}
+                      color={item.type === 'holiday' ? '#FF9800' : '#4c72d9'}
+                    />
+                    <Text style={[styles.dayEventTypeLabel, { color: item.type === 'holiday' ? '#FF9800' : '#4c72d9' }]}>
+                      {item.type === 'holiday' ? 'Holiday' : 'Event'}
                     </Text>
+                  </View>
+                  <Text style={styles.dayEventName}>{item.type === 'event' ? item.title : item.name}</Text>
+                  {!!item.description && (
+                    <Text style={styles.dayEventDesc}>{item.description}</Text>
                   )}
                   {!!item.location && (
-                    <View style={{ flexDirection:'row', alignItems:'center', }} >
-                      <Entypo name="location-pin" size={18} color="#00adf5" />
-                      <Text style={{ fontSize: 14, fontFamily:'Lato-Medium', color: '#444', textTransform:'capitalize' }}>{item.location} </Text>
+                    <View style={styles.dayEventLocRow}>
+                      <Entypo name="location-pin" size={13} color="#888" />
+                      <Text style={styles.dayEventLoc}>{item.location}</Text>
                     </View>
                   )}
-                  {/* {item.type === 'holiday' ?(
-                      <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                        📅 {moment(item.date).format('DD MMM YYYY')}
-                      </Text>
-                  ):(
-                    <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                      📅 {moment.utc(item.startDate).format('DD MMM YYYY')} - {moment.utc(item.endDate).format('DD MMM YYYY')}
-                    </Text>
-                  )} */}
                 </View>
               ))
             ) : (
-              <Text style={styles.noEventText}>No events or holidays on this date</Text>
+              <View style={styles.popupEmpty}>
+                <Ionicons name="calendar-outline" size={36} color="#ccc" />
+                <Text style={styles.popupEmptyText}>No events or holidays</Text>
+              </View>
             )}
 
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={{ color: '#fff' }}>Close</Text>
+            <TouchableOpacity style={styles.popupCloseBtn} onPress={() => setModalVisible(false)}>
+              <Text style={styles.sheetCloseBtnText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -503,75 +390,89 @@ const renderItemEvents = ({ item, index }) => {
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-  },
-  dateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  eventText: {
-    fontSize: 16,
-    marginVertical: 4,
-  },
-  noEventText: {
-    fontSize: 16,
-    color: '#888',
-    marginVertical: 10,
-  },
-  closeBtn: {
-    marginTop: 15,
-    backgroundColor: '#00adf5',
-    padding: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-   monthHeader: {
-    fontSize: 18,
-    fontFamily: 'Lato-SemiBold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#000',
-  },
+  /* loading */
+  loadingWrap:     { height: 320, justifyContent: 'center', alignItems: 'center' },
+  loadingText:     { marginTop: 10, fontSize: 14, color: '#888', fontFamily: 'Lato-Medium' },
 
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-  },
+  /* calendar header */
+  calendarHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  calendarTitle:   { fontSize: 15, fontFamily: 'Lato-SemiBold', color: '#1f2440' },
+  accentBar:       { height: 4, width: 28, borderRadius: 2, backgroundColor: '#4c72d9' },
 
-  dateContainer: {
-    width: 80,
-    alignItems: 'center',
-  },
+  /* stat buttons */
+  statRow:         { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  statCard:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1 },
+  statLeft:        { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statDot:         { width: 10, height: 10, borderRadius: 5 },
+  statLabel:       { fontSize: 13, fontFamily: 'Lato-SemiBold', color: '#1f2440' },
+  statSub:         { fontSize: 10, fontFamily: 'Lato-Medium', color: '#999', marginTop: 1 },
+  statBadge:       { minWidth: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 7 },
+  statBadgeText:   { fontSize: 12, fontFamily: 'Lato-SemiBold', color: '#fff' },
 
-  dateText: {
-    fontSize: 22,
-    fontFamily: 'Lato-Bold',
-    color: '#000',
-  },
+  /* calendar widget */
+  calendarWidget:  { borderWidth: 1, borderColor: '#eef0fa', height: 340, backgroundColor: '#fff', borderRadius: 16, paddingBottom: 6 },
 
-  verticalLine: {
-    width: 1,
-    height: '100%',
-    backgroundColor: '#ccc',
-    marginHorizontal: 15,
-  },
+  /* bottom sheet */
+  sheetOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheetContainer:  { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingBottom: 30, maxHeight: '85%' },
+  dragHandle:      { width: 40, height: 4, backgroundColor: '#ddd', borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 6 },
+  sheetHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderColor: '#f0f0f0', marginBottom: 4 },
+  sheetHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerDot:       { width: 10, height: 10, borderRadius: 5 },
+  sheetTitle:      { fontSize: 16, fontFamily: 'Lato-SemiBold', color: '#1f2440' },
+  countBadge:      { minWidth: 22, paddingHorizontal: 7, height: 22, borderRadius: 11, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  countText:       { fontSize: 11, fontFamily: 'Lato-SemiBold' },
+  closeIconBtn:    { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f5f5f5', justifyContent: 'center', alignItems: 'center' },
+  listContent:     { paddingTop: 8, paddingBottom: 4 },
+  sheetCloseBtn:   { marginTop: 14, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  sheetCloseBtnText: { color: '#fff', fontFamily: 'Lato-SemiBold', fontSize: 15 },
 
-  detailContainer: {
-    flex: 1,
-  },
+  /* holiday card */
+  holidayCard:     { flexDirection: 'row', marginBottom: 10, borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff', borderWidth: 1, borderColor: '#f0f0f0', },
+  holidayDateBox:  { width: 62, backgroundColor: '#FFF4E5', alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  holidayDD:       { fontSize: 24, fontFamily: 'Lato-SemiBold', color: '#FF9800', lineHeight: 28 },
+  holidayMon:      { fontSize: 12, fontFamily: 'Lato-Medium', color: '#FF9800' },
+  dayPill:         { marginTop: 4, backgroundColor: '#FF980022', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  dayPillText:     { fontSize: 10, fontFamily: 'Lato-SemiBold', color: '#FF9800' },
+  holidayBody:     { flex: 1, paddingHorizontal: 14, paddingVertical: 12, borderLeftWidth: 3, borderLeftColor: '#FF9800', justifyContent: 'center' },
+  holidayName:     { fontSize: 14, fontFamily: 'Lato-SemiBold', color: '#1f2440', marginBottom: 3 },
+  holidayDesc:     { fontSize: 12, fontFamily: 'Lato-Medium', color: '#777', marginBottom: 4 },
+  holidayYear:     { fontSize: 11, fontFamily: 'Lato-Medium', color: '#bbb' },
 
+  /* event card */
+  eventCard:       { borderRadius: 12, padding: 14, marginBottom: 10, borderLeftWidth: 4, },
+  eventDateRow:    { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 },
+  eventDateText:   { fontSize: 12, fontFamily: 'Lato-Medium', color: '#777', flex: 1 },
+  durationPill:    { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  durationText:    { fontSize: 11, fontFamily: 'Lato-SemiBold' },
+  eventTitle:      { fontSize: 15, fontFamily: 'Lato-SemiBold', marginBottom: 4 },
+  eventDesc:       { fontSize: 12, fontFamily: 'Lato-Medium', color: '#555', marginBottom: 6 },
+  eventLocationRow:{ flexDirection: 'row', alignItems: 'center', gap: 3 },
+  eventLocationText:{ fontSize: 12, fontFamily: 'Lato-Medium', textTransform: 'capitalize' },
+
+  /* empty state */
+  emptyWrap:       { alignItems: 'center', paddingVertical: 40 },
+  emptyImg:        { width: 100, height: 100, resizeMode: 'contain', marginBottom: 16 },
+  emptyTitle:      { fontSize: 16, fontFamily: 'Lato-SemiBold', color: '#999', marginBottom: 4 },
+  emptySubtitle:   { fontSize: 13, fontFamily: 'Lato-Medium', color: '#bbb', textAlign: 'center', paddingHorizontal: 20 },
+
+  /* day popup modal */
+  popupOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  popupCard:       { width: '100%', backgroundColor: '#fff', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
+  popupHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, paddingBottom: 14, borderBottomWidth: 1, borderColor: '#f0f0f0' },
+  popupHeaderLabel:{ fontSize: 11, fontFamily: 'Lato-Medium', color: '#aaa', marginBottom: 2 },
+  popupHeaderDate: { fontSize: 16, fontFamily: 'Lato-SemiBold', color: '#1f2440' },
+  popupCloseIcon:  { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f5f5f5', justifyContent: 'center', alignItems: 'center' },
+  dayEventItem:    { backgroundColor: '#fafafa', borderRadius: 10, padding: 12, marginBottom: 10, borderLeftWidth: 3 },
+  dayEventTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  dayEventTypeLabel:{ fontSize: 11, fontFamily: 'Lato-SemiBold', textTransform: 'uppercase', letterSpacing: 0.5 },
+  dayEventName:    { fontSize: 14, fontFamily: 'Lato-SemiBold', color: '#1f2440', marginBottom: 3 },
+  dayEventDesc:    { fontSize: 12, fontFamily: 'Lato-Medium', color: '#777', marginBottom: 4, textTransform: 'capitalize' },
+  dayEventLocRow:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  dayEventLoc:     { fontSize: 12, fontFamily: 'Lato-Medium', color: '#888', textTransform: 'capitalize' },
+  popupEmpty:      { alignItems: 'center', paddingVertical: 24 },
+  popupEmptyText:  { marginTop: 10, fontSize: 14, fontFamily: 'Lato-Medium', color: '#bbb' },
+  popupCloseBtn:   { marginTop: 14, backgroundColor: '#4c72d9', paddingVertical: 13, borderRadius: 14, alignItems: 'center' },
 });
 
 export default CustomCalendar;

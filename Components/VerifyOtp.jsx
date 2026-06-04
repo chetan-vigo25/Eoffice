@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react'
-import {StatusBar, Text, View, Image, StyleSheet, TextInput, Platform, TouchableOpacity, ScrollView, Alert, ActivityIndicator, ToastAndroid } from 'react-native';
+import {StatusBar, Text, View, Image, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, ToastAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BASE_URL from '../Urls/DomainUrl';
 import { OtpInput } from "react-native-otp-entry";
@@ -7,11 +7,7 @@ import { OtpInput } from "react-native-otp-entry";
 import Style from '../Style/Style';
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function VerifyOtp({ navigation, route }) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StatusBar, View, Text, TouchableOpacity, Animated, SafeAreaView, RefreshControl, LayoutAnimation, UIManager, Platform, ScrollView, ToastAndroid, ActivityIndicator } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, Animated, RefreshControl, LayoutAnimation, UIManager, Platform, ScrollView, ToastAndroid, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
 import { useDispatch, useSelector } from 'react-redux';
@@ -9,11 +10,7 @@ import BASE_URL from '../../Urls/DomainUrl';
 import Style from "../../Style/Style";
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function Events({ navigation }) {
@@ -93,7 +90,7 @@ export default function Events({ navigation }) {
     }
         
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <View style={{ width: '100%', padding:20 }}>
         <Text style={{ color: '#fff', fontSize: 14, fontFamily:'Lato-SemiBold', }}>Calendar</Text>
@@ -114,7 +111,7 @@ export default function Events({ navigation }) {
                        <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.headerBgColor, padding:10 }}>Clients News</Text>
                       {
                         newsData.map((item, index) => (
-                          <View key={index} style={{ width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 10, elevation: 2, padding: 15, marginBottom: 10 }}>
+                          <View key={index} style={{ width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 10 }}>
                                 <View style={{ flexDirection: 'row', gap:10, alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                                     <Text style={{ flex:6, fontSize: 14, fontFamily: "Lato-SemiBold", color: Style.primaryTextColor }}>
                                         {item.title}
@@ -137,7 +134,7 @@ export default function Events({ navigation }) {
                       </Text>                
 
                       {eventData.map((item, index) => (
-                        <View key={index} style={{ width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 10, elevation: 2, padding: 15, marginBottom: 10,}} >
+                        <View key={index} style={{ width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 10,}} >
                           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'space-between', marginBottom: 5,}} >
                             <Text style={{ flex: 6, fontSize: 14, fontFamily: 'Lato-SemiBold', color: Style.primaryTextColor }}>
                               {item.title}
@@ -156,7 +153,7 @@ export default function Events({ navigation }) {
                       <>
                         <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.headerBgColor, padding:10 }}>Office Holidays</Text>
                             {holidayData.map((item, index) => (
-                                <View key={index} style={{ width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 10, elevation: 2, padding: 15, marginBottom: 10 }}>
+                                <View key={index} style={{ width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 10 }}>
                                     <View style={{ flexDirection: 'row', gap:10, alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                                         <Text style={{ flex:6, fontSize: 14, fontFamily: "Lato-SemiBold", color: Style.primaryTextColor }}>
                                             {item.name}

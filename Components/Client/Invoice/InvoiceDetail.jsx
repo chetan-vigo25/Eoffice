@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StatusBar, View, Text, TouchableOpacity, Animated, SafeAreaView, Platform, ScrollView, ToastAndroid, ActivityIndicator, Linking } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ToastAndroid, ActivityIndicator, Platform } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RazorpayCheckout from 'react-native-razorpay';
 import CryptoJS from "crypto-js";
@@ -8,7 +9,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import { DATA_ENCRYPT_DCRYPT_KEY } from "@env";
 import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 
 import BASE_URL from '../../../Urls/DomainUrl';
 import Style from "../../../Style/Style";
@@ -17,11 +17,7 @@ import { AntDesign, Feather } from "@expo/vector-icons";
 const SECRET = DATA_ENCRYPT_DCRYPT_KEY;
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function InvoiceDetail({ navigation, route }) {
@@ -44,7 +40,7 @@ export default function InvoiceDetail({ navigation, route }) {
       useNativeDriver: true,
     }).start();
   }, []);
-
+  
   const handleLogout = useCallback(async () => {
     if (logoutHandled.current) return;
     logoutHandled.current = true;
@@ -115,6 +111,7 @@ export default function InvoiceDetail({ navigation, route }) {
       const result = await response.json();
 
       if (result.statusCode === 200) {
+        // console.log("Invoice Detail", JSON.stringify(result.data, null, 2))
         setInvoiceData(result.data);
       } else if (result.statusCode === 401) {
         handleLogout();
@@ -251,24 +248,41 @@ export default function InvoiceDetail({ navigation, route }) {
 
     setDownloading(true);
     try {
-      const filename = invoiceData.invoiceURL.split('/').pop();
-      const fileUri = FileSystem.documentDirectory + filename;
+      const filename = invoiceData.invoiceURL.split('/').pop() || `invoice_${invoiceData.invoiceNumber}.pdf`;
+      const fileUri = FileSystem.cacheDirectory + filename;
 
+      // Download file to cache first
       const downloadResumable = FileSystem.createDownloadResumable(
         invoiceData.invoiceURL,
         fileUri
       );
-
       const { uri } = await downloadResumable.downloadAsync();
 
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Save Invoice PDF',
+      if (Platform.OS === 'android') {
+        // Use StorageAccessFramework to save PDF to Downloads
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (!permissions.granted) {
+          showToast("Storage permission is required to download PDF.");
+          return;
+        }
+
+        const base64Data = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
         });
+
+        const safUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          filename.replace('.pdf', ''),
+          'application/pdf'
+        );
+
+        await FileSystem.writeAsStringAsync(safUri, base64Data, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        showToast("PDF saved to Downloads folder.");
       } else {
-        await Linking.openURL(invoiceData.invoiceURL);
+        showToast("PDF downloaded successfully.");
       }
     } catch (error) {
       console.error("[PDF Download Error]:", error);
@@ -288,7 +302,7 @@ export default function InvoiceDetail({ navigation, route }) {
   const isPaid = invoiceData?.status === 'Paid';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center', paddingHorizontal: 20 }}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
@@ -305,7 +319,7 @@ export default function InvoiceDetail({ navigation, route }) {
         ) : invoiceData ? (
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
             {/* Invoice Header */}
-            <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, elevation: 2 }}>
+            <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <Text style={{ fontSize: 16, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor, flex: 1 }}>{invoiceData.invoiceNumber}</Text>
                 <View style={{ backgroundColor: isPaid ? '#e8f5e9' : '#ffebee', paddingHorizontal: 15, paddingVertical: 5, borderRadius: 20 }}>
@@ -318,7 +332,7 @@ export default function InvoiceDetail({ navigation, route }) {
             </View>
 
             {/* Amount Details */}
-            <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, elevation: 2 }}>
+            <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, }}>
               <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor, marginBottom: 5 }}>Amount Details</Text>
               <InfoRow label="Total Amount" value={`Rs ${invoiceData.totalAmount}/-`} />
               <InfoRow label="Discount" value={`Rs ${invoiceData.discountAmount || 0}/-`} />
@@ -333,17 +347,18 @@ export default function InvoiceDetail({ navigation, route }) {
 
             {/* Paid To Details */}
             {invoiceData.paidTo ? (
-              <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, elevation: 2 }}>
+              <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, }}>
                 <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor, marginBottom: 5 }}>Paid To</Text>
                 <InfoRow label="Name" value={invoiceData.paidTo.fullName} />
-                <InfoRow label="Email" value={invoiceData.paidTo.email} />
+                {/* <InfoRow label="Email" value={invoiceData.paidTo.email} /> */}
+                <InfoRow label="Email" value="admin@singhaljain.com" />
                 <InfoRow label="Mobile" value={invoiceData.paidTo.mobile ? `${invoiceData.paidTo.mobile.code} ${invoiceData.paidTo.mobile.number}` : '-'} />
               </View>
             ) : null}
 
             {/* Client Name */}
             {invoiceData.clientData ? (
-              <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, elevation: 2 }}>
+              <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, }}>
                 <InfoRow label="Client" value={invoiceData.clientData} />
               </View>
             ) : null}

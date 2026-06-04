@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
-import { View, Text, SafeAreaView, ScrollView, StyleSheet, StatusBar, Platform, TouchableOpacity, Alert, RefreshControl, Image, TextInput, TouchableWithoutFeedback, Keyboard, Modal, ToastAndroid, ActivityIndicator, Animated, Dimensions } from "react-native";
+import { View, Text, ScrollView, StyleSheet, StatusBar, TouchableOpacity, Alert, RefreshControl, Image, TextInput, TouchableWithoutFeedback, Keyboard, Modal, ToastAndroid, ActivityIndicator, Animated, Dimensions } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../Redux/Reducer/Client/Client.Reducer";
@@ -17,11 +18,7 @@ import { Feather } from "@expo/vector-icons";
 const { width } = Dimensions.get('window');
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function ClientProfile({ navigation, route }) {
@@ -240,7 +237,7 @@ export default function ClientProfile({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
       <StatusBar barStyle="light-content" style="auto" backgroundColor={Style.headerBgColor} />
         <View style={{ flex: 1 }}>
           {/* Header with back button */}
@@ -264,7 +261,7 @@ export default function ClientProfile({ navigation, route }) {
               </TouchableOpacity>
             </View>
             <Text style={styles.profileName}>{personalInfoData?.fullName || "Unknown"}</Text>
-            <Text style={styles.profileUsername}>{personalInfoData?.userName || "No username available"}</Text>
+            <Text style={styles.profileUsername}>Code: {personalInfoData?.userName || "No username available"}</Text>
           </Animated.View>
 
           {/* Card Content */}
@@ -514,11 +511,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 14,
     marginBottom: 10,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    // elevation: 1,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 1 },
+    // shadowOpacity: 0.05,
+    // shadowRadius: 3,
   },
   linkIconWrap: {
     width: 32,

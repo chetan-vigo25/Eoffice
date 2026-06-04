@@ -1,13 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiCall } from "../../../Config/Http";
-import { Alert, ToastAndroid, Platform } from "react-native";
+import { Alert, ToastAndroid } from "react-native";
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
 }
 
 export async function companyDetail(userId) {

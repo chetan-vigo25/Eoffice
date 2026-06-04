@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, RefreshControl, SafeAreaView, FlatList, Modal, StyleSheet, UIManager, Platform, ToastAndroid, ActivityIndicator } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, RefreshControl, FlatList, Modal, StyleSheet, UIManager, Platform, ToastAndroid, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import SelectDropdown from 'react-native-select-dropdown'
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../../Urls/DomainUrl';
@@ -17,11 +18,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function InvoiceList({ navigation }) {
@@ -77,6 +74,8 @@ export default function InvoiceList({ navigation }) {
 
   const displayData = filteredData !== null ? filteredData : data;
 
+  // console.log("Displayed Invoices:", JSON.stringify(displayData, null, 2));
+
   const handleSearch = (text) => {
     setSearchQuery(text);
     if (text.trim() === '') {
@@ -93,7 +92,7 @@ export default function InvoiceList({ navigation }) {
     setModalVisible(false);
     setSearchQuery('');
     setFilteredData(null);
-    filtersRef.current = { statusD, startDate: startDate ? moment(startDate).format("YYYY-MM-DD") : '' };
+    filtersRef.current = { statusD, startDate: startDate ? moment(startDate).format("YYYY/MM/DD") : '' };
     loadFirst();
   };
 
@@ -110,7 +109,7 @@ export default function InvoiceList({ navigation }) {
   const handleRefresh = () => {
     setSearchQuery('');
     setFilteredData(null);
-    filtersRef.current = { statusD, startDate: startDate ? moment(startDate).format("YYYY-MM-DD") : '' };
+    filtersRef.current = { statusD, startDate: startDate ? moment(startDate).format("YYYY/MM/DD") : '' };
     refresh();
   };
 
@@ -132,8 +131,7 @@ export default function InvoiceList({ navigation }) {
       activeOpacity={0.7}
       style={{
         width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 12,
-        marginBottom: 12, padding: 14, elevation: 2,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4,
+        marginBottom: 12, padding: 14,
       }}
     >
       {/* Header: Invoice Number + Status */}
@@ -191,7 +189,7 @@ export default function InvoiceList({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Modal
            animationType="slide"

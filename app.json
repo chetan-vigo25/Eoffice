@@ -3,78 +3,46 @@
     "name": "E_Office",
     "slug": "E_Office",
     "version": "1.0.3",
+    "runtimeVersion": "1.0.3",
     "orientation": "portrait",
-    "platforms": [
-      "ios",
-      "android"
-    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/Eofficelogo.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ebf1fd"
     },
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/d826ce4b-d12c-4564-91f1-e2a17b214dba"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "googleServicesFile": "./GoogleService-Info.plist",
-      "bundleIdentifier": "com.vigorous.E-Office",
-      "buildNumber": "2", 
       "supportsTablet": true,
-      "infoPlist": {
-        "NSCameraUsageDescription": "This app needs camera access so you can take and upload a profile picture.",
-        "NSPhotoLibraryUsageDescription": "This app requires access to your photo library to upload and download images.",
-        "NSPhotoLibraryAddUsageDescription": "This app saves downloaded files to your photo library.",
-        "NSContactsUsageDescription": "We use your contacts to help you find and connect with people you know.",
-        "NSLocationWhenInUseUsageDescription": "This app uses your location to provide location-based features and improve your user experience while the app is in use.",
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": false,
-          "NSExceptionDomains": {
-            "api.easymyoffice.com": {
-              "NSIncludesSubdomains": true,
-              "NSExceptionAllowsInsecureHTTPLoads": true,
-              "NSExceptionMinimumTLSVersion": "TLSv1.2"
-            }
-          }
-        }
-      },
-      "config": {
-        "usesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.vigorous.E-Office"
     },
     "android": {
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.vigorous.E_Office",
-      "runtimeVersion": "1.0.0",
-      "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 6,
       "permissions": [
-        "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS",
-        "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS"
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "runtimeVersion": "1.0.0",
-    "updates": {
-      "url": "https://u.expo.dev/55b3b0ab-f862-4087-bd36-63bcdd3980b7"
-    },
     "plugins": [
       [
-        "expo-contacts",
-        {
-          "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts."
-        }
-      ],
-      "@react-native-firebase/app",
-      "@react-native-firebase/messaging",
-      "expo-notifications"
+        "expo-notifications"
+      ]
     ],
     "extra": {
       "eas": {

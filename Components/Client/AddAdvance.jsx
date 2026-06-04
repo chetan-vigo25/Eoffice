@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StatusBar, ScrollView, View, Text, TouchableOpacity, Platform, TextInput, Animated, SafeAreaView, ToastAndroid, ActivityIndicator, Alert } from "react-native";
+import { StatusBar, ScrollView, View, Text, TouchableOpacity, TextInput, Animated, ToastAndroid, ActivityIndicator, Alert } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RazorpayCheckout from 'react-native-razorpay';
 import CryptoJS from "crypto-js";
@@ -14,11 +15,7 @@ import Style from "../../Style/Style";
 import { AntDesign, Feather } from "@expo/vector-icons";
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 const SECRET = DATA_ENCRYPT_DCRYPT_KEY;
@@ -166,7 +163,7 @@ export default function AddAdvance({ navigation }) {
                    showToast(result.message);
                }
              }
-            )
+          )
           .catch((error) => console.error(error))
           .finally(() => {
               setIsLoading(false);
@@ -265,18 +262,18 @@ export default function AddAdvance({ navigation }) {
         };
     
         fetch(`${BASE_URL}/client/auth/profilekey`, requestOptions)
-          .then((response) => response.json())
-            .then((result) => {
-                if(result.statusCode === 200){
-                    const RAZOR_PAY_KEY = decryptData(result.data.privateKey);
-                    setRazprPay_key(RAZOR_PAY_KEY);
-                    // console.log("RAZOR_PAY_KEY",RAZOR_PAY_KEY);
-                    setCompData(result.data.userId);
-                } else {
-                    showToast(result.message);
-                }
-            })
-            .catch((error) => console.error(error));
+        .then((response) => response.json())
+          .then((result) => {
+              if(result.statusCode === 200){
+                  const RAZOR_PAY_KEY = decryptData(result.data.privateKey);
+                  setRazprPay_key(RAZOR_PAY_KEY);
+                  // console.log("RAZOR_PAY_KEY",RAZOR_PAY_KEY);
+                  setCompData(result.data.userId);
+              } else {
+                  showToast(result.message);
+              }
+          })
+        .catch((error) => console.error(error));
     }
 
     const CreateOrder = async (data) =>{
@@ -319,74 +316,77 @@ export default function AddAdvance({ navigation }) {
          });
     }
 
-    const CheckoutR = (order_id) => {
-      if (!razprPay_key) {
-        showToast("Payment method not allow please contact to support");
-        return;
-      }
-      var options = {
-        description: 'Credits towards consultation',
-        image: compData?.companyProfile?.logo,
-        currency: 'INR',
-        key: razprPay_key,
-        // amount: '5000',
-        name: compData?.fullName,
-        order_id: order_id,
-        prefill: {
-          email: personalInfoData?.email,
-          contact: personalInfoData?.mobile?.number || '',
-          name: personalInfoData?.fullName || ''
-        },
-        theme: {color: Style.headerBgColor}
-      }
-        RazorpayCheckout.open(options).then((data) => {
-            // handle success
-            // console.log("CheckoutR", data, new Date().toLocaleString())
-            verifyPayment(data)
-            // showToast("SUCCESS", ToastAndroid.SHORT);
-            navigation.navigate('TransactionList');
-          }).catch((error) => {
-            // handle failure
-            // verifyPayment(data)
-             navigation.navigate('AddAdvance');
-             console.log(error);
-             showToast("CANCELLED", ToastAndroid.SHORT);
-          });
+   const CheckoutR = (order_id) => {
+    if (!razprPay_key) {
+      showToast("Payment method not allow please contact to support");
+      setPaymentLoading(false);
+      return;
     }
+    var options = {
+      description: naration,
+      image: compData?.companyProfile?.logo,
+      currency: 'INR',
+      key: razprPay_key,
+      name: compData?.fullName,
+      order_id: order_id,
+      prefill: {
+        email: personalInfoData?.email,
+        contact: personalInfoData?.mobile?.number || '',
+        name: personalInfoData?.fullName || ''
+      },
+      theme: { color: Style.headerBgColor }
+    };
+    RazorpayCheckout.open(options).then((data) => {
+      verifyPayment(data);
+    }).catch((error) => {
+      console.log(error);
+      navigation.navigate('AdvancedPaymentDetail', {
+        reciptData: { status: 'cancelled', razorpayOrderId: order_id },
+      });
+    });
+  };
 
-    const verifyPayment = async (data)=>{
-      // console.log("verifyPayment", data);
-        let token = await AsyncStorage.getItem("token");
-        const myHeaders = new Headers();
-        myHeaders.append("Authorization", "Bearer " + token);
-        myHeaders.append("Content-Type", "application/json");
+     // Razorpay: Verify Payment
+  const verifyPayment = async (data) => {
+    try {
+      let token = await AsyncStorage.getItem("token");
+      const myHeaders = new Headers();
+      myHeaders.append("Authorization", "Bearer " + token);
+      myHeaders.append("Content-Type", "application/json");
 
-        const raw = JSON.stringify({
-          "razorpay_order_id": data.razorpay_order_id,
-          "razorpay_payment_id": data.razorpay_payment_id,
-          "razorpay_signature": data.razorpay_signature
+      const raw = JSON.stringify({
+        razorpay_order_id: data.razorpay_order_id,
+        razorpay_payment_id: data.razorpay_payment_id,
+        razorpay_signature: data.razorpay_signature
+      });
+
+      const requestOptions = {
+        method: "POST",
+        headers: myHeaders,
+        body: raw,
+        redirect: "follow"
+      };
+
+      const response = await fetch(`${BASE_URL}/client/invoice/payment/verify`, requestOptions);
+      const result = await response.json();
+
+      if (result.statusCode === 200) {
+        // console.log("dfdfsfs", JSON.stringify(result.data, null,2))
+        navigation.navigate('AdvancedPaymentDetail', { reciptData: result.data });
+      } else {
+        navigation.navigate('AdvancedPaymentDetail', {
+          reciptData: { status: 'failed', message: result.message },
         });
-        
-        const requestOptions = {
-          method: "POST",
-          headers: myHeaders,
-          body: raw,
-          redirect: "follow"
-        };
-
-        fetch(`${BASE_URL}/client/invoice/payment/verify`, requestOptions)
-         .then((response) => response.json())
-          .then((result) => {
-            if(result.statusCode === 200){
-                showToast(result.message);
-                // console.log("ghhhhhhhhhhhhhh....",result, new Date().toLocaleString());
-                // showToast("Payment Success",);
-            }else{
-                showToast(result.message);
-            }    
-          })
-          .catch((error) => console.error(error));
+      }
+    } catch (error) {
+      console.error(error);
+      navigation.navigate('AdvancedPaymentDetail', {
+        reciptData: { status: 'failed', message: 'Payment verification failed.' },
+      });
+    } finally {
+      setPaymentLoading(false);
     }
+  };
 
     useEffect(() => {
       getLayouts();
@@ -396,7 +396,7 @@ export default function AddAdvance({ navigation }) {
     }, [dispatch]);
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
            <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', }}>
@@ -416,7 +416,7 @@ export default function AddAdvance({ navigation }) {
                   <View style={{ width:'100%', height:50, borderRadius:6, marginBottom:40, justifyContent:'space-between'}} >
                     <TextInput value={naration} onChangeText={value=> setNaration(value)}  placeholder="Naration" numberOfLines={2} multiline={true} style={{ flex:1, backgroundColor:'#fff', padding:6, borderRadius:6, color: Style.headerBgColor }} />
                   </View>
-                  <TouchableOpacity disabled={!amount || !naration} onPress={createAdvance} style={{ width: '100%', height: 45, backgroundColor: !amount || !naration ? '#ccc':'#658eff', borderRadius: 5, justifyContent: 'center', alignItems: 'center' }}>
+                  <TouchableOpacity disabled={!amount || !naration} onPress={createAdvance} style={{ width: '100%', height: 45, backgroundColor: !amount || !naration ? '#ccc':'#074173', borderRadius: 5, justifyContent: 'center', alignItems: 'center' }}>
                     {
                       isLoading ? <ActivityIndicator size="small" color="#fff" /> :
                       <Text style={{ color: '#fff', fontSize: 16, fontFamily:'Lato-SemiBold' }}>Add Advance</Text>

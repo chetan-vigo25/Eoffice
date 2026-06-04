@@ -1,5 +1,6 @@
 import React, { useEffect, useContext } from 'react';
-import { SafeAreaView, View, Text, ActivityIndicator } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { companyDetail } from '../Redux/Reducer/Company/Company.Reducer';
 import { useDeviceLocation } from '../Context/DeviceLoc';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, TextInput, Image, Animated, SafeAreaView, ScrollView, Platform, Modal, ToastAndroid, ActivityIndicator, Alert, StyleSheet, RefreshControl } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Image, Animated, ScrollView, Platform, Modal, ToastAndroid, ActivityIndicator, Alert, StyleSheet, RefreshControl } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -12,7 +13,7 @@ import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import MonthPicker from 'react-native-month-year-picker';
 
-import { AntDesign, Feather, Ionicons, Entypo, MaterialIcons } from "@expo/vector-icons";
+import { AntDesign, Feather, Ionicons, Entypo, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 import BASE_URL from "../../../Urls/DomainUrl";
 
@@ -416,35 +417,39 @@ export default function FinDocument({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
-      <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
-        <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', }}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>
-             <AntDesign name="arrowleft" size={24} color="#fff" />
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+      <Animated.View style={{ paddingHorizontal:18, transform: [{ scale }] }}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconBtn} activeOpacity={0.75}>
+             <AntDesign name="arrowleft" size={22} color="#fff" />
           </TouchableOpacity>
-          <Text style={{color: '#fff', fontSize: 14, fontWeight: '500', flex: 1, }}>Financial Documents</Text>
+          <Text style={styles.headerTitle}>Financial Documents</Text>
+          <TouchableOpacity onPress={()=> navigation.navigate('Notifikation')} style={styles.headerIconBtn} activeOpacity={0.75}>
+             <Feather name="bell" size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
-        <View style={{flexDirection: 'row',alignItems: 'center', marginTop: 20, marginBottom: 20,}}>
-          <View style={{flex: 8, flexDirection: 'row', alignItems: 'center', backgroundColor:Style.basicbgColor,borderRadius: 50, height: 50, elevation: 4 }}>
-            <TextInput placeholder="Search" value={searchQuery} onChangeText={setSearchQuery} style={{flex: 9, fontSize: 18,padding: 10,paddingLeft: 20,}} />
-            <TouchableOpacity style={{ flex: 1.5, justifyContent: 'center', alignItems: 'center' }}>
-              <Image source={require('../../../assets/oui_search.png')} resizeMode='contain' style={{ width: 20, height: 20,}} />
+        <View style={styles.searchWrap}>
+          <Ionicons name="search-outline" size={18} color="#94a0b8" style={{ marginLeft: 14 }} />
+          <TextInput placeholder="Search by name or financial year" placeholderTextColor="#9aa3bf" value={searchQuery} onChangeText={setSearchQuery} style={styles.searchInput} />
+          {!!searchQuery && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={{ paddingHorizontal: 12 }}>
+              <Ionicons name="close-circle" size={18} color="#9aa3bf" />
             </TouchableOpacity>
-          </View>
-          <TouchableOpacity onPress={()=> navigation.navigate('Notifikation')} style={{ flex:1.5, width: 50, height: 50, borderRadius: 50, justifyContent: 'center', alignItems:"flex-end" }}>
-             <Feather name="bell" size={28} color="#fff" />
-          </TouchableOpacity>
+          )}
         </View>
       </Animated.View>
         
-      <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
+      <View style={styles.bodyWrap} >
         <Animated.View style={{flex:1, transform: [{ scale }] }}>
-          <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom:10 }} >
-            <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.headerBgColor }}>Financial Documents</Text>
-              <TouchableOpacity onPress={()=> setModalVisible(true)} style={{ flexDirection:'row', gap:10, backgroundColor:Style.headerBgColor, paddingHorizontal:10, height:40, justifyContent:'center', alignItems:'center', borderRadius:6 }} >
-                <Feather name="upload" size={20} color="#fff" />
-                <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Documents</Text>
-              </TouchableOpacity>
+          <View style={styles.bodyHeaderRow} >
+            <View>
+              <Text style={styles.bodyTitle}>Financial</Text>
+              <Text style={styles.bodySubtitle}>{filteredData.length} {filteredData.length === 1 ? 'document' : 'documents'}</Text>
+            </View>
+            <TouchableOpacity onPress={()=> setModalVisible(true)} activeOpacity={0.85} style={styles.uploadBtn} >
+              <Feather name="upload" size={16} color="#fff" />
+              <Text style={styles.uploadBtnText}>Upload</Text>
+            </TouchableOpacity>
           </View>
            <Modal
              animationType="slide"
@@ -455,14 +460,19 @@ export default function FinDocument({ navigation }) {
              <View style={styles.modalBackground}>
                <View style={styles.modalContainer}>
                  <View style={styles.modalHeader}>
-                   <Text style={styles.modalTitle}>Upload Documents</Text>
+                   <View style={{ flexDirection:'row', alignItems:'center', gap: 10 }}>
+                     <View style={styles.modalHeaderIcon}>
+                       <Feather name="upload" size={16} color="#fff" />
+                     </View>
+                     <Text style={styles.modalTitle}>Upload Document</Text>
+                   </View>
                     <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                      <Ionicons name="close-sharp" size={32} color='#fff' />
+                      <Ionicons name="close" size={24} color='#fff' />
                     </TouchableOpacity>
                  </View>
-                  <View style={{ padding:10 }}>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.fieldLabel}>Document Type</Text>
+                    <TouchableOpacity style={styles.fieldShell} >
                      {Array.isArray(docType) && docType.length > 0 ? (
                       <SelectDropdown
                         data={docType}
@@ -507,12 +517,13 @@ export default function FinDocument({ navigation }) {
                       </View>
                     )}
                    </TouchableOpacity>
-                    <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >
+                    <Text style={styles.fieldLabel}>Year Range</Text>
+                    <TouchableOpacity style={styles.fieldShell} >
                     <SelectDropdown
                       data={yearRanges}
                       onSelect={(selectedYearRange, index) => {
-                        setFiscalYear(selectedYearRange); 
-                        // showToast(`Selected: ${selectedYearRange}`); 
+                        setFiscalYear(selectedYearRange);
+                        // showToast(`Selected: ${selectedYearRange}`);
                       }}
                       renderButton={(selectedYearRange, isOpened) => {
                         return (
@@ -546,14 +557,15 @@ export default function FinDocument({ navigation }) {
                     />
                     </TouchableOpacity>
                      
-                    <View style={{ width:'100%', gap:10, flexDirection:'row', justifyContent:'space-between', }} >
+                    <Text style={styles.fieldLabel}>Period</Text>
+                    <View style={{ width:'100%', gap:10, flexDirection:'row', justifyContent:'space-between', marginTop: -8 }} >
                       <View style={{ flex:1 }} >
-                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                        <TouchableOpacity style={[styles.fieldShell, { marginBottom: 0 }]} >
                         <SelectDropdown
                           data={["Quaterly", "Monthly", "Yearly"]}
                           onSelect={(selectedType, index) => {
-                            setSelectedType(selectedType); 
-                            // showToast(`Selected: ${selectedType}`); 
+                            setSelectedType(selectedType);
+                            // showToast(`Selected: ${selectedType}`);
                           }}
                           renderButton={(selectedType, isOpened) => {
                             return (
@@ -589,11 +601,11 @@ export default function FinDocument({ navigation }) {
                       </View>
                       <View style={{ flex:1 }} >
                           {selectedType === "Quaterly" && (
+                            <View style={[styles.fieldShell, { marginBottom: 0 }]}>
                             <SelectDropdown
                               data={quarter}
                               onSelect={(quarterType, index) => {
-                                setQuarterData(quarterType); 
-                                // showToast(`Selected Quarter: ${quarterType}`); 
+                                setQuarterData(quarterType);
                               }}
                               renderButton={(quarterType, isOpened) => (
                                 <View style={styles.dropdownButtonStyle}>
@@ -619,14 +631,15 @@ export default function FinDocument({ navigation }) {
                               showsVerticalScrollIndicator={false}
                               dropdownStyle={styles.dropdownMenuStyle}
                             />
+                            </View>
                            )}
-                           
+
                            { selectedType === "Monthly" && (
+                            <View style={[styles.fieldShell, { marginBottom: 0 }]}>
                             <SelectDropdown
                               data={months}
                               onSelect={(monthsType, index) => {
-                                setMonthsData(monthsType); 
-                                // showToast(`Selected Month: ${monthsType}`); 
+                                setMonthsData(monthsType);
                               }}
                               renderButton={(monthsType, isOpened) => (
                                 <View style={styles.dropdownButtonStyle}>
@@ -652,106 +665,132 @@ export default function FinDocument({ navigation }) {
                               showsVerticalScrollIndicator={false}
                               dropdownStyle={styles.dropdownMenuStyle}
                             />
-)                          }
+                            </View>
+                          )}
                       </View>
                     </View>
+
+                    <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Attachments {images.length > 0 ? `(${images.length}/5)` : ''}</Text>
+                    <View style={styles.attachmentGrid}>
                       {images.map((img, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          style={{
-                            width: '48%',
-                            height: 150,
-                            borderWidth: 1,
-                            borderRadius: 10,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                          }}
-                          disabled={true}
-                        >
-                          <Image
-                            source={{ uri: img.uri }}
-                            style={{ width: '100%', height: '100%', borderRadius: 10 }}
-                          />
-                        </TouchableOpacity>
+                        <View key={index} style={styles.attachmentTile}>
+                          <Image source={{ uri: img.uri }} style={styles.attachmentImage} />
+                        </View>
                       ))}
-                
-                      {/* Show new image picker if less than max (optional limit) */}
                       {images.length < 5 && (
-                        <TouchableOpacity
-                          onPress={pickImages}
-                          style={{
-                            width: '48%',
-                            height: 150,
-                            borderWidth: 1,
-                            borderRadius: 10,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <Ionicons name="image-outline" size={40} color="#999" />
+                        <TouchableOpacity onPress={pickImages} activeOpacity={0.7} style={styles.attachmentPlaceholder}>
+                          <View style={styles.attachmentPlaceholderIcon}>
+                            <Ionicons name="add" size={26} color={Style.headerBgColor} />
+                          </View>
+                          <Text style={styles.attachmentPlaceholderText}>Add Image</Text>
                         </TouchableOpacity>
                       )}
                     </View>
-                  </View>
-                      <TouchableOpacity onPress={uploadFile} style={{ width:'90%', height:45, justifyContent:'center', alignItems:'center', alignSelf:'center', backgroundColor:Style.headerBgColor, borderRadius:6, position:'absolute', bottom:20,  }} >
-                         <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Upload</Text>
+                  </ScrollView>
+                      <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={styles.modalSubmitBtn} >
+                         <Feather name="upload-cloud" size={16} color="#fff" />
+                         <Text style={styles.modalSubmitText}>Upload</Text>
                       </TouchableOpacity>
                  </View>
                </View>
            </Modal>
-           <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false} style={{ flex:1 }}>
+           <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} colors={[Style.headerBgColor]} tintColor={Style.headerBgColor} />} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }} style={{ flex:1 }}>
                 <View>
                    {
                      isLoading?(
-                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 }}>
-                          <ActivityIndicator size="large" color="#0000ff" />
+                      <View style={styles.loaderWrap}>
+                          <ActivityIndicator size="large" color={Style.headerBgColor} />
+                          <Text style={styles.loaderText}>Loading documents…</Text>
                       </View>
                      ):(
                       filteredData.length > 0 ?(
                         filteredData?.map((item, index) => {
+                          const verified = !!item.isVerified;
+                          const fileCount = item.filePath?.length || 0;
+                          const periodLabel = item.type === 'Monthly' ? item.monthName
+                                           : item.type === 'Quaterly' ? item.monthQuaters
+                                           : item.type === 'Yearly' ? 'Yearly'
+                                           : '';
                           return(
-                              <View key={index} style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, marginBottom:10, padding:10 }} >
-                                 <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center' }} >
-                                    <View style={{ flexDirection:'row', gap:10, alignItems:'center' }}>
-                                       <MaterialIcons name="verified-user" size={16} color={item.isVerified ? 'green' : 'red'} />
-                                       <Text style={{ fontSize:16, fontWeight:"500", color:Style.headerBgColor }}>{item.name}</Text>
+                              <View key={index} style={styles.docCard} >
+                                 <View style={styles.docCardHeader} >
+                                    <View style={styles.docTitleRow}>
+                                      <View style={[styles.docIconWrap, verified ? styles.docIconVerified : styles.docIconUnverified]}>
+                                        <MaterialCommunityIcons name="file-chart-outline" size={18} color={verified ? '#22a06b' : '#e94e4e'} />
+                                      </View>
+                                      <View style={{ flex: 1 }}>
+                                        <Text style={styles.docName} numberOfLines={1}>{item.name}</Text>
+                                        <View style={styles.docMetaRow}>
+                                          <View style={[styles.statusPill, verified ? styles.statusVerified : styles.statusPending]}>
+                                            <MaterialIcons name={verified ? 'verified' : 'error-outline'} size={10} color={verified ? '#22a06b' : '#e94e4e'} />
+                                            <Text style={[styles.statusText, { color: verified ? '#22a06b' : '#e94e4e' }]}>
+                                              {verified ? 'Verified' : 'Pending'}
+                                            </Text>
+                                          </View>
+                                          {fileCount > 0 && (
+                                            <View style={styles.fileCountPill}>
+                                              <Feather name="paperclip" size={10} color={Style.headerBgColor} />
+                                              <Text style={styles.fileCountText}>{fileCount}</Text>
+                                            </View>
+                                          )}
+                                        </View>
+                                      </View>
                                      </View>
-                                     <View style={{ flexDirection:'row', gap:10 }} >
-                                       <TouchableOpacity onPress={() => {
+                                     <View style={styles.docActions} >
+                                       <TouchableOpacity activeOpacity={0.7} onPress={() => {
                                            if (item.filePath.length === 0) {
                                              showToast("No images available to download.");
                                            } else {
                                              item.filePath.forEach(url => downloadFile(url));
                                            }
-                                         }} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', borderRadius:5 }} >
-                                           <Feather name="download" size={22} color={Style.placeHolderTextColor} />
+                                         }} style={styles.actionIconBtn} >
+                                           <Feather name="download" size={16} color={Style.headerBgColor} />
                                        </TouchableOpacity>
-                                       <TouchableOpacity onPress={() => {
+                                       <TouchableOpacity activeOpacity={0.7} onPress={() => {
                                           setSelectedItem(item);
                                           setModalVisible1(true);
-                                        }} style={{ width:30, height:30, justifyContent:'center', alignItems:'center', borderRadius:5 }} >
-                                          <Feather name="edit" size={22} color={Style.placeHolderTextColor} />
+                                        }} style={[styles.actionIconBtn, { backgroundColor: Style.headerBgColor }]} >
+                                          <Feather name="edit-2" size={14} color="#fff" />
                                        </TouchableOpacity>
                                      </View>
                                  </View>
-                                  {
-                                   item.filePath.map((fpath, index)=>{
-                                     return(
-                                       <Text key={index} style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>{fpath.split('/').pop()}</Text>
-                                     )
-                                   })
-                                  }
-                                 <View style={{ flexDirection:'row', alignItems:'center', paddingVertical:5 }}>
-                                    <Text style={{ fontSize:16, fontFamily:'Lato-SemiBold', color:Style.secondryTextColor }}>FY : </Text>
-                                    <Text style={{ fontSize:14, fontFamily:'Lato-SemiBold', color:Style.placeHolderTextColor }}>{item.yearRange}</Text>
+
+                                 {fileCount > 0 && (
+                                   <View style={styles.fileChipRow}>
+                                     {item.filePath.map((fpath, idx) => (
+                                       <View key={idx} style={styles.fileChip}>
+                                         <Feather name="file-text" size={11} color={Style.headerBgColor} />
+                                         <Text style={styles.fileChipText} numberOfLines={1}>
+                                           {fpath.split('/').pop()}
+                                         </Text>
+                                       </View>
+                                     ))}
+                                   </View>
+                                 )}
+
+                                 <View style={styles.docFooter}>
+                                   <View style={styles.docFooterCol}>
+                                     <Text style={styles.docFooterLabel}>Financial Year</Text>
+                                     <Text style={styles.docFooterValue} numberOfLines={1}>{item.yearRange || '—'}</Text>
+                                   </View>
+                                   {!!periodLabel && (
+                                     <View style={[styles.docFooterCol, { alignItems: 'flex-end' }]}>
+                                       <Text style={styles.docFooterLabel}>Period</Text>
+                                       <Text style={styles.docFooterValue} numberOfLines={1}>{periodLabel}</Text>
+                                     </View>
+                                   )}
                                  </View>
                               </View>
                            )
                         })
                       ):(
-                        <Text style={{ fontSize: 18, fontWeight: '600', color: Style.secondryTextColor, textAlign: 'center', paddingVertical: 20 }}>
-                            No Data Found
-                        </Text>
+                        <View style={styles.emptyWrap}>
+                          <View style={styles.emptyIcon}>
+                            <MaterialCommunityIcons name="folder-open-outline" size={32} color={Style.headerBgColor} />
+                          </View>
+                          <Text style={styles.emptyTitle}>No financial documents</Text>
+                          <Text style={styles.emptyHint}>Tap “Upload” to add a financial document for any year.</Text>
+                        </View>
                       )
                      )
                    }
@@ -764,13 +803,19 @@ export default function FinDocument({ navigation }) {
                     <View style={styles.modalBackground}>
                       <View style={styles.modalContainer}>
                         <View style={styles.modalHeader}>
-                          <Text style={styles.modalTitle}>Update Documents</Text>
+                          <View style={{ flexDirection:'row', alignItems:'center', gap: 10 }}>
+                            <View style={styles.modalHeaderIcon}>
+                              <Feather name="edit-2" size={14} color="#fff" />
+                            </View>
+                            <Text style={styles.modalTitle}>Update Document</Text>
+                          </View>
                           <TouchableOpacity onPress={handleClose1} style={styles.closeButton}>
-                            <Ionicons name="close-sharp" size={32} color='#fff' />
+                            <Ionicons name="close" size={24} color='#fff' />
                           </TouchableOpacity>
                         </View>
-                         <View style={{ padding:10 }}>
-                           <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+                           <Text style={styles.fieldLabel}>Document Type</Text>
+                           <View style={styles.fieldShell} >
                             <SelectDropdown
                               data={docType || []}
                               defaultValue={
@@ -806,8 +851,9 @@ export default function FinDocument({ navigation }) {
                               showsVerticalScrollIndicator={false}
                               dropdownStyle={styles.dropdownMenuStyle}
                             />
-                          </TouchableOpacity>
-                          <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                          </View>
+                          <Text style={styles.fieldLabel}>Year Range</Text>
+                          <View style={styles.fieldShell} >
                           <SelectDropdown
                             data={yearRanges}
                             defaultValue={fiscalYear}
@@ -845,16 +891,17 @@ export default function FinDocument({ navigation }) {
                             showsVerticalScrollIndicator={false}
                             dropdownStyle={styles.dropdownMenuStyle}
                           />
-                          </TouchableOpacity>
+                          </View>
 
-                             <View style={{ width:'100%', gap:10, flexDirection:'row', justifyContent:'space-between', }} >
+                          <Text style={styles.fieldLabel}>Period</Text>
+                          <View style={{ width:'100%', gap:10, flexDirection:'row', justifyContent:'space-between', marginTop: -8 }} >
                       <View style={{ flex:1 }} >
-                        <TouchableOpacity style={{ width:'100%', height:40, backgroundColor:"#eee", borderRadius:6, marginBottom:20, justifyContent:'space-between'}} >
+                        <View style={[styles.fieldShell, { marginBottom: 0 }]} >
                         <SelectDropdown
                           data={["Quaterly", "Monthly", "Yearly"]}
                           defaultValue={selectedType}
                           onSelect={(selectedType, index) => {
-                            setSelectedType(selectedType); 
+                            setSelectedType(selectedType);
                             // showToast(`Selected: ${selectedType}`); 
                           }}
                           renderButton={(selectedType, isOpened) => {
@@ -887,16 +934,16 @@ export default function FinDocument({ navigation }) {
                           showsVerticalScrollIndicator={false}
                           dropdownStyle={styles.dropdownMenuStyle}
                         />
-                      </TouchableOpacity>
+                      </View>
                       </View>
                           <View style={{ flex:1 }} >
                               {selectedType === "Quaterly" && (
+                                <View style={[styles.fieldShell, { marginBottom: 0 }]}>
                                 <SelectDropdown
                                   data={quarter}
                                   defaultValue={quarterData}
                                   onSelect={(quarterType, index) => {
-                                    setQuarterData(quarterType); 
-                                    // showToast(`Selected Quarter: ${quarterType}`); 
+                                    setQuarterData(quarterType);
                                   }}
                                   renderButton={(quarterType, isOpened) => (
                                     <View style={styles.dropdownButtonStyle}>
@@ -922,15 +969,16 @@ export default function FinDocument({ navigation }) {
                                   showsVerticalScrollIndicator={false}
                                   dropdownStyle={styles.dropdownMenuStyle}
                                 />
+                                </View>
                                )}
-                               
+
                                { selectedType === "Monthly" && (
+                                <View style={[styles.fieldShell, { marginBottom: 0 }]}>
                                 <SelectDropdown
                                   data={months}
                                   defaultValue={monthsData}
                                   onSelect={(monthsType, index) => {
-                                    setMonthsData(monthsType); 
-                                    // showToast(`Selected Month: ${monthsType}`); 
+                                    setMonthsData(monthsType);
                                   }}
                                   renderButton={(monthsType, isOpened) => (
                                     <View style={styles.dropdownButtonStyle}>
@@ -956,39 +1004,35 @@ export default function FinDocument({ navigation }) {
                                   showsVerticalScrollIndicator={false}
                                   dropdownStyle={styles.dropdownMenuStyle}
                                 />
-)                               }
-                              
+                                </View>
+                              )}
+
                           </View>
                          </View>
 
-                           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                           <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Attachments {images.length > 0 ? `(${images.length}/5)` : ''}</Text>
+                           <View style={styles.attachmentGrid}>
                              {images.map((img, index) => (
-                               <View
-                                 key={index}
-                                 style={{ width: '48%', height: 150, borderWidth: 1, borderRadius: 10, overflow: 'hidden', position: 'relative', }} >
-                                 <Image
-                                   source={{ uri: img.uri }}
-                                   style={{ width: '100%', height: '100%' }}
-                                 />
-                             
-                                 <TouchableOpacity
-                                   onPress={() => pickSingleImage(index)}
-                                   style={{ position: 'absolute', top: 5, right: 5, backgroundColor: '#000000aa', padding: 5, borderRadius: 20, }} >
-                                   <Feather name="edit" size={18} color="#fff" />
+                               <View key={index} style={styles.attachmentTile}>
+                                 <Image source={{ uri: img.uri }} style={styles.attachmentImage} />
+                                 <TouchableOpacity onPress={() => pickSingleImage(index)} activeOpacity={0.85} style={styles.attachmentEditBtn}>
+                                   <Feather name="edit-2" size={14} color="#fff" />
                                  </TouchableOpacity>
                                </View>
                              ))}
                               {images.length < 5 && (
-                                <TouchableOpacity
-                                  onPress={pickImages}
-                                  style={{ width: '48%', height: 150, borderWidth: 1, borderRadius: 10, justifyContent: 'center', alignItems: 'center',}} >
-                                  <Ionicons name="image-outline" size={40} color="#999" />
+                                <TouchableOpacity onPress={pickImages} activeOpacity={0.7} style={styles.attachmentPlaceholder}>
+                                  <View style={styles.attachmentPlaceholderIcon}>
+                                    <Ionicons name="add" size={26} color={Style.headerBgColor} />
+                                  </View>
+                                  <Text style={styles.attachmentPlaceholderText}>Add Image</Text>
                                 </TouchableOpacity>
                               )}
                             </View>
-                           </View>
-                           <TouchableOpacity onPress={uploadFile} style={{ width:'90%', height:45, justifyContent:'center', alignItems:'center', alignSelf:'center', backgroundColor:Style.headerBgColor, borderRadius:6, position:'absolute', bottom:20,  }} >
-                              <Text style={{ color:'#fff', fontFamily:'Lato-Medium', fontSize:12, }} >Submit</Text>
+                           </ScrollView>
+                           <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={styles.modalSubmitBtn} >
+                              <Feather name="upload-cloud" size={16} color="#fff" />
+                              <Text style={styles.modalSubmitText}>Save Changes</Text>
                            </TouchableOpacity>
                         </View>
                       </View>
@@ -1002,16 +1046,393 @@ export default function FinDocument({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  /* ---- Header ---- */
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: 'Lato-SemiBold',
+    flex: 1,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    height: 46,
+    marginTop: 14,
+    marginBottom: 14,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 4 },
+    // shadowOpacity: 0.06,
+    // shadowRadius: 8,
+    // elevation: 3,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'Lato-Medium',
+    color: '#1f2440',
+    paddingLeft: 10,
+  },
+
+  /* ---- Body ---- */
+  bodyWrap: {
+    flex: 1,
+    backgroundColor: Style.primaryBgColor,
+    borderTopStartRadius: 22,
+    borderTopEndRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+  },
+  bodyHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+  },
+  bodyTitle: {
+    fontSize: 16,
+    fontFamily: 'Lato-Bold',
+    color: Style.headerBgColor,
+  },
+  bodySubtitle: {
+    fontSize: 11.5,
+    fontFamily: 'Lato-Medium',
+    color: '#7c84a3',
+    marginTop: 2,
+  },
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Style.headerBgColor,
+    paddingHorizontal: 14,
+    height: 38,
+    borderRadius: 999,
+    shadowColor: Style.headerBgColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  uploadBtnText: {
+    color: '#fff',
+    fontFamily: 'Lato-SemiBold',
+    fontSize: 12.5,
+  },
+
+  /* ---- Document card ---- */
+  docCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#eef0fa',
+    // shadowColor: '#1f2440',
+    // shadowOffset: { width: 0, height: 4 },
+    // shadowOpacity: 0.05,
+    // shadowRadius: 8,
+    // elevation: 2,
+  },
+  docCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  docTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  docIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  docIconVerified: { backgroundColor: '#e8f7ee' },
+  docIconUnverified: { backgroundColor: '#fdecec' },
+  docName: {
+    fontSize: 14,
+    fontFamily: 'Lato-Bold',
+    color: Style.headerBgColor,
+  },
+  docMetaRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 4,
+    alignItems: 'center',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  statusVerified: { backgroundColor: '#e8f7ee' },
+  statusPending: { backgroundColor: '#fdecec' },
+  statusText: {
+    fontSize: 10,
+    fontFamily: 'Lato-SemiBold',
+  },
+  fileCountPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: '#eef2ff',
+  },
+  fileCountText: {
+    fontSize: 10,
+    fontFamily: 'Lato-SemiBold',
+    color: Style.headerBgColor,
+  },
+  docActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#eef2ff',
+  },
+  fileChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 12,
+  },
+  fileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#f4f6fb',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    maxWidth: '100%',
+  },
+  fileChipText: {
+    fontSize: 11,
+    fontFamily: 'Lato-Medium',
+    color: '#4c5475',
+    maxWidth: 160,
+  },
+  docFooter: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#eef0fa',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  docFooterCol: {
+    flex: 1,
+  },
+  docFooterLabel: {
+    fontSize: 11,
+    fontFamily: 'Lato-SemiBold',
+    color: '#7c84a3',
+    letterSpacing: 0.3,
+  },
+  docFooterValue: {
+    fontSize: 13,
+    fontFamily: 'Lato-Bold',
+    color: Style.headerBgColor,
+    marginTop: 2,
+  },
+
+  /* ---- Loading / empty ---- */
+  loaderWrap: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    gap: 10,
+  },
+  loaderText: {
+    fontSize: 12,
+    fontFamily: 'Lato-Medium',
+    color: '#7c84a3',
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#eef2ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontFamily: 'Lato-Bold',
+    color: Style.headerBgColor,
+  },
+  emptyHint: {
+    fontSize: 12,
+    fontFamily: 'Lato-Medium',
+    color: '#7c84a3',
+    marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 30,
+  },
+
+  /* ---- Modal field helpers ---- */
+  modalHeaderIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fieldLabel: {
+    fontSize: 11.5,
+    fontFamily: 'Lato-SemiBold',
+    color: '#7c84a3',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  fieldShell: {
+    width: '100%',
+    height: 52,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e6eaf5',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    marginBottom: 16,
+  },
+  fieldInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'Lato-Medium',
+    color: Style.headerBgColor,
+    paddingHorizontal: 14,
+  },
+  attachmentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 80,
+  },
+  attachmentTile: {
+    width: '48%',
+    height: 140,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#eef2ff',
+    position: 'relative',
+  },
+  attachmentImage: {
+    width: '100%',
+    height: '100%',
+  },
+  attachmentEditBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  attachmentPlaceholder: {
+    width: '48%',
+    height: 140,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#cdd6f5',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f7f9ff',
+  },
+  attachmentPlaceholderIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#eef2ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  attachmentPlaceholderText: {
+    fontSize: 11.5,
+    fontFamily: 'Lato-SemiBold',
+    color: Style.headerBgColor,
+  },
+  modalSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '90%',
+    height: 50,
+    alignSelf: 'center',
+    backgroundColor: Style.headerBgColor,
+    borderRadius: 14,
+    position: 'absolute',
+    bottom: 18,
+    shadowColor: Style.headerBgColor,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  modalSubmitText: {
+    color: '#fff',
+    fontFamily: 'Lato-SemiBold',
+    fontSize: 13.5,
+    letterSpacing: 0.3,
+  },
+
+  /* ---- Existing dropdown / modal styles ---- */
   dropdownButtonStyle: {
       width: "100%",
       height: 50,
-      backgroundColor: Style.basicbgColor,
-      borderRadius: 6,
+      backgroundColor: '#fff',
+      borderRadius: 12,
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: 12,
-      elevation:1
+      paddingHorizontal: 14,
     },
     dropdownButtonTxtStyle: {
       flex: 1,
@@ -1050,7 +1471,7 @@ const styles = StyleSheet.create({
     },
   modalBackground: {
       flex: 1,
-      backgroundColor: '#00000095',
+      backgroundColor: 'rgba(20, 28, 60, 0.55)',
       justifyContent: "center",
       padding: 0,
     },
@@ -1058,27 +1479,29 @@ const styles = StyleSheet.create({
       width: '100%',
       backgroundColor: Style.primaryBgColor,
       padding: 0,
-      borderRadius: 5,
       flex:1,
-      marginTop:0
+      marginTop:0,
     },
     modalHeader: {
       width: '100%',
-      height: 50,
+      height: 56,
       backgroundColor: Style.headerBgColor,
       flexDirection: 'row',
       justifyContent: "space-between",
       alignItems: 'center',
-      padding: 10,
+      paddingHorizontal: 14,
     },
     modalTitle: {
-      fontFamily: 'Roboto-Bold',
+      fontFamily: 'Lato-Bold',
       color: "#fff",
-      fontSize: 14,
+      fontSize: 15,
+      letterSpacing: 0.3,
     },
     closeButton: {
-      width: 40,
-      height: 40,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(255,255,255,0.18)',
       justifyContent: 'center',
       alignItems: 'center',
     },

@@ -66,5 +66,18 @@ target 'EOffice' do
         end
       end
     end
+
+    # Workaround for fmt's consteval format strings failing to compile under
+    # newer Apple clang (Xcode 16+/iOS 26 SDK). fmt/base.h only disables the
+    # consteval path for Apple clang < 14; force it off for all Apple builds.
+    fmt_base = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base)
+      contents = File.read(fmt_base)
+      patched = contents.gsub(
+        '#elif defined(__apple_build_version__) && __apple_build_version__ < 14000029L',
+        '#elif defined(__apple_build_version__)'
+      )
+      File.write(fmt_base, patched) if patched != contents
+    end
   end
 end

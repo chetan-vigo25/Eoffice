@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { StatusBar, View, Text, TouchableOpacity, Animated, SafeAreaView, Platform, RefreshControl, FlatList, ToastAndroid, ActivityIndicator } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, Animated, RefreshControl, FlatList, ToastAndroid, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
 import { useDispatch } from 'react-redux';
@@ -12,11 +13,7 @@ import { AntDesign } from "@expo/vector-icons";
 const PAGE_LIMIT = 10;
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function VisitHistory({ navigation, route }) {
@@ -179,13 +176,9 @@ export default function VisitHistory({ navigation, route }) {
     };
 
     const renderItem = useCallback(({ item }) => (
-      <View style={{ width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 10, elevation: 2, padding: 15, marginBottom: 15 }} >
+      <View style={{ width: '100%', backgroundColor: Style.basicbgColor, borderRadius: 10, elevation: 2, padding: 15, marginBottom: 15, }} >
         <View style={{ flexDirection:'row', gap:10, justifyContent:'space-between' }} >
-          <Text numberOfLines={1} ellipsizeMode="tail" style={{flex:1.5, fontSize: 14, fontFamily: "Lato-SemiBold", color: Style.primaryTextColor }}>{item.name}</Text>
-           <View style={{ flex:1 }}>
-              <Text style={{ fontSize: 12, fontFamily: "Lato-SemiBold", color: "#5e6366" }}>Visit time/Date:</Text>
-              <Text style={{ fontSize: 10, fontFamily: "Lato-SemiBold", color: Style.secondryTextColor }}>{moment(item.date).format("DD-MM-YYYY / hh:mm a")}</Text>
-           </View>
+          <Text numberOfLines={1} ellipsizeMode="tail" style={{flex:1.5, fontSize: 14, fontFamily: "Lato-SemiBold", color: Style.primaryTextColor, marginBottom:4 }}>{item.name}</Text>
         </View>
         <View style={{ flexDirection:"row", gap:0, alignItems:'center' }} >
           <Text style={{ fontSize: 14, fontFamily: "Lato-SemiBold", color: "#5e6366" }}>Departmemt: </Text>
@@ -193,19 +186,17 @@ export default function VisitHistory({ navigation, route }) {
         </View>
         <View style={{ flexDirection:"row", gap:0, alignItems:'center', marginBottom:10 }} >
           <Text style={{ fontSize: 14, fontFamily: "Lato-SemiBold", color: "#5e6366" }}>Reason: </Text>
-          <Text numberOfLines={1} ellipsizeMode="tail" style={{ fontSize: 14, fontFamily: "Lato-SemiBold", color: Style.secondryTextColor }}>{item.visitReasonId}</Text>
+          <Text numberOfLines={1} ellipsizeMode="tail" style={{ fontSize: 14, fontFamily: "Lato-SemiBold", color: Style.secondryTextColor }}>{item.reason?item.reason:'Reason not mentioned'}</Text>
         </View>
-        <View style={{ marginTop:5 }} >
-          {
-            item.updateByEmploye === true?
-            <View style={{ width:'70%', height:40, justifyContent:'center', alignItems:'center', backgroundColor:'#ffdddd', borderRadius:6 }} >
-              <Text style={{ fontSize: 14, fontFamily: "Lato-SemiBold", color:'#c32c2c' }} >Cancelled By Employee</Text>
-            </View>:
-            item.updateByClient === true?
-            <View style={{ width:'70%', height:40, justifyContent:'center', alignItems:'center', backgroundColor:item.status === "confirmed"?'#dbffd2':'#ffdddd', borderRadius:6 }} >
-              <Text style={{ fontSize: 14, fontFamily: "Lato-SemiBold", color:item.status === "confirmed"?'#34a32a':'#c32c2c' }} >{item.status === "confirmed"? 'Metting Successful': 'Cancelled By You'}</Text>
-            </View>:null
-          }
+        <View style={{ marginTop:3, flexDirection:'row', justifyContent:'space-between' }} >
+           <View style={{ flex:1 }}>
+              <Text style={{ fontSize: 12, fontFamily: "Lato-SemiBold", color: "#5e6366" }}>Check In Date/Time:</Text>
+              <Text style={{ fontSize: 10, fontFamily: "Lato-SemiBold", color: Style.secondryTextColor }}>{item.checkInTime ? moment(item.checkInTime).format("DD-MM-YYYY / hh:mm a") : "Not checked in yet"}</Text>
+           </View>
+           <View style={{ flex:1 }}>
+              <Text style={{ fontSize: 12, fontFamily: "Lato-SemiBold", color: "#5e6366" }}>Check Out Date/Time:</Text>
+              <Text style={{ fontSize: 10, fontFamily: "Lato-SemiBold", color: Style.secondryTextColor }}>{item.checkOutTime ? moment(item.checkOutTime).format("DD-MM-YYYY / hh:mm a") : "Not checked out yet"}</Text>
+           </View>
         </View>
       </View>
     ), []);
@@ -238,7 +229,7 @@ export default function VisitHistory({ navigation, route }) {
     };
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+    <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center',paddingHorizontal:20 }}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start' }}>

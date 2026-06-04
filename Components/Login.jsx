@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { SafeAreaView, View, Text, Image, Animated, Platform, ToastAndroid, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
-
+import { View, Text, Image, Animated, ToastAndroid, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from "react-redux";
 import { login } from "../Redux/Reducer/Auth/Auth.reducers";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -10,11 +10,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 // import Button from '../Layout/Button.json';
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function Login({navigation}) {

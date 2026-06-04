@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   FontAwesome5,
   Ionicons,
@@ -12,48 +12,56 @@ import {
 
 const cards = [
   {
-    title: 'Leave Management',
+    title: 'Leave',
+    subtitle: 'Apply & track',
     route: 'LeaveManagement',
-    bg: '#FF980020',
+    bg: '#FFF4E5',
+    accent: '#FF9800',
     height: 140,
     column: 'left',
-    icon: <Ionicons name="exit-outline" size={24} color="#6a8ff390" />,
+    icon: <Ionicons name="exit-outline" size={22} color="#FF9800" />,
   },
   {
-    title: 'Payroll Management',
+    title: 'Payroll',
+    subtitle: 'Salary & slips',
     route: 'Payroll',
-    bg: '#9C27B020',
+    bg: '#F3E8FB',
+    accent: '#9C27B0',
     height: 180,
     column: 'left',
-    icon: <FontAwesome5 name="dollar-sign" size={20} color="#6a8ff390" />,
+    icon: <FontAwesome5 name="dollar-sign" size={20} color="#9C27B0" />,
     footer: true,
     footerIcon: {
       type: 'Entypo',
       name: 'bar-graph',
-      color: '#9C27B090',
+      color: '#9C27B0',
     },
   },
   {
-    title: 'Attendance Management',
+    title: 'Attendance',
+    subtitle: 'Daily summary',
     route: 'EmployeAttendance',
-    bg: '#4CAF5020',
+    bg: '#E8F6EA',
+    accent: '#4CAF50',
     height: 180,
     column: 'right',
-    icon: <FontAwesome5 name="user" size={20} color="#6a8ff390" />,
+    icon: <FontAwesome5 name="user-clock" size={18} color="#4CAF50" />,
     footer: true,
     footerIcon: {
       type: 'Foundation',
       name: 'graph-bar',
-      color: '#4CAF5090',
+      color: '#4CAF50',
     },
   },
   {
-    title: 'WFH Management',
+    title: 'Work From Home',
+    subtitle: 'Request WFH',
     route: 'EmployeWFH',
-    bg: '#2196F320',
+    bg: '#E3F1FD',
+    accent: '#2196F3',
     height: 140,
     column: 'right',
-    icon: <MaterialIcons name="broadcast-on-home" size={20} color="#6a8ff390" />,
+    icon: <MaterialIcons name="home-work" size={22} color="#2196F3" />,
   },
 ];
 
@@ -73,62 +81,40 @@ const FooterIcon = ({ icon }) => {
 
 const Card = ({ item, navigation }) => (
   <TouchableOpacity
+    activeOpacity={0.9}
     onPress={() => navigation.navigate(item.route)}
-    style={{
-      width: '100%',
-      height: item.height,
-      justifyContent: 'center',
-      backgroundColor: item.bg,
-      borderRadius: 6,
-      padding: 20,
-      marginBottom: 10,
-    }}
+    style={[styles.card, { height: item.height, backgroundColor: item.bg }]}
   >
-    <View
-      style={{
-        width: 45,
-        height: 45,
-        backgroundColor: '#fff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 50,
-        marginBottom: 10,
-      }}
-    >
-      {item.icon}
+    <View style={styles.cardTop}>
+      <View style={styles.iconWrap}>{item.icon}</View>
+      <View style={[styles.arrow, { backgroundColor: '#ffffff' }]}>
+        <Entypo name="chevron-right" size={14} color={item.accent} />
+      </View>
     </View>
 
-    <Text style={{ fontSize: 16, fontFamily: 'Lato-SemiBold' }}>
-      {item.title}
-    </Text>
-    {item.footer && (
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: 10,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 18,
-            fontFamily: 'Lato-Medium',
-            color: '#444',
-          }}
-        >
-          $
-        </Text>
+    <View style={styles.cardBottom}>
+      <Text style={[styles.title, { color: item.accent }]} numberOfLines={1}>
+        {item.title}
+      </Text>
+      <Text style={styles.subtitle} numberOfLines={1}>
+        {item.subtitle}
+      </Text>
 
-        <FooterIcon icon={item.footerIcon} />
-      </View>
-    )}
+      {item.footer && (
+        <View style={styles.footer}>
+          <View style={[styles.dotPill, { backgroundColor: '#ffffff' }]}>
+            <Text style={[styles.dotText, { color: item.accent }]}>View</Text>
+          </View>
+          <FooterIcon icon={item.footerIcon} />
+        </View>
+      )}
+    </View>
   </TouchableOpacity>
 );
+
 const DashboardCards = ({ navigation }) => {
   return (
     <View style={{ flexDirection: 'row', gap: 10 }}>
-      {/* LEFT COLUMN */}
       <View style={{ flex: 1 }}>
         {cards
           .filter(item => item.column === 'left')
@@ -137,7 +123,6 @@ const DashboardCards = ({ navigation }) => {
           ))}
       </View>
 
-      {/* RIGHT COLUMN */}
       <View style={{ flex: 1 }}>
         {cards
           .filter(item => item.column === 'right')
@@ -150,3 +135,72 @@ const DashboardCards = ({ navigation }) => {
 };
 
 export default DashboardCards;
+
+const styles = StyleSheet.create({
+  card: {
+    width: '100%',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
+    marginBottom: 10,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    overflow: 'hidden',
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  iconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  arrow: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardBottom: {
+    marginTop: 12,
+  },
+  title: {
+    fontSize: 15,
+    fontFamily: 'Lato-SemiBold',
+    letterSpacing: 0.2,
+  },
+  subtitle: {
+    marginTop: 2,
+    fontSize: 11,
+    fontFamily: 'Lato-Medium',
+    color: '#6b7280',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  dotPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  dotText: {
+    fontSize: 11,
+    fontFamily: 'Lato-SemiBold',
+  },
+});

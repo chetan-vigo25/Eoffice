@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Alert, Animated, Dimensions, PanResponder, StyleSheet, View, Platform, Text, SafeAreaView, Linking, TouchableOpacity, ScrollView, Image, ToastAndroid, ActivityIndicator } from 'react-native';
+import { Alert, Animated, Dimensions, PanResponder, StyleSheet, View, Text, Linking, TouchableOpacity, ScrollView, Image, ToastAndroid, ActivityIndicator } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import RazorpayCheckout from 'react-native-razorpay';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
@@ -19,11 +20,7 @@ const SECRET = DATA_ENCRYPT_DCRYPT_KEY;
 const { width } = Dimensions.get('window');
 
 function showToast(message) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert('', message);
-  }
+  ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
 export default function TransDetail({ navigation, route }) {
@@ -257,7 +254,7 @@ export default function TransDetail({ navigation, route }) {
      );
 
     return (
-        <SafeAreaView style={{ flex:1, backgroundColor:Style.headerBgColor }}>
+        <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
             <View style={{ paddingHorizontal:20 }}>
               <View style={{ flexDirection: 'row', width: '100%', marginTop: 0, alignItems:'center', }}>
                  <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'flex-start',}}>
