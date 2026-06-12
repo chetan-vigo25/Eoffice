@@ -226,8 +226,8 @@ export default function StatementsTrans({ navigation, route }) {
             <td>${txn.naration || txn.typeOf || '-'}</td>
             <td>${txn.refNumber || '-'}</td>
             <td class="right" style="color:#b8860b">${debitVal.toFixed(2)}</td>
-            <td class="right" style="color:#b8860b">${creditVal}</td>
-            <td class="right">${Number(txn.currentBalance || 0)}</td>
+            <td class="right" style="color:#b8860b">${creditVal.toFixed(2)}</td>
+            <td class="right">${(Number(txn.currentBalance) || 0).toFixed(2)}</td>
           </tr>`;
       }).join('');
 
@@ -278,8 +278,8 @@ export default function StatementsTrans({ navigation, route }) {
                 <td>Total Balance</td>
                 <td></td>
                 <td class="right">${totalDebit.toFixed(2)}</td>
-                <td class="right">${totalCredit}</td>
-                <td class="right">${lastBalance}</td>
+                <td class="right">${totalCredit.toFixed(2)}</td>
+                <td class="right">${lastBalance.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
@@ -476,7 +476,7 @@ export default function StatementsTrans({ navigation, route }) {
       )}
 
       {/* Download Buttons */}
-      {/* <View style={styles.downloadRow}>
+      <View style={styles.downloadRow}>
         <TouchableOpacity onPress={handleDownloadPDF} style={styles.downloadBtn} activeOpacity={0.7}>
           <Feather name="file-text" size={16} color="#fff" />
           <Text style={styles.downloadBtnText}>Download PDF</Text>
@@ -485,7 +485,7 @@ export default function StatementsTrans({ navigation, route }) {
           <Feather name="grid" size={16} color="#fff" />
           <Text style={styles.downloadBtnText}>Download Excel</Text>
         </TouchableOpacity>
-      </View> */}
+      </View>
 
       {/* Transactions Header */}
       <View style={styles.transHeader}>

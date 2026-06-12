@@ -17,6 +17,15 @@ export default function NotificationBell({ navigation, iconSize = 22, iconColor 
   const fetchUnread = async () => {
     const token = await AsyncStorage.getItem("token");
     if (!token) return;
+
+    // Mirror Notifikation.jsx: a notification is read if the server marked it
+    // read OR the user read it locally (persisted under LOCAL_READ_IDS).
+    let localReadIds = new Set();
+    try {
+      const saved = await AsyncStorage.getItem("LOCAL_READ_IDS");
+      if (saved) localReadIds = new Set(JSON.parse(saved));
+    } catch (e) {}
+
     const headers = new Headers();
     headers.append("Authorization", "Bearer " + token);
     headers.append("Content-Type", "application/json");
@@ -24,7 +33,9 @@ export default function NotificationBell({ navigation, iconSize = 22, iconColor 
       .then(r => r.json())
       .then(result => {
         if (result.statusCode === 200) {
-          const count = (result.data || []).filter(n => !n.isRead).length;
+          const count = (result.data || []).filter(
+            n => !(localReadIds.has(n._id) || n.status === "read")
+          ).length;
           setUnreadCount(count);
         }
       })

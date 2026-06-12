@@ -414,70 +414,74 @@ export default function TaskSummary({ navigation, route }) {
               )}
             </Card>
 
-            {/* ── Rating ── */}
-            <SectionTitle title="Task Rating" />
-            <Card style={{ alignItems: 'center', paddingVertical: 20 }}>
-              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-                {Array.from({ length: maxStars }, (_, i) => (
-                  <TouchableOpacity key={i} onPress={() => sendRating(i + 1)} activeOpacity={0.7}>
-                    <FontAwesome name={i < rating ? 'star' : 'star-o'} size={30} color="#FBBF24" />
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>
-                {rating > 0 ? `You rated ${rating} out of 5` : 'Tap a star to rate this task'}
-              </Text>
-              {taskSumry?.taskRatingData?.createdAt ? (
-                <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginTop: 4 }}>
-                  Rated on {moment(taskSumry.taskRatingData.createdAt).format('DD MMM YYYY')}
-                </Text>
-              ) : null}
-            </Card>
-
-            {/* ── Review ── */}
-            <SectionTitle title="Your Review" />
-            <Card>
-              {taskReview?.updatedAt && (
-                <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginBottom: 10 }}>
-                  Last updated: {moment(taskReview.updatedAt).format('DD MMM YYYY, hh:mm A')}
-                </Text>
-              )}
-              <TextInput
-                value={review}
-                onChangeText={setReview}
-                placeholder="Write your review here..."
-                placeholderTextColor={Style.placeHolderTextColor}
-                style={{
-                  backgroundColor: Style.inputBgColor,
-                  borderRadius: 10, padding: 12,
-                  color: Style.basicTextColor,
-                  fontSize: 13, fontFamily: 'Lato-Medium',
-                  borderWidth: 1, borderColor: '#e0e0e0',
-                  minHeight: 80, textAlignVertical: 'top',
-                  marginBottom: 12,
-                }}
-                multiline
-                numberOfLines={3}
-              />
-              <TouchableOpacity
-                disabled={review.trim() === '' || loading}
-                onPress={taskReview ? updateReview : sendReview}
-                activeOpacity={0.8}
-                style={{
-                  height: 46, borderRadius: 10,
-                  backgroundColor: review.trim() === '' ? '#e0e0e0' : Style.headerBgColor,
-                  justifyContent: 'center', alignItems: 'center',
-                }}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: review.trim() === '' ? '#999' : '#fff' }}>
-                    {taskReview ? 'Update Review' : 'Submit Review'}
+            {/* ── Rating & Review (only once the task is completed) ── */}
+            {taskSumry?.status === 'Completed' && (
+              <>
+                <SectionTitle title="Task Rating" />
+                <Card style={{ alignItems: 'center', paddingVertical: 20 }}>
+                  <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                    {Array.from({ length: maxStars }, (_, i) => (
+                      <TouchableOpacity key={i} onPress={() => sendRating(i + 1)} activeOpacity={0.7}>
+                        <FontAwesome name={i < rating ? 'star' : 'star-o'} size={30} color="#FBBF24" />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>
+                    {rating > 0 ? `You rated ${rating} out of 5` : 'Tap a star to rate this task'}
                   </Text>
-                )}
-              </TouchableOpacity>
-            </Card>
+                  {taskSumry?.taskRatingData?.createdAt ? (
+                    <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginTop: 4 }}>
+                      Rated on {moment(taskSumry.taskRatingData.createdAt).format('DD MMM YYYY')}
+                    </Text>
+                  ) : null}
+                </Card>
+
+                {/* ── Review ── */}
+                <SectionTitle title="Your Review" />
+                <Card>
+                  {taskReview?.updatedAt && (
+                    <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginBottom: 10 }}>
+                      Last updated: {moment(taskReview.updatedAt).format('DD MMM YYYY, hh:mm A')}
+                    </Text>
+                  )}
+                  <TextInput
+                    value={review}
+                    onChangeText={setReview}
+                    placeholder="Write your review here..."
+                    placeholderTextColor={Style.placeHolderTextColor}
+                    style={{
+                      backgroundColor: Style.inputBgColor,
+                      borderRadius: 10, padding: 12,
+                      color: Style.basicTextColor,
+                      fontSize: 13, fontFamily: 'Lato-Medium',
+                      borderWidth: 1, borderColor: '#e0e0e0',
+                      minHeight: 80, textAlignVertical: 'top',
+                      marginBottom: 12,
+                    }}
+                    multiline
+                    numberOfLines={3}
+                  />
+                  <TouchableOpacity
+                    disabled={review.trim() === '' || loading}
+                    onPress={taskReview ? updateReview : sendReview}
+                    activeOpacity={0.8}
+                    style={{
+                      height: 46, borderRadius: 10,
+                      backgroundColor: review.trim() === '' ? '#e0e0e0' : Style.headerBgColor,
+                      justifyContent: 'center', alignItems: 'center',
+                    }}
+                  >
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: review.trim() === '' ? '#999' : '#fff' }}>
+                        {taskReview ? 'Update Review' : 'Submit Review'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </Card>
+              </>
+            )}
 
           </ScrollView>
         )}

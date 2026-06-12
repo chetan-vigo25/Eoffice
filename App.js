@@ -196,7 +196,9 @@ export default function App() {
              isConnected ? 
                <NavigationContainer key={refreshKey} >
                     <UserProvider>
-                      <MyStack />
+                      <EmployeeDashboardProvider>
+                        <MyStack />
+                      </EmployeeDashboardProvider>
                     </UserProvider>
                </NavigationContainer>
              : 
@@ -318,36 +320,10 @@ function MyTabs({ route }) {
         tabBarItemStyle: styles.tabBarItem,
       })}
     >
-      <Tab.Screen
-        name="ClientDash"
-        component={ClientDash}
-        options={{
-          tabBarLabel: 'Dashboard',
-        }}
-        initialParams={{ userData }}
-      />
-      <Tab.Screen
-        name="ClientMessage"
-        component={ClientMessage}
-        options={{
-          tabBarLabel: 'Messages',
-        }}
-      />
-      <Tab.Screen
-        name="Events"
-        component={Events}
-        options={{
-          tabBarLabel: 'Events',
-        }}
-        initialParams={{ userData }}
-      />
-      <Tab.Screen
-        name="ClientProfile"
-        component={ClientProfile}
-        options={{
-          tabBarLabel: 'Profile',
-        }}
-      />
+      <Tab.Screen name="ClientDash" component={ClientDash} options={{ tabBarLabel: 'Dashboard', }} initialParams={{ userData }} />
+      <Tab.Screen name="ClientMessage" component={ClientMessage} options={{ tabBarLabel: 'Messages', }} />
+      <Tab.Screen name="Events" component={Events} options={{ tabBarLabel: 'Events', }} initialParams={{ userData }} />
+      <Tab.Screen name="ClientProfile" component={ClientProfile} options={{ tabBarLabel: 'Profile', }} />
     </Tab.Navigator>
   );
 }

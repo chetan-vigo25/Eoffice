@@ -39,7 +39,6 @@ export default function ClientDash({ navigation, route }) {
     const timer = setInterval(() => {
       setCurrentTime(moment().format('hh:mm:ss A'));
     }, 1000);
-    
     return () => clearInterval(timer);
   }, []);
 
@@ -121,7 +120,7 @@ export default function ClientDash({ navigation, route }) {
     };
 
     fetch(`${BASE_URL}/client/invoice/list`, requestOptions)
-      .then((response) => response.json())
+     .then((response) => response.json())
       .then(async (result) => {
         if (result.statusCode === 200) {
           const paidInvoicesData = result.data.docs.filter(invoice => invoice.status === "Paid");
@@ -207,7 +206,6 @@ export default function ClientDash({ navigation, route }) {
         return <Feather name={iconName} size={size} color={color} />;
     }
   };
-
 
   return (
     <SafeAreaView edges={['left', 'right']} style={{ flex: 1, backgroundColor: '#F8F9FF' }}>

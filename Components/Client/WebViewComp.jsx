@@ -17,6 +17,40 @@ function showToast(message) {
   }
 }
 
+// Collapses the empty whitespace the web page renders below its top navbar.
+// The portal is a SPA, so we install a persistent <style> and re-apply for a
+// few seconds while the app mounts. Add more selectors here if the gap persists.
+const REMOVE_TOP_GAP_CSS = `
+  html, body { margin: 0 !important; padding-top: 0 !important; }
+  body > :first-child { margin-top: 0 !important; }
+`;
+
+const REMOVE_TOP_GAP_JS = `
+  (function () {
+    function applyFix() {
+      try {
+        if (!document.head) return;
+        if (!document.getElementById('rn-gap-fix')) {
+          var style = document.createElement('style');
+          style.id = 'rn-gap-fix';
+          style.innerHTML = ${JSON.stringify(REMOVE_TOP_GAP_CSS)};
+          document.head.appendChild(style);
+        }
+        if (!document.querySelector('meta[name="viewport"]')) {
+          var m = document.createElement('meta');
+          m.name = 'viewport';
+          m.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
+          document.head.appendChild(m);
+        }
+      } catch (e) {}
+    }
+    applyFix();
+    var tries = 0;
+    var iv = setInterval(function () { applyFix(); if (++tries > 10) clearInterval(iv); }, 500);
+  })();
+  true;
+`;
+
 export default function WebViewComp() {
   
   const [token, setToken] = useState(null);
@@ -229,6 +263,7 @@ export default function WebViewComp() {
               originWhitelist={['*']}
               source={{ uri: `${WEBVIEW_BASE_URL}/login/${token}`}}
               style={{ flex: 1 }}
+              injectedJavaScript={REMOVE_TOP_GAP_JS}
               sharedCookiesEnabled={false}
               thirdPartyCookiesEnabled={false}
               incognito={true}

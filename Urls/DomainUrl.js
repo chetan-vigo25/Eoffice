@@ -1,6 +1,12 @@
 // { For CA Development }
-// export default BACKEND_URL = 'https://api.vieasyoffice.com/api/v1';
-// export const IMAGE_FILEPATH_URL = 'https://api.vieasyoffice.com/public';
+export default BACKEND_URL = 'https://api.vieasyoffice.com/api/v1';
+export const IMAGE_FILEPATH_URL = 'https://api.vieasyoffice.com/public';
+
+// Web frontend base used by the employee WebView (loads `${WEBVIEW_BASE_URL}/login/<token>`)
+export const WEBVIEW_BASE_URL = 'https://vieasyoffice.com';
+
+// Route name an employee lands on after login (must match the Stack.Screen name in App.js)
+export const EMPLOYEE_SCREEN = 'WebViewComp';
 
 // { For Vigorous Development }
 // export const IMAGE_FILEPATH_URL = 'https://vigapi.vigorousit.com/public';
@@ -9,7 +15,4 @@
 // export default BACKEND_URL = 'https://developapi.easymyoffice.com/api/v1';
 
 // { For Local Development }
-export default BACKEND_URL = 'http://192.168.1.37:4000/api/v1';
-
-// BASE_FILE_PATH=http://192.168.1.27:4000/public
-// https://secondapi.cric365day1.com/api/v1/admin/login
+// export default BACKEND_URL = 'http://192.168.1.37:4000/api/v1';

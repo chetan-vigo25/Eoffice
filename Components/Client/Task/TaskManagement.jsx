@@ -212,6 +212,7 @@ const CLIENT_TASK_STATUS_ARR = [
 
   // Determine display list (search filters client-side)
   const displayData = filteredData !== null ? filteredData : data;
+  // console.log( "🚀 Building request body with filters:", JSON.stringify(displayData, null, 2)); 
 
   const handleSearch = (text) => {
     setSearchQuery(text);

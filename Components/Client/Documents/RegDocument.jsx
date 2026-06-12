@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, TextInput, Image, Animated, Modal, Platform, ScrollView, ToastAndroid, ActivityIndicator, Alert, StyleSheet, RefreshControl } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -26,6 +26,7 @@ function showToast(message) {
 export default function RegDocument({ navigation }) {
  
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
   const [scale] = useState(new Animated.Value(0));
   const [searchQuery, setSearchQuery] = useState('');
@@ -280,11 +281,17 @@ export default function RegDocument({ navigation }) {
 
     const { uri } = await downloadResumable.downloadAsync();
 
-    const { status } = await MediaLibrary.requestPermissionsAsync();
+    // Only ask for permission if it hasn't already been granted
+    let { status, canAskAgain } = await MediaLibrary.getPermissionsAsync();
+    if (status !== 'granted' && canAskAgain) {
+      status = (await MediaLibrary.requestPermissionsAsync()).status;
+    }
+
     if (status === 'granted') {
-      const asset = await MediaLibrary.createAssetAsync(uri);
-      await MediaLibrary.createAlbumAsync('Documents', asset, false);
-      showToast("Download complete and saved to Documents folder.");
+      // saveToLibraryAsync saves a new asset the app owns, so Android does
+      // not show the per-file "modify this photo" prompt on every download
+      await MediaLibrary.saveToLibraryAsync(uri);
+      showToast("Download complete and saved to your gallery.");
     } else {
       showToast("Permission denied to save the file.");
     }
@@ -385,7 +392,7 @@ export default function RegDocument({ navigation }) {
            >
              <View style={styles.modalBackground}>
                <View style={styles.modalContainer}>
-                 <View style={styles.modalHeader}>
+                 <View style={[styles.modalHeader, { paddingTop: insets.top, height: 56 + insets.top }]}>
                    <View style={{ flexDirection:'row', alignItems:'center', gap: 10 }}>
                      <View style={styles.modalHeaderIcon}>
                        <Feather name="upload" size={16} color="#fff" />
@@ -569,7 +576,7 @@ export default function RegDocument({ navigation }) {
                    >
                      <View style={styles.modalBackground}>
                        <View style={styles.modalContainer}>
-                         <View style={styles.modalHeader}>
+                         <View style={[styles.modalHeader, { paddingTop: insets.top, height: 56 + insets.top }]}>
                            <View style={{ flexDirection:'row', alignItems:'center', gap: 10 }}>
                              <View style={styles.modalHeaderIcon}>
                                <Feather name="edit-2" size={14} color="#fff" />
