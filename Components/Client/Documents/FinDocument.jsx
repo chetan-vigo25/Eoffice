@@ -317,7 +317,7 @@ export default function FinDocument({ navigation }) {
    
      } catch (e) {
        console.error("Download error:", e);
-       showToast("Download failed.");
+       showToast(`Download failed: ${e?.message || e}`);
      }
    };
  

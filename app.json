@@ -42,6 +42,14 @@
     "plugins": [
       [
         "expo-notifications"
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow E-Office to access your photos.",
+          "savePhotosPermission": "Allow E-Office to save documents to your gallery.",
+          "isAccessMediaLocationEnabled": false
+        }
       ]
     ],
     "extra": {

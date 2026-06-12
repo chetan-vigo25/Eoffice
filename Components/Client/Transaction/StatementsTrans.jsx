@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, TouchableOpacity, Animated, RefreshControl, FlatList, Modal, StyleSheet, StatusBar, ToastAndroid, ActivityIndicator, Platform } from "react-native";
+import { View, Text, TouchableOpacity, Animated, RefreshControl, FlatList, Modal, StyleSheet, StatusBar, ToastAndroid, ActivityIndicator, Platform, Alert } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
@@ -9,13 +9,18 @@ import { useDispatch } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 import { AntDesign, Feather, Fontisto } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 import BASE_URL from '../../../Urls/DomainUrl';
 
 function showToast(message) {
-  ToastAndroid.show(message, ToastAndroid.SHORT);
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('', message);
+  }
 }
 
 function formatAmount(val) {
@@ -309,11 +314,20 @@ export default function StatementsTrans({ navigation, route }) {
         });
         showToast("PDF saved to Downloads folder.");
       } else {
-        showToast("PDF downloaded successfully.");
+        // iOS: present the share sheet so the user can save to Files / share
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: pdfName,
+            UTI: 'com.adobe.pdf',
+          });
+        } else {
+          showToast("PDF downloaded successfully.");
+        }
       }
     } catch (error) {
       console.error("[PDF Error]:", error);
-      showToast("Failed to download PDF");
+      showToast(`Failed to download PDF: ${error?.message || error}`);
     }
   };
 
@@ -370,12 +384,21 @@ export default function StatementsTrans({ navigation, route }) {
         });
         showToast("Excel saved to Downloads folder.");
       } else {
+        // iOS: write to app dir then present the share sheet to save to Files / share
         await FileSystem.writeAsStringAsync(tempUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
-        showToast("Excel downloaded successfully.");
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(tempUri, {
+            mimeType: 'text/csv',
+            dialogTitle: csvName,
+            UTI: 'public.comma-separated-values-text',
+          });
+        } else {
+          showToast("Excel downloaded successfully.");
+        }
       }
     } catch (error) {
       console.error("[Excel Error]:", error);
-      showToast("Failed to download Excel");
+      showToast(`Failed to download Excel: ${error?.message || error}`);
     }
   };
 

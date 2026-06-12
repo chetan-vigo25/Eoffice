@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ToastAndroid, ActivityIndicator, Platform } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ToastAndroid, ActivityIndicator, Platform, Alert } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RazorpayCheckout from 'react-native-razorpay';
@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import { DATA_ENCRYPT_DCRYPT_KEY } from "@env";
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 import BASE_URL from '../../../Urls/DomainUrl';
 import Style from "../../../Style/Style";
@@ -17,7 +18,11 @@ import { AntDesign, Feather } from "@expo/vector-icons";
 const SECRET = DATA_ENCRYPT_DCRYPT_KEY;
 
 function showToast(message) {
-  ToastAndroid.show(message, ToastAndroid.SHORT);
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('', message);
+  }
 }
 
 export default function InvoiceDetail({ navigation, route }) {
@@ -282,11 +287,20 @@ export default function InvoiceDetail({ navigation, route }) {
 
         showToast("PDF saved to Downloads folder.");
       } else {
-        showToast("PDF downloaded successfully.");
+        // iOS: present the share sheet so the user can save to Files / share
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: filename,
+            UTI: 'com.adobe.pdf',
+          });
+        } else {
+          showToast("PDF downloaded successfully.");
+        }
       }
     } catch (error) {
       console.error("[PDF Download Error]:", error);
-      showToast("Failed to download PDF.");
+      showToast(`Failed to download PDF: ${error?.message || error}`);
     } finally {
       setDownloading(false);
     }

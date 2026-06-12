@@ -175,7 +175,7 @@ export default function EmployePaySlip({ navigation, route }) {
     } catch (error) {
       setLoading(false);
       console.error("PDF Error:", error);
-      showToast("Failed to generate PDF");
+      showToast(`Failed to generate PDF: ${error?.message || error}`);
     }
   };
   

@@ -171,7 +171,7 @@ export default function EmployeIcard({ navigation, route }) {
      } catch (error) {
        setLoading(false);
        console.error("PDF Error:", error);
-       showToast("Failed to generate PDF");
+       showToast(`Failed to generate PDF: ${error?.message || error}`);
      }
    };
   
