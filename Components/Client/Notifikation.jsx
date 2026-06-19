@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { StatusBar, View, Text, TouchableOpacity, Animated, FlatList, RefreshControl, ToastAndroid, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../Urls/DomainUrl';
 import moment from "moment";
@@ -19,6 +19,7 @@ function showToast(message) {
 
 export default function Notifikation({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const [scale] = useState(new Animated.Value(0));
   const [notifyData, setNotifyData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -268,6 +269,7 @@ export default function Notifikation({ navigation }) {
               data={visibleNotifications}
               keyExtractor={(item, index) => item._id || index.toString()}
               showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
               refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} />}
               renderItem={({ item, index }) => {
                 const isCurrentToday = isToday(parseISO(item.createdAt));

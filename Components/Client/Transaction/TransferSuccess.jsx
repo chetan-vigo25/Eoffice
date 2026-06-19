@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, ScrollView, Text, StyleSheet, ImageBackground, Linking, Image, TouchableOpacity, Alert, StatusBar, ToastAndroid, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -13,6 +13,7 @@ function showToast(message) {
 export default function TransferSuccess({ navigation, route }) {
 
    const { reciptData } = route.params;
+   const insets = useSafeAreaInsets();
 
    const downloadPDF = () => {
       const { invoiceURL } = reciptData;
@@ -23,7 +24,7 @@ export default function TransferSuccess({ navigation, route }) {
   return (
     <SafeAreaView style={{ flex:1, backgroundColor:Style.paySuccessbgColor }}>
         <StatusBar barStyle='light-content' backgroundColor={ Style.paySuccessbgColor } />
-        <ScrollView contentContainerStyle={{ justifyContent:'center' }} showsVerticalScrollIndicator={false} style={{ flex:1, padding:20, }}>
+        <ScrollView contentContainerStyle={{ justifyContent:'center', paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false} style={{ flex:1, padding:20, }}>
             <View>
                <LottieView
                     autoPlay

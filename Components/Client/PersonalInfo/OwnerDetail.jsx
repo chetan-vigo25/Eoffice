@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -12,6 +12,7 @@ import Style from "../../../Style/Style";
 
 export default function OwnerDetail({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
   const [slideAnim] = useState(new Animated.Value(30));
 
@@ -300,7 +301,7 @@ export default function OwnerDetail({ navigation }) {
           <ScrollView
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: 30 }}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 30 }}
           >
             {ownerDataArray.length > 0 ? (
               <>

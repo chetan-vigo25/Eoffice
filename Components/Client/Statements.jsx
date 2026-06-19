@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, ScrollView, Modal, StyleSheet, Linking, UIManager, Platform, ToastAndroid, ActivityIndicator, RefreshControl } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
@@ -20,7 +20,7 @@ function showToast(message) {
 }
 
 export default function Statements({ navigation }) {
- 
+  const insets = useSafeAreaInsets();
   const [scale] = useState(new Animated.Value(0));
   const [loading, setLoading] = useState(false);
   const [advanceData, setAdvanceData] = useState([]);
@@ -140,7 +140,7 @@ export default function Statements({ navigation }) {
         
       <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
         <Animated.View style={{flex:1, transform: [{ scale }] }}>
-             <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false} style={{ flex:1 }}>
+             <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false} style={{ flex:1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
                <View>
                 {
                   loading ? (

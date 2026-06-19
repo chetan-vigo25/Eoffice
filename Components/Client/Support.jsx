@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, Animated, FlatList, RefreshControl, ToastAndroid, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../Urls/DomainUrl';
 import moment from "moment";
@@ -21,6 +21,7 @@ const STATUS_MAP = {
 
 export default function Support({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const [slideAnim] = useState(new Animated.Value(30));
   const [tickets, setTickets]     = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -202,7 +203,7 @@ export default function Support({ navigation }) {
             renderItem={renderTicket}
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            contentContainerStyle={{ paddingBottom: 24 }}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
             ListEmptyComponent={
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 }}>
                 <MaterialCommunityIcons name="ticket-outline" size={52} color="#ccc" />

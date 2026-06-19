@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ActivityIndicator, Modal, FlatList } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -11,6 +11,7 @@ import BASE_URL from "../../../Urls/DomainUrl";
 
 export default function ClientBranch({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { isLoading, personalInfoData } = useSelector((state) => state.client);
   const [slideAnim] = useState(new Animated.Value(30));
   const [states, setStates] = useState([]);
@@ -298,7 +299,7 @@ export default function ClientBranch({ navigation }) {
         ) : filteredBranches.length > 0 ? (
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24 }}
           >
             {filteredBranches.map((branch, index) => (
               <View

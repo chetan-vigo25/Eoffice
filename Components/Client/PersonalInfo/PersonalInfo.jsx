@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, ScrollView, Animated, LayoutAnimation, UIManager, Platform } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Style from "../../../Style/Style";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -14,6 +14,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 export default function PersonInfo({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
 
  useEffect(() => {
@@ -60,7 +61,7 @@ const [expanded, setExpanded] = useState(false);
         </Animated.View>
         
          <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
-           <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1,}}>
+           <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1,}} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
                <Animated.View style={{ transform: [{ scale }] }}>
                    <TouchableOpacity onPress={()=> navigation.navigate('PersonalDetail')} style={{ width:'100%',  borderRadius:5, flexDirection:'row', backgroundColor:Style.basicbgColor, elevation:1, marginBottom:10, padding:5 }} >
                        <View style={{ flex:1.5, alignItems:'center', justifyContent:'center' }} >

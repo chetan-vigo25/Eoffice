@@ -473,14 +473,14 @@ export default function RegDocument({ navigation }) {
                       )}
                     </View>
                   </View>
-                      <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={styles.modalSubmitBtn} >
+                      <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={[styles.modalSubmitBtn, { bottom: insets.bottom + 18 }]} >
                          <Feather name="upload-cloud" size={16} color="#fff" />
                          <Text style={styles.modalSubmitText}>Upload</Text>
                       </TouchableOpacity>
                  </View>
                </View>
            </Modal>
-           <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} colors={[Style.headerBgColor]} tintColor={Style.headerBgColor} />} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }} style={{ flex:1 }}>
+           <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} colors={[Style.headerBgColor]} tintColor={Style.headerBgColor} />} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} style={{ flex:1 }}>
                 <View>
                    {
                      isLoading?(
@@ -650,7 +650,7 @@ export default function RegDocument({ navigation }) {
                               )}
                             </View>
                           </View>
-                          <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={styles.modalSubmitBtn} >
+                          <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={[styles.modalSubmitBtn, { bottom: insets.bottom + 18 }]} >
                              <Feather name="upload-cloud" size={16} color="#fff" />
                              <Text style={styles.modalSubmitText}>Save Changes</Text>
                           </TouchableOpacity>

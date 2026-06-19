@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, TextInput, Linking, Alert, Animated, ScrollView, ToastAndroid, ActivityIndicator, Image, StatusBar } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../../Urls/DomainUrl';
 import moment from "moment";
@@ -73,6 +73,7 @@ const Divider = () => <View style={{ height: 0.5, backgroundColor: '#f0f0f0', ma
 
 export default function TaskSummary({ navigation, route }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { _id } = route.params;
   const maxStars = 5;
   const [rating, setRating]           = useState(0);
@@ -227,7 +228,7 @@ export default function TaskSummary({ navigation, route }) {
             <ActivityIndicator size="large" color={Style.headerBgColor} />
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
 
             {/* ── Status + Priority strip ── */}
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>

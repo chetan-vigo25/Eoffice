@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Animated, RefreshControl, FlatList, Modal, StyleSheet, ToastAndroid, ActivityIndicator, Platform } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
@@ -22,6 +22,7 @@ function showToast(message) {
 export default function TaskManagement({ navigation }) {
 
 const dispatch = useDispatch();
+const insets = useSafeAreaInsets();
 
 const CLIENT_TASK_STATUS_PENDING = "Pending"
 const CLIENT_TASK_STATUS_REJECT = "Rejected"
@@ -589,6 +590,7 @@ const CLIENT_TASK_STATUS_ARR = [
               onEndReachedThreshold={0.3}
               ListFooterComponent={renderFooter}
               ListEmptyComponent={renderEmpty}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
               showsVerticalScrollIndicator={false}
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />

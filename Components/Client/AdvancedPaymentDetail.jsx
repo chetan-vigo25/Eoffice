@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StatusBar, StyleSheet, Linking } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import moment from 'moment';
 import { AntDesign, Feather, MaterialIcons } from '@expo/vector-icons';
@@ -23,6 +23,7 @@ function Row({ label, value, isLast, valueColor }) {
 }
 
 export default function AdvancedPaymentDetail({ navigation, route }) {
+  const insets = useSafeAreaInsets();
   const { reciptData } = route.params || {};
 
   const paymentObj  = reciptData?.paymentOBJ;
@@ -77,7 +78,7 @@ export default function AdvancedPaymentDetail({ navigation, route }) {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 40 }}
       >
         {/* Animation / Icon + Label */}
         <View style={styles.successSection}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -11,6 +11,7 @@ import Style from "../../../Style/Style";
 
 export default function ClientService({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { isLoading, personalInfoData } = useSelector((state) => state.client);
   const [slideAnim] = useState(new Animated.Value(30));
 
@@ -68,7 +69,7 @@ export default function ClientService({ navigation }) {
             <ActivityIndicator size="large" color={Style.headerBgColor} />
           </View>
         ) : ServicesData.length > 0 ? (
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
             {ServicesData.map((Service, index) => (
               <View
                 key={Service._id || index}

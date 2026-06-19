@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BASE_URL from '../../../Urls/DomainUrl';
 import { UserContext } from '../../../Context/UserProvider';
 import { handleEmployeUnauthorized, isUnauthorized } from '../../../Context/EmployeeAutoLogin';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AntDesign, Ionicons } from "@expo/vector-icons";
 
 function showToast(message, onOk = null) {
@@ -20,6 +20,7 @@ function showToast(message, onOk = null) {
 
 export default function EmployeChangePass({ navigation, route }) {
   const { logout } = useContext(UserContext);
+  const insets = useSafeAreaInsets();
   const [oldPassword, setOldPassword] = useState('');
   const [oldShowPass, setOldShowPass] = useState(true);
   const [newPassword, setNewPassword] = useState('');
@@ -152,9 +153,9 @@ export default function EmployeChangePass({ navigation, route }) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoidingView}
       >
-        <ScrollView 
-          showsVerticalScrollIndicator={false} 
-          contentContainerStyle={styles.scrollContent}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
           keyboardShouldPersistTaps="always"
         >
           {/* Info Card */}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, ToastAndroid, ActivityIndicator, LayoutAnimation, UIManager, Platform, StyleSheet } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Style from "../../../Style/Style";
 import { useDispatch, useSelector } from 'react-redux';
 import { personalInfo } from "../../../Redux/Reducer/Client/Client.Reducer";
@@ -16,6 +16,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function MyDocuments({ navigation }) {
 
 const dispatch = useDispatch();
+const insets = useSafeAreaInsets();
 const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
 
 const [expanded, setExpanded] = useState(false);
@@ -100,7 +101,7 @@ const toggleExpand = () => {
       </Animated.View>
 
       <View style={styles.body}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
           <Animated.View style={{ transform: [{ scale }] }}>
             <Text style={styles.bodyHeading}>Categories</Text>
             <Text style={styles.bodyHint}>Pick a category to view, upload or download documents.</Text>

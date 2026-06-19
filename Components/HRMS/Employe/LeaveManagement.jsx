@@ -7,7 +7,7 @@ import moment from "moment";
 import BASE_URL from '../../../Urls/DomainUrl';
 import { UserContext } from '../../../Context/UserProvider';
 import { handleEmployeUnauthorized, isUnauthorized } from '../../../Context/EmployeeAutoLogin';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AntDesign, Feather } from "@expo/vector-icons";
 
@@ -65,6 +65,7 @@ const formatDayType = (type) => {
 
 export default function LeaveManagement({ navigation }) {
     const { logout } = useContext(UserContext);
+    const insets = useSafeAreaInsets();
 
     const [manualRecords, setManualRecords] = useState([]);
     const [modalVisible, setModalVisible] = useState(false);
@@ -563,7 +564,7 @@ export default function LeaveManagement({ navigation }) {
         <View style={styles.mainContainer}>
             <ScrollView
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 40 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
               onScroll={handleScroll}
               scrollEventThrottle={16}
             >

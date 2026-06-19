@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, TouchableOpacity, Animated, RefreshControl, FlatList, Modal, StyleSheet, StatusBar, ToastAndroid, ActivityIndicator, Platform, Alert } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
@@ -30,6 +30,7 @@ function formatAmount(val) {
 
 export default function StatementsTrans({ navigation, route }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { userData } = route.params || {};
 
   const [scale] = useState(new Animated.Value(0));
@@ -652,7 +653,7 @@ export default function StatementsTrans({ navigation, route }) {
             ListHeaderComponent={renderListHeader}
             ListEmptyComponent={renderEmpty}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
             }

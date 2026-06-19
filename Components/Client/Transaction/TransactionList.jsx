@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, TouchableOpacity, TextInput, Image, Animated, RefreshControl, FlatList, Modal, StyleSheet, UIManager, Platform, StatusBar, ToastAndroid, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown'
 import moment from "moment";
@@ -20,6 +20,7 @@ function showToast(message) {
 
 export default function TransactionList({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
 
   const [scale] = useState(new Animated.Value(0));
   const [modalVisible, setModalVisible] = useState(false);
@@ -280,6 +281,7 @@ export default function TransactionList({ navigation }) {
                  onEndReachedThreshold={0.3}
                  ListFooterComponent={renderFooter}
                  ListEmptyComponent={renderEmpty}
+                 contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
                  showsVerticalScrollIndicator={false}
                  refreshControl={
                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />

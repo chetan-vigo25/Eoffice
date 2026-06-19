@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, Animated, RefreshControl, FlatList, ToastAndroid, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
 import { useDispatch } from 'react-redux';
@@ -18,6 +18,7 @@ function showToast(message) {
 
 export default function VisitHistory({ navigation, route }) {
     const dispatch = useDispatch();
+    const insets = useSafeAreaInsets();
     const { userData } = route.params || {};
     const [slideAnim] = useState(new Animated.Value(30));
 
@@ -265,6 +266,7 @@ export default function VisitHistory({ navigation, route }) {
             onEndReachedThreshold={0.3}
             ListFooterComponent={renderFooter}
             ListEmptyComponent={renderEmpty}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />

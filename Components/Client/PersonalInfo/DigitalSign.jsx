@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Image, Animated, Alert, ScrollView, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -14,6 +14,7 @@ import Style from "../../../Style/Style";
 
 export default function DigitalSign({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
   const [image, setImage] = useState(null);
   const [imageName, setImageName] = useState(null);
@@ -190,7 +191,7 @@ export default function DigitalSign({ navigation }) {
           <ScrollView
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: 30 }}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 30 }}
           >
             {/* Profile Header */}
             <View style={{

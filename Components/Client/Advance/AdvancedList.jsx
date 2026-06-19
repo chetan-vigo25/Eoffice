@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, ScrollView, Modal, StyleSheet, Platform, ToastAndroid, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from 'expo-file-system';
 import BASE_URL from '../../../Urls/DomainUrl';
@@ -19,6 +19,7 @@ function showToast(message) {
 
 export default function AdvancedList({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const [scale] = useState(new Animated.Value(0));
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -656,7 +657,7 @@ export default function AdvancedList({ navigation }) {
           <ScrollView
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
           >
             {loading ? (
               <View style={{ paddingVertical: 60, alignItems: 'center' }}>

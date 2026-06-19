@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { StatusBar, ScrollView, View, Text, TouchableOpacity, TextInput, Animated, ToastAndroid, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RazorpayCheckout from 'react-native-razorpay';
 import CryptoJS from "crypto-js";
@@ -23,9 +23,10 @@ const SECRET = DATA_ENCRYPT_DCRYPT_KEY;
 export default function AddAdvance({ navigation }) {
 
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { loading, personalInfoData, error } = useSelector((state) => state.client);
 
-  const [scale] = useState(new Animated.Value(0)); 
+  const [scale] = useState(new Animated.Value(0));
   const [groupList, setGroupList] = useState([]);
   const [layoutList, setLayoutList] = useState([]);
   const [bankList, setBankList] = useState([]);
@@ -407,7 +408,7 @@ export default function AddAdvance({ navigation }) {
            </View>
         </Animated.View>
         <View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20 }} >
-           <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
+           <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
              <Animated.View style={{ transform: [{ scale }] }}>
                <View>
                   <View style={{ width:'100%', height:50, borderRadius:6, marginBottom:10, justifyContent:'space-between'}} >

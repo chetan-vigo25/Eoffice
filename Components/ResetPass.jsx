@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ScrollView, View, Text, Image, Animated, TextInput, TouchableOpacity, ActivityIndicator, Alert, StatusBar, ToastAndroid } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import Style from "../Style/Style";
@@ -14,7 +14,8 @@ function showToast(message) {
 export default function ResetPass({ navigation, route }) {
 
     const { userName, email, otp } = route.params;
- 
+
+  const insets = useSafeAreaInsets();
   const [password, setPassword] = useState('');
   const [cPassword, setCPassword] = useState('');
   const [message, setMessage] = useState();
@@ -66,7 +67,7 @@ export default function ResetPass({ navigation, route }) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Style.primaryBgColor }}>
       <StatusBar barStyle='dark-content' backgroundColor={Style.primaryBgColor} />
-      <ScrollView style={{ flex: 1, padding: 20 }}>
+      <ScrollView style={{ flex: 1, padding: 20 }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         <View style={{ width: "100%", height: 200, justifyContent: "center", alignItems: "center", }} >
           <Image source={require("../assets/Eofficelogo.png")} resizeMode="contain" style={{ width: "100%", height: 80 }} />
         </View>

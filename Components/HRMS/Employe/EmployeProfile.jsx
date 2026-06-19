@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BASE_URL, { IMAGE_FILEPATH_URL } from '../../../Urls/DomainUrl';
 import { UserContext } from '../../../Context/UserProvider';
 import { handleEmployeUnauthorized, isUnauthorized } from '../../../Context/EmployeeAutoLogin';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AntDesign, Entypo, Ionicons, FontAwesome, FontAwesome6, Octicons, MaterialIcons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 
 const PRIMARY = '#6a8ff3';
@@ -32,6 +32,7 @@ function showToast(message, onOk = null) {
 
 export default function EmployeProfile({ navigation, route }) {
   const { userData, pickAndUploadImage, isLoading, logout } = useContext(UserContext);
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState(1);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -372,7 +373,7 @@ export default function EmployeProfile({ navigation, route }) {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[PRIMARY]} tintColor={PRIMARY} />}
       >
         {/* Profile hero card */}

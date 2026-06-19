@@ -17,7 +17,7 @@ import moment from 'moment';
 import BASE_URL from '../../../Urls/DomainUrl';
 import { UserContext } from '../../../Context/UserProvider';
 import { handleEmployeUnauthorized, isUnauthorized } from '../../../Context/EmployeeAutoLogin';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AntDesign, Feather, FontAwesome } from '@expo/vector-icons';
 
@@ -88,6 +88,7 @@ const initialsOf = (name) => {
 
 export default function Payroll({ navigation, route }) {
   const { logout } = useContext(UserContext);
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('StandardPayroll');
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -306,7 +307,7 @@ export default function Payroll({ navigation, route }) {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 40, paddingHorizontal: 16 }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >

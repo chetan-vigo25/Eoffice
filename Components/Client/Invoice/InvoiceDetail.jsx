@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ToastAndroid, ActivityIndicator, Platform, Alert } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RazorpayCheckout from 'react-native-razorpay';
 import CryptoJS from "crypto-js";
@@ -27,6 +27,7 @@ function showToast(message) {
 
 export default function InvoiceDetail({ navigation, route }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { invoiceId } = route.params || {};
   const { personalInfoData } = useSelector((state) => state.client);
   const [slideAnim] = useState(new Animated.Value(30));
@@ -331,7 +332,7 @@ export default function InvoiceDetail({ navigation, route }) {
             <ActivityIndicator size="large" color={Style.headerBgColor} />
           </View>
         ) : invoiceData ? (
-          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} style={{ flex: 1 }}>
             {/* Invoice Header */}
             <View style={{ backgroundColor: Style.basicbgColor, borderRadius: 10, padding: 15, marginBottom: 15, }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>

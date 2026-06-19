@@ -476,7 +476,7 @@ export default function FinDocument({ navigation }) {
                       <Ionicons name="close" size={24} color='#fff' />
                     </TouchableOpacity>
                  </View>
-                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }} showsVerticalScrollIndicator={false}>
                     <Text style={styles.fieldLabel}>Document Type</Text>
                     <TouchableOpacity style={styles.fieldShell} >
                      {Array.isArray(docType) && docType.length > 0 ? (
@@ -693,14 +693,14 @@ export default function FinDocument({ navigation }) {
                       )}
                     </View>
                   </ScrollView>
-                      <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={styles.modalSubmitBtn} >
+                      <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={[styles.modalSubmitBtn, { bottom: insets.bottom + 18 }]} >
                          <Feather name="upload-cloud" size={16} color="#fff" />
                          <Text style={styles.modalSubmitText}>Upload</Text>
                       </TouchableOpacity>
                  </View>
                </View>
            </Modal>
-           <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} colors={[Style.headerBgColor]} tintColor={Style.headerBgColor} />} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }} style={{ flex:1 }}>
+           <ScrollView refreshControl={<RefreshControl refreshing={refresh} onRefresh={onRefresh} colors={[Style.headerBgColor]} tintColor={Style.headerBgColor} />} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} style={{ flex:1 }}>
                 <View>
                    {
                      isLoading?(
@@ -819,7 +819,7 @@ export default function FinDocument({ navigation }) {
                             <Ionicons name="close" size={24} color='#fff' />
                           </TouchableOpacity>
                         </View>
-                         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+                         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 + insets.bottom }} showsVerticalScrollIndicator={false}>
                            <Text style={styles.fieldLabel}>Document Type</Text>
                            <View style={styles.fieldShell} >
                             <SelectDropdown
@@ -1036,7 +1036,7 @@ export default function FinDocument({ navigation }) {
                               )}
                             </View>
                            </ScrollView>
-                           <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={styles.modalSubmitBtn} >
+                           <TouchableOpacity onPress={uploadFile} activeOpacity={0.9} style={[styles.modalSubmitBtn, { bottom: insets.bottom + 18 }]} >
                               <Feather name="upload-cloud" size={16} color="#fff" />
                               <Text style={styles.modalSubmitText}>Save Changes</Text>
                            </TouchableOpacity>

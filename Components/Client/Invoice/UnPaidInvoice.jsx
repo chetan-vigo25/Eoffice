@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Image, Animated, RefreshControl, FlatList, Modal, StyleSheet, UIManager, Platform, ToastAndroid, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import SelectDropdown from 'react-native-select-dropdown'
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../../Urls/DomainUrl';
@@ -23,6 +23,7 @@ function showToast(message) {
 
 export default function UnPaidInvoice({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const [scale] = useState(new Animated.Value(0));
   const [modalVisible, setModalVisible] = useState(false);
   const [statusD, setStatusD] = useState('PendingPayment'); // Default to PendingPayment
@@ -399,6 +400,7 @@ export default function UnPaidInvoice({ navigation }) {
               onEndReachedThreshold={0.3}
               ListFooterComponent={renderFooter}
               ListEmptyComponent={renderEmpty}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
               showsVerticalScrollIndicator={false}
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Alert, Animated, Dimensions, PanResponder, StyleSheet, View, Text, Linking, TouchableOpacity, ScrollView, Image, ToastAndroid, ActivityIndicator } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import RazorpayCheckout from 'react-native-razorpay';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
@@ -28,9 +28,10 @@ export default function TransDetail({ navigation, route }) {
     const { _id } = route.params;
 
     const dispatch = useDispatch();
+    const insets = useSafeAreaInsets();
     const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
 
-    const [slideAnim] = useState(new Animated.Value(30)); 
+    const [slideAnim] = useState(new Animated.Value(30));
     const [transData, setTransdata] = useState([]);
     const [razprPay_key, setRazprPay_key] = useState('');
     const [compData, setCompData] = useState([]);
@@ -264,7 +265,7 @@ export default function TransDetail({ navigation, route }) {
               </View>
             </View>
             <Animated.View style={{ flex:1, backgroundColor:Style.primaryBgColor, borderTopStartRadius:20, borderTopEndRadius:20, padding:20, transform: [{ translateY: slideAnim }] }} >
-              <ScrollView showsVerticalScrollIndicator={false} style={{ flex:1 }}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} style={{ flex:1 }}>
                  <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingBottom:10 }} >
                    <Text style={{ fontSize:18, fontFamily: 'Lato-Medium', color:Style.headerBgColor }}>{transData.type === "Advance"? "Advance":"Invoice"}</Text>
                      <TouchableOpacity onPress={downloadPDF} style={{ width:40, height:40, justifyContent:'center', alignItems:'center' }} >

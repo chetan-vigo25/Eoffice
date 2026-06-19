@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Animated, ScrollView, ToastAndroid, ActivityIndicator, Image } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,6 +14,7 @@ function showToast(msg) { ToastAndroid.show(msg, ToastAndroid.SHORT); }
 
 export default function SupportCreate({ navigation, route }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const ticket = route.params?.ticket || null;
   const isEdit = !!ticket;
 
@@ -250,7 +251,7 @@ export default function SupportCreate({ navigation, route }) {
       </View>
 
       <Animated.View style={{ flex: 1, backgroundColor: Style.primaryBgColor, borderTopLeftRadius: 20, borderTopRightRadius: 20, transform: [{ translateY: slideAnim }] }}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
 
            {/* Department (only on create) */}
           {!isEdit && departments.length > 0 && (

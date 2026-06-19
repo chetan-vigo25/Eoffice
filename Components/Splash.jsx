@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { ScrollView, View, Text, StyleSheet, Image, Animated, StatusBar, Platform, Alert, TextInput, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, LinearGradient } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
 import { useDispatch, useSelector } from 'react-redux';
@@ -68,6 +68,7 @@ function showToast(message) {
 export default function Splash({ navigation }) {
 
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { user, login_loading, error } = useSelector((state) => state.authentication);
   const { setUserAfterLogin } = useContext(UserContext);
 
@@ -502,9 +503,9 @@ export default function Splash({ navigation }) {
       )}
       <StatusBar translucent={false} backgroundColor={'#ffffff'} barStyle='dark-content' />
       <View style={styles.backgroundContainer}>
-        <ScrollView 
-          style={styles.scrollView} 
-          contentContainerStyle={styles.scrollContent}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
           showsVerticalScrollIndicator={false}
         >
           {/* Header Section */}
@@ -774,7 +775,7 @@ export default function Splash({ navigation }) {
               </TouchableOpacity>
             )}
           </View>
-         <View style={{ width:'100%', alignSelf:'center', bottom:20, position:'absolute' }} >
+         <View style={{ width:'100%', alignSelf:'center', bottom:20 + insets.bottom, position:'absolute' }} >
              <Text style={{ color: '#000', fontSize:10, fontFamily:"Lato-Medium", textAlign:'center' }} >By continuing, you agree to our <Text onPress={() => navigation.navigate('TermCondition')} style={{ color: "#999", fontSize:10, fontFamily:'Lato-Medium', textAlign:'center' }} >Term</Text> & <Text onPress={() => navigation.navigate('Privacy')} style={{ color: "#999", fontSize:10, fontFamily:'Lato-Medium', textAlign:'center' }} >Privacy Policy</Text> </Text>
          </View>
         </ScrollView>

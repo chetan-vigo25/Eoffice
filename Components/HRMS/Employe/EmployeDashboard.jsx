@@ -13,7 +13,7 @@ import EmployeHeader from './EmployeComponent/EmployeHeader';
 import { useEmployeeDashboard } from '../../../Context/EmployeeDashboardContext';
 import { UserContext } from '../../../Context/UserProvider';
 import { handleEmployeUnauthorized, isUnauthorized } from '../../../Context/EmployeeAutoLogin';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BASE_URL from '../../../Urls/DomainUrl';
 
@@ -51,6 +51,7 @@ export default function EmployeDashboard({ navigation, route }) {
   const { userData: routeUserData } = route.params || {};
   const userData = contextUserData || routeUserData;
   const { dashboardData, loading, error } = useEmployeeDashboard();
+  const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState(false);
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState(null);
@@ -598,7 +599,7 @@ export default function EmployeDashboard({ navigation, route }) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7fb' }}>
       <StatusBar background='#f6f7fb' barStyle='dark-content' />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, paddingBottom: 28 }} >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 28 }} >
         <EmployeHeader navigation={navigation} userData={userData} />
         <View style={{ width: '100%', backgroundColor: '#ffffff', borderRadius: 18, marginBottom: 14, borderWidth: 1, borderColor: '#eef0fa', shadowColor: '#4c72d9', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 14, elevation: 3, overflow: 'hidden' }}>
           <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>

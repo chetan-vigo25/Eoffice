@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { StatusBar, View, Text, TouchableOpacity, TextInput, Animated, ScrollView, KeyboardAvoidingView, Platform, ToastAndroid, ActivityIndicator, Alert, Image, Linking } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../Urls/DomainUrl';
 import moment from "moment";
@@ -21,6 +21,7 @@ const STATUS_MAP = {
 
 export default function SupportChat({ navigation, route }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { ticketId, title: routeTitle } = route.params;
 
   const [slideAnim]  = useState(new Animated.Value(30));
@@ -334,7 +335,7 @@ export default function SupportChat({ navigation, route }) {
 
               {/* Input Bar */}
               {isClosed ? (
-                <View style={{ padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e6e6e6', alignItems: 'center' }}>
+                <View style={{ padding: 16, paddingBottom: insets.bottom + 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e6e6e6', alignItems: 'center' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f7fa', borderRadius: 30, paddingHorizontal: 16, paddingVertical: 10 }}>
                     <Ionicons name="lock-closed" size={14} color={Style.secondryTextColor} style={{ marginRight: 8 }} />
                     <Text style={{ fontSize: 13, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>
@@ -343,12 +344,13 @@ export default function SupportChat({ navigation, route }) {
                   </View>
                 </View>
               ) : (
-                <View style={{ 
-                  flexDirection: 'row', 
-                  alignItems: 'flex-end', 
-                  paddingHorizontal: 16, 
-                  paddingVertical: 12, 
-                  backgroundColor: '#fff', 
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-end',
+                  paddingHorizontal: 16,
+                  paddingTop: 12,
+                  paddingBottom: insets.bottom + 12,
+                  backgroundColor: '#fff',
                   borderTopWidth: 1, 
                   borderTopColor: '#f0f0f0',
                   shadowColor: '#000',

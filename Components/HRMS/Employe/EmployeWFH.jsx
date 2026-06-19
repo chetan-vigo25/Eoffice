@@ -24,7 +24,7 @@ import BASE_URL, { IMAGE_FILEPATH_URL } from '../../../Urls/DomainUrl';
 import { useEmployeeDashboard } from '../../../Context/EmployeeDashboardContext';
 import { UserContext } from '../../../Context/UserProvider';
 import { handleEmployeUnauthorized, isUnauthorized } from '../../../Context/EmployeeAutoLogin';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AntDesign,
@@ -59,6 +59,7 @@ function showToast(message, onOk = null) {
 export default function EmployeWFH({ navigation }) {
   const { dashboardData } = useEmployeeDashboard();
   const { logout } = useContext(UserContext);
+  const insets = useSafeAreaInsets();
 
   const [manualRecords, setManualRecords] = useState([]);
   const [startDateVisible, setStartDateVisible] = useState(false);
@@ -489,7 +490,7 @@ export default function EmployeWFH({ navigation }) {
         <ScrollView
           showsVerticalScrollIndicator={false}
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >

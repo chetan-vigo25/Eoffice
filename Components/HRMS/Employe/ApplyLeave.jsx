@@ -17,7 +17,7 @@ import CalendarPicker from 'react-native-calendar-picker';
 import moment from 'moment';
 import EmployeHeader from './EmployeComponent/EmployeHeader';
 import EmployeeLeaveCard from './EmployeComponent/EmployeeLeaveCard';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AntDesign, Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 
 const PRIMARY = '#6a8ff3';
@@ -28,6 +28,7 @@ const TEXT_MUTED = '#7c84a3';
 const BORDER = '#e6eaf5';
 
 export default function LeaveManagement({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [currentDate, setCurrentDate] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisible2, setModalVisible2] = useState(false);
@@ -185,7 +186,7 @@ export default function LeaveManagement({ navigation }) {
         <ScrollView
           showsVerticalScrollIndicator={false}
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         >
           {/* Date Selection */}
           <Text style={styles.sectionLabel}>Select Date</Text>

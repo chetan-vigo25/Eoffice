@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, StatusBar, View, Text, Dimensions, Image, ToastAndroid, Alert, Platform, NativeModules, } from 'react-native';
 
-import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import NetInfo from '@react-native-community/netinfo';
 import * as Device from 'expo-device';
@@ -272,6 +272,7 @@ function MyStack ({ route }){
  
 function MyTabs({ route }) {
   const userData = route?.params?.userData;
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -316,7 +317,7 @@ function MyTabs({ route }) {
             />
           );
         },
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { height: 70 + insets.bottom, paddingBottom: 8 + insets.bottom }],
         tabBarItemStyle: styles.tabBarItem,
       })}
     >

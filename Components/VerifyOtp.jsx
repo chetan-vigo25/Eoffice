@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react'
 import {StatusBar, Text, View, Image, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, ToastAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BASE_URL from '../Urls/DomainUrl';
 import { OtpInput } from "react-native-otp-entry";
 
@@ -13,6 +14,7 @@ function showToast(message) {
 export default function VerifyOtp({ navigation, route }) {
 
   const { userName, email } = route.params;
+  const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(false);
   const [otp, setOtp] = useState('');
   const [seconds, setSeconds] = useState(120);
@@ -127,7 +129,7 @@ export default function VerifyOtp({ navigation, route }) {
  
     <View style={{ flex: 1, backgroundColor: "white" }}>
       <StatusBar backgroundColor={'#6a8ff3'} barStyle='light-content' />
-       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled' style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps='handled' style={{ paddingHorizontal: 20, paddingTop: 20 }}>
           <View style={{justifyContent:'center', alignItems:'center', padding:20}}>
                <View style={{marginTop:10}}>
                    <Image style={{height:70}} source={require('../assets/Eofficelogo.png')} resizeMode='contain'></Image>
