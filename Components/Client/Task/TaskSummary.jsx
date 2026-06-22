@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, TextInput, Linking, Alert, Animated, ScrollView, ToastAndroid, ActivityIndicator, Image, StatusBar } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Linking, Alert, Animated, ScrollView, ToastAndroid, ActivityIndicator, Image, StatusBar, Platform } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BASE_URL from '../../../Urls/DomainUrl';
@@ -11,8 +11,28 @@ import { AntDesign, FontAwesome, Feather, MaterialCommunityIcons, Ionicons } fro
 import Style from "../../../Style/Style";
 
 function showToast(message) {
-  ToastAndroid.show(message, ToastAndroid.SHORT);
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('', message);
+  }
 }
+
+// Server origin (without /api/v1) — used to resolve relative attachment paths
+const FILE_ORIGIN = BASE_URL.replace(/\/api\/v1\/?$/, '');
+
+// Build a full URL from an attachment value (handles absolute URLs and relative paths)
+const resolveFileUrl = (p) => {
+  if (!p || typeof p !== 'string') return '';
+  if (/^https?:\/\//i.test(p)) return p;
+  return `${FILE_ORIGIN}${p.startsWith('/') ? '' : '/'}${p}`;
+};
+
+const isImageUrl = (url) => /\.(jpe?g|png|gif|webp|bmp|heic)(\?|$)/i.test(url || '');
+const isPdfUrl = (url) => /\.pdf(\?|$)/i.test(url || '');
+
+// Derive a readable file name from a path/url
+const getFileName = (url) => (url ? decodeURIComponent(url.split('/').pop().split('?')[0]) : 'Attachment');
 
 const PRIORITY_COLORS = {
   high:   { bg: '#fdecea', text: '#c0392b' },
@@ -285,6 +305,71 @@ export default function TaskSummary({ navigation, route }) {
                 <Row label="Description" value={taskSumry.description} />
               ) : null}
             </Card>
+
+            {/* ── Attachments (only if the task has documents with files) ── */}
+            {(() => {
+              const docs = Array.isArray(taskSumry?.taskDocuments) ? taskSumry.taskDocuments : [];
+              // Flatten every document's attachment array, keeping the parent message for context
+              const files = docs.flatMap((doc) => {
+                const list = Array.isArray(doc.attachment) ? doc.attachment : (doc.attachment ? [doc.attachment] : []);
+                return list.filter(Boolean).map((path) => ({ path, message: doc.message, status: doc.status }));
+              });
+              if (files.length === 0) return null;
+
+              const openFile = (url) => {
+                if (!url) { showToast('File not available.'); return; }
+                Linking.openURL(url).catch(() => showToast('Unable to open attachment.'));
+              };
+
+              return (
+                <>
+                  <SectionTitle title={`Attachments (${files.length})`} />
+                  <Card>
+                    {files.map((f, idx) => {
+                      const url = resolveFileUrl(f.path);
+                      const name = getFileName(url);
+                      const image = isImageUrl(url);
+                      const pdf = isPdfUrl(url);
+                      return (
+                        <TouchableOpacity
+                          key={idx}
+                          activeOpacity={0.7}
+                          onPress={() => openFile(url)}
+                          style={{
+                            flexDirection: 'row', alignItems: 'center',
+                            paddingVertical: 12,
+                            borderTopWidth: idx === 0 ? 0 : 0.5, borderTopColor: '#f0f0f0',
+                          }}
+                        >
+                          {image ? (
+                            <Image source={{ uri: url }} style={{ width: 46, height: 46, borderRadius: 8, backgroundColor: '#eef2ff' }} />
+                          ) : (
+                            <View style={{ width: 46, height: 46, borderRadius: 8, backgroundColor: pdf ? '#fdecea' : '#eef2ff', justifyContent: 'center', alignItems: 'center' }}>
+                              <MaterialCommunityIcons
+                                name={pdf ? 'file-pdf-box' : 'file-document-outline'}
+                                size={26}
+                                color={pdf ? '#c0392b' : Style.headerBgColor}
+                              />
+                            </View>
+                          )}
+                          <View style={{ flex: 1, marginHorizontal: 12 }}>
+                            <Text numberOfLines={1} style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.basicTextColor }}>
+                              {name}
+                            </Text>
+                            {f.message ? (
+                              <Text numberOfLines={2} style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginTop: 3 }}>
+                                {f.message}
+                              </Text>
+                            ) : null}
+                          </View>
+                          <Feather name="external-link" size={18} color={Style.headerBgColor} />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </Card>
+                </>
+              );
+            })()}
 
             {/* ── Client & Branch ── */}
             <SectionTitle title="Client & Branch" />

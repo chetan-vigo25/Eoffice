@@ -19,6 +19,35 @@ function showToast(message) {
   ToastAndroid.show(message, ToastAndroid.SHORT);
 }
 
+// Builds the display name with its period suffix, e.g.
+//   Monthly task   →  "Monthly TDS Payment.. (Monthly-November)"
+//   Quarterly task →  "GSTR-1 (Jan-March)"
+// Any frequency word already baked into the name (e.g. "GSTR-1 (Monthly)") is stripped first
+// so we don't get a double suffix. Backend spells quarterly as "Quaterly".
+const formatTaskName = (task) => {
+  if (!task) return '';
+  let base = (task.taskName || '').trim();
+  // Remove a trailing "(Monthly)" / "(Quarterly)" / "(Quaterly)" / "(Yearly)" if present
+  base = base.replace(/\s*\((monthly|quarterly|quaterly|yearly)\)\s*$/i, '').trim();
+
+  const type = String(task.type || '').toLowerCase();
+  const month = (task.monthName || '').trim();
+  const quarter = (task.monthQuaters || '').trim();
+
+  let suffix = '';
+  if (type.startsWith('month')) {
+    if (month) suffix = `Monthly-${month}`;
+  } else if (type.startsWith('quat') || type.startsWith('quart')) {
+    if (quarter) suffix = quarter;
+  } else if (month) {
+    suffix = `Monthly-${month}`;
+  } else if (quarter) {
+    suffix = quarter;
+  }
+
+  return suffix ? `${base} (${suffix})` : base;
+};
+
 export default function TaskManagement({ navigation }) {
 
 const dispatch = useDispatch();
@@ -280,7 +309,7 @@ const CLIENT_TASK_STATUS_ARR = [
       >
         {/* Header: Task Name + Status */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <Text numberOfLines={1} ellipsizeMode="tail" style={{ fontSize: 15, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor, flex: 1, marginRight: 10 }}>{item.taskName}</Text>
+          <Text style={{ fontSize: 15, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor, flex: 1, marginRight: 10 }}>{formatTaskName(item)}</Text>
           <View style={{ backgroundColor: statusStyle.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
             <Text style={{ fontSize: 11, fontFamily: 'Lato-SemiBold', color: statusStyle.text }}>
               {getStatusDisplayName(item.status)}
