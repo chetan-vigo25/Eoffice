@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, TextInput, Linking, Alert, Animated, ScrollView, ToastAndroid, ActivityIndicator, Image, StatusBar, Platform } from "react-native";
+import { View, Text, TouchableOpacity, TextInput, Linking, Alert, Animated, ScrollView, ToastAndroid, ActivityIndicator, Image, StatusBar, Platform, Keyboard } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import BASE_URL from '../../../Urls/DomainUrl';
+import BASE_URL, { IMAGE_FILEPATH_URL } from '../../../Urls/DomainUrl';
 import moment from "moment";
 import { useDispatch } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
@@ -91,6 +91,128 @@ const TwoCol = ({ children }) => (
 
 const Divider = () => <View style={{ height: 0.5, backgroundColor: '#f0f0f0', marginVertical: 10 }} />;
 
+/* ── People (assigned by / assigned to / reporting manager) ── */
+
+// `profileImage` arrives as a server-relative path such as "/uploads/x.jpeg".
+const resolveProfileImage = (path) => {
+  if (!path || typeof path !== 'string') return '';
+  const value = path.trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${IMAGE_FILEPATH_URL.replace(/\/+$/, '')}/${value.replace(/^\/+/, '')}`;
+};
+
+const formatMobile = (mobile) => {
+  const number = mobile?.number?.toString().trim();
+  if (!number) return '';
+  return `${mobile?.code ? `${mobile.code} ` : ''}${number}`;
+};
+
+/** Photo when there is one, initial when there is a name, icon when there is neither. */
+const Avatar = ({ image, name, size = 44 }) => {
+  const [failed, setFailed] = useState(false);
+  const uri = resolveProfileImage(image);
+  const initial = name?.trim()?.charAt(0)?.toUpperCase();
+
+  return (
+    <View style={{
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: `${Style.headerBgColor}14`,
+      justifyContent: 'center', alignItems: 'center',
+      overflow: 'hidden',
+      borderWidth: 1, borderColor: `${Style.headerBgColor}22`,
+    }}>
+      {uri && !failed ? (
+        <Image
+          source={{ uri }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+          onError={() => setFailed(true)}
+        />
+      ) : initial ? (
+        <Text style={{ fontSize: size * 0.38, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor }}>{initial}</Text>
+      ) : (
+        <Feather name="user" size={size * 0.45} color={Style.headerBgColor} />
+      )}
+    </View>
+  );
+};
+
+const RoleTag = ({ text }) => (
+  <View style={{ backgroundColor: '#eaf0fb', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+    <Text style={{ fontSize: 10, fontFamily: 'Lato-SemiBold', color: '#1d64c8' }}>{text}</Text>
+  </View>
+);
+
+/** Contact line — tappable when there is something to open. */
+const ContactLine = ({ icon, value, href }) => {
+  if (!value) return null;
+  const content = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 5 }}>
+      <Feather name={icon} size={12} color={Style.secondryTextColor} />
+      <Text
+        numberOfLines={1}
+        style={{ flex: 1, fontSize: 12, fontFamily: 'Lato-Medium', color: href ? Style.headerBgColor : Style.secondryTextColor }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+  if (!href) return content;
+  return (
+    <TouchableOpacity onPress={() => Linking.openURL(href).catch(() => {})} activeOpacity={0.7}>
+      {content}
+    </TouchableOpacity>
+  );
+};
+
+/** One person block. `compact` is used for the nested reporting manager. */
+const Person = ({ person, compact = false }) => {
+  if (!person) return null;
+  const phone = formatMobile(person.mobile);
+  const designation = person.designationData?.name;
+  const department = person.departmentData?.name;
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+      <Avatar image={person.profileImage} name={person.fullName} size={compact ? 36 : 44} />
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text
+            numberOfLines={1}
+            style={{ flex: 1, fontSize: compact ? 13 : 14, fontFamily: 'Lato-SemiBold', color: Style.primaryTextColor }}
+          >
+            {person.fullName || 'Unnamed'}
+          </Text>
+          {designation ? <RoleTag text={designation} /> : null}
+        </View>
+
+        {department ? (
+          <Text numberOfLines={2} style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginTop: 2 }}>
+            {department}
+          </Text>
+        ) : null}
+
+        <ContactLine icon="mail" value={person.email} href={person.email ? `mailto:${person.email}` : null} />
+        <ContactLine icon="phone" value={phone} href={phone ? `tel:${phone.replace(/\s+/g, '')}` : null} />
+
+        {!person.email && !phone && !department && !designation ? (
+          <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginTop: 4 }}>
+            No contact details available
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+};
+
+const EmptyPeople = ({ text }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
+    <Feather name="user-x" size={14} color={Style.secondryTextColor} />
+    <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>{text}</Text>
+  </View>
+);
+
 export default function TaskSummary({ navigation, route }) {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
@@ -103,6 +225,29 @@ export default function TaskSummary({ navigation, route }) {
   const [review, setReview]           = useState('');
   const [taskReview, setTaskReview]   = useState(null);
   const logoutHandled                 = useRef(false);
+  const scrollRef                     = useRef(null);
+  const reviewFocused                 = useRef(false);
+  const keyboardUp                    = useRef(false);
+  const [kbHeight, setKbHeight]       = useState(0);
+
+  // The window does not resize when the keyboard opens (edge-to-edge ignores
+  // adjustResize), so reserve the keyboard's height as scroll padding ourselves
+  // and scroll the review box — the last card — into the space above it.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      keyboardUp.current = true;
+      setKbHeight(e?.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      keyboardUp.current = false;
+      setKbHeight(0);
+    });
+
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   useEffect(() => {
     Animated.timing(slideAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start();
@@ -188,8 +333,11 @@ export default function TaskSummary({ navigation, route }) {
       .finally(() => setLoading(false));
   };
 
-  const comments = taskSumry?.assignTaskList?.[0]?.commentData || [];
-  const employees = taskSumry?.assignTaskList?.[0]?.employeData || [];
+  const assignBlock = taskSumry?.assignTaskList?.[0] || {};
+  const comments = assignBlock.commentData || [];
+  const employees = Array.isArray(assignBlock.employeData)
+    ? assignBlock.employeData
+    : (Array.isArray(taskSumry?.employeData) ? taskSumry.employeData : []);
   const branch = taskSumry?.clientBranch;
   const dept = taskSumry?.departmentData;
   const statusStyle = getStatusStyle(taskSumry?.status);
@@ -248,7 +396,17 @@ export default function TaskSummary({ navigation, route }) {
             <ActivityIndicator size="large" color={Style.headerBgColor} />
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
+          <ScrollView
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() => {
+              if (reviewFocused.current && keyboardUp.current) {
+                scrollRef.current?.scrollToEnd({ animated: true });
+              }
+            }}
+            contentContainerStyle={{ padding: 16, paddingBottom: 32 + Math.max(insets.bottom, kbHeight) }}
+          >
 
             {/* ── Status + Priority strip ── */}
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
@@ -412,31 +570,37 @@ export default function TaskSummary({ navigation, route }) {
               </TwoCol>
             </Card>
 
-            {/* ── Assigned To ── */}
-            <SectionTitle title="Assigned By" />
+            {/* ── Assigned To (with each member's reporting manager) ── */}
+            <SectionTitle title="Assigned To" />
             <Card>
-              <Row label="Assigned By" value={taskSumry?.creatorData?.fullName} />
-              {employees.length > 0 && (
-                <>
-                  <Divider />
-                  <Text style={{ fontSize: 11, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, marginBottom: 8 }}>
-                    Team Members
-                  </Text>
-                  {employees.map((emp, i) => (
-                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: i < employees.length - 1 ? 10 : 0 }}>
-                      {emp.profileImage && !emp.profileImage.includes('placeholder') ? (
-                        <Image source={{ uri: emp.profileImage }} style={{ width: 34, height: 34, borderRadius: 17, marginRight: 10, backgroundColor: '#eee' }} />
-                      ) : (
-                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: `${Style.headerBgColor}18`, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                          <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor }}>
-                            {emp.fullName?.charAt(0) || 'U'}
-                          </Text>
-                        </View>
-                      )}
-                      <Text style={{ fontSize: 13, fontFamily: 'Lato-SemiBold', color: Style.basicTextColor }}>{emp.fullName}</Text>
-                    </View>
-                  ))}
-                </>
+              {employees.length === 0 ? (
+                <EmptyPeople text="No team member assigned yet." />
+              ) : (
+                employees.map((emp, i) => (
+                  <View key={emp?._id || i}>
+                    <Person person={emp} />
+
+                    {emp?.managerData ? (
+                      <View style={{
+                        marginTop: 12, marginLeft: 12,
+                        paddingLeft: 14, paddingVertical: 10, paddingRight: 10,
+                        borderLeftWidth: 2, borderLeftColor: `${Style.headerBgColor}25`,
+                        backgroundColor: '#fafbfd', borderRadius: 10,
+                      }}>
+                        <Text style={{
+                          fontSize: 10, fontFamily: 'Lato-SemiBold',
+                          color: Style.secondryTextColor, letterSpacing: 0.6,
+                          marginBottom: 8, textTransform: 'uppercase',
+                        }}>
+                          Reporting Manager
+                        </Text>
+                        <Person person={emp.managerData} compact />
+                      </View>
+                    ) : null}
+
+                    {i < employees.length - 1 ? <Divider /> : null}
+                  </View>
+                ))
               )}
             </Card>
 
@@ -546,6 +710,8 @@ export default function TaskSummary({ navigation, route }) {
                     }}
                     multiline
                     numberOfLines={3}
+                    onFocus={() => { reviewFocused.current = true; }}
+                    onBlur={() => { reviewFocused.current = false; }}
                   />
                   <TouchableOpacity
                     disabled={review.trim() === '' || loading}

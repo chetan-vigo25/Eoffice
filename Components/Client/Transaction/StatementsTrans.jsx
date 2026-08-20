@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, TouchableOpacity, Animated, RefreshControl, FlatList, Modal, StyleSheet, StatusBar, ToastAndroid, ActivityIndicator, Platform, Alert } from "react-native";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { View, Text, TouchableOpacity, Animated, RefreshControl, FlatList, Modal, ScrollView, Image, StyleSheet, StatusBar, ToastAndroid, ActivityIndicator, Platform, Alert } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import moment from "moment";
@@ -13,7 +13,9 @@ import * as Sharing from 'expo-sharing';
 
 import { AntDesign, Feather, Fontisto } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
-import BASE_URL from '../../../Urls/DomainUrl';
+import BASE_URL, { IMAGE_FILEPATH_URL } from '../../../Urls/DomainUrl';
+import { downloadDocumentPdf, DOC_TYPE } from '../../../Utils/pdf';
+import DocumentViewer from '../../Common/DocumentViewer';
 
 function showToast(message) {
   if (Platform.OS === 'android') {
@@ -27,6 +29,25 @@ function formatAmount(val) {
   const num = Number(val) || 0;
   return num.toLocaleString('en-IN');
 }
+
+// Build a full image URL from whatever the API stores (absolute URL or relative path).
+const resolveImageUrl = (value) => {
+  if (!value || typeof value !== 'string') return '';
+  const path = value.trim();
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${IMAGE_FILEPATH_URL.replace(/\/+$/, '')}/${path.replace(/^\/?(public\/)?/i, '')}`;
+};
+
+// Statement rows that map back to a real document the client can open.
+const TXN_KIND = { invoice: 'invoice', payment: 'receipt' };
+
+const InfoRow = ({ label, value, strong }) => (
+  <View style={styles.infoRow}>
+    <Text style={styles.infoLabel}>{label}</Text>
+    <Text style={[styles.infoValue, strong && styles.infoValueStrong]} numberOfLines={2}>{value ?? '-'}</Text>
+  </View>
+);
 
 export default function StatementsTrans({ navigation, route }) {
   const dispatch = useDispatch();
@@ -47,6 +68,20 @@ export default function StatementsTrans({ navigation, route }) {
   const [activeQuickFilter, setActiveQuickFilter] = useState(null);
 
   const logoutHandled = useRef(false);
+
+  // Invoice / Receipt drill-down
+  const [typeFilter, setTypeFilter] = useState('all');       // all | invoice | payment
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailData, setDetailData] = useState(null);
+  const [detailKind, setDetailKind] = useState('invoice');   // invoice | payment
+  const [detailRef, setDetailRef] = useState('');
+  const [detailDownloading, setDetailDownloading] = useState(false);
+  const [detailId, setDetailId] = useState(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  // Falls back to an icon when the client has no picture, or it fails to load.
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   useEffect(() => {
     Animated.timing(scale, {
@@ -149,6 +184,113 @@ export default function StatementsTrans({ navigation, route }) {
   const clientInfo = responseData || {};
   const transactions = responseData?.allTransactions || responseData?.allTransections || [];
   const summary = responseData?.summary || {};
+
+  const clientAvatarUri = useMemo(
+    () => resolveImageUrl(clientInfo?.profileImage || clientInfo?.image || clientInfo?.logo || clientInfo?.profilePic),
+    [clientInfo?.profileImage, clientInfo?.image, clientInfo?.logo, clientInfo?.profilePic]
+  );
+
+  useEffect(() => { setAvatarFailed(false); }, [clientAvatarUri]);
+
+  const invoiceCount = useMemo(() => transactions.filter(t => t?.typeOf === 'invoice').length, [transactions]);
+  const receiptCount = useMemo(() => transactions.filter(t => t?.typeOf === 'payment').length, [transactions]);
+
+  const visibleTransactions = useMemo(
+    () => (typeFilter === 'all' ? transactions : transactions.filter(t => t?.typeOf === typeFilter)),
+    [transactions, typeFilter]
+  );
+
+  // Open the underlying invoice / receipt for a statement row.
+  const openDetail = useCallback(async (item) => {
+    const kind = item?.typeOf;
+    if (!TXN_KIND[kind]) return;
+    if (!item?._id) {
+      showToast('Details are not available for this entry.');
+      return;
+    }
+
+    setDetailKind(kind);
+    setDetailId(item._id);
+    setDetailRef(item.refNumber || '');
+    setDetailData(null);
+    setDetailVisible(true);
+    setDetailLoading(true);
+
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        setDetailVisible(false);
+        handleLogout();
+        return;
+      }
+
+      const myHeaders = new Headers();
+      myHeaders.append('Authorization', 'Bearer ' + token);
+      myHeaders.append('Content-Type', 'application/json');
+
+      const endpoint = kind === 'invoice'
+        ? `${BASE_URL}/client/invoice/view`
+        : `${BASE_URL}/client/invoice/receiptView`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: myHeaders,
+        body: JSON.stringify({ _id: item._id }),
+        redirect: 'follow',
+      });
+      const result = await response.json();
+
+      if (result.statusCode === 200) {
+        setDetailData(result.data || null);
+      } else if (result.statusCode === 401) {
+        setDetailVisible(false);
+        handleLogout();
+      } else {
+        setDetailVisible(false);
+        showToast(result.message || 'Details are not available for this entry.');
+      }
+    } catch (error) {
+      console.error('[Statement Detail Error]:', error);
+      setDetailVisible(false);
+      showToast('Network error. Please try again.');
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [handleLogout]);
+
+  const closeDetail = () => {
+    setDetailVisible(false);
+    setDetailData(null);
+  };
+
+  const detailIsInvoice = detailKind === 'invoice';
+  const detailDocType = detailIsInvoice ? DOC_TYPE.invoice : DOC_TYPE.receipt;
+  const detailNumber = detailData?.invoiceNumber || detailData?.receiptNumber || detailRef;
+
+  const handleDetailDownload = async () => {
+    if (!detailId) {
+      showToast('This entry cannot be downloaded.');
+      return;
+    }
+    setDetailDownloading(true);
+    try {
+      const label = detailIsInvoice ? 'Invoice' : 'Receipt';
+      await downloadDocumentPdf({
+        id: detailId,
+        type: detailDocType,
+        source: detailData,
+        baseName: `${label}_${detailNumber}_${moment().format('DDMMYYYY')}`,
+        fallbackName: label,
+        onToast: showToast,
+        onUnauthorized: handleLogout,
+      });
+    } catch (error) {
+      console.error('[Statement PDF Error]:', error);
+      showToast(`Failed to download PDF: ${error?.message || error}`);
+    } finally {
+      setDetailDownloading(false);
+    }
+  };
 
   // Filters
   const applyFilters = () => {
@@ -427,16 +569,32 @@ export default function StatementsTrans({ navigation, route }) {
     }
 
     const isDebit = item.debit_credit === 'debit';
+    const kind = TXN_KIND[item.typeOf];          // 'invoice' | 'receipt' | undefined
+    const canOpen = !!kind && !!item._id;
 
     return (
-      <View style={styles.transCard}>
+      <TouchableOpacity
+        onPress={() => openDetail(item)}
+        disabled={!canOpen}
+        activeOpacity={0.7}
+        style={[styles.transCard, canOpen && styles.transCardTappable]}
+      >
         <View style={styles.transCardLeft}>
           <View style={[styles.transIcon, { backgroundColor: isDebit ? '#fff0f0' : '#edfff4' }]}>
             <Feather name={isDebit ? "arrow-up-right" : "arrow-down-left"} size={16} color={isDebit ? '#e53935' : '#23a26d'} />
           </View>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.transRef} numberOfLines={1}>{item.refNumber || 'N/A'}</Text>
+          <View style={styles.transRefRow}>
+            <Text style={styles.transRef} numberOfLines={1}>{item.refNumber || 'N/A'}</Text>
+            {kind ? (
+              <View style={[styles.kindTag, kind === 'invoice' ? styles.kindTagInvoice : styles.kindTagReceipt]}>
+                <Text style={[styles.kindTagText, { color: kind === 'invoice' ? '#c25e00' : '#1c7c4f' }]}>
+                  {kind === 'invoice' ? 'Invoice' : 'Receipt'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.transNarration} numberOfLines={1}>{item.naration || (item.typeOf === 'invoice' ? 'Invoice' : item.typeOf === 'payment' ? 'Payment' : item.typeOf || '-')}</Text>
           <Text style={styles.transDate}>{item.date ? moment(item.date).format('DD MMM YYYY') : '-'}</Text>
         </View>
@@ -445,10 +603,16 @@ export default function StatementsTrans({ navigation, route }) {
             {isDebit ? 'Dr' : 'Cr'} Rs {formatAmount(item.amount)}
           </Text>
           <Text style={styles.transBalance}>Bal: Rs {formatAmount(item.currentBalance)}</Text>
+          {canOpen ? (
+            <View style={styles.transViewHint}>
+              <Text style={styles.transViewHintText}>View</Text>
+              <Feather name="chevron-right" size={13} color={Style.headerBgColor} />
+            </View>
+          ) : null}
         </View>
-      </View>
+      </TouchableOpacity>
     );
-  }, []);
+  }, [openDetail]);
 
   const renderListHeader = () => (
     <View>
@@ -457,9 +621,16 @@ export default function StatementsTrans({ navigation, route }) {
         <View style={styles.clientCard}>
           <View style={styles.clientCardRow}>
             <View style={styles.clientAvatar}>
-              <Text style={styles.clientAvatarText}>
-                {clientInfo.fullName?.charAt(0)?.toUpperCase() || '?'}
-              </Text>
+              {clientAvatarUri && !avatarFailed ? (
+                <Image
+                  source={{ uri: clientAvatarUri }}
+                  style={styles.clientAvatarImage}
+                  resizeMode="cover"
+                  onError={() => setAvatarFailed(true)}
+                />
+              ) : (
+                <Feather name="user" size={22} color={Style.headerBgColor} />
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.clientName} numberOfLines={1}>{clientInfo.fullName}</Text>
@@ -513,7 +684,9 @@ export default function StatementsTrans({ navigation, route }) {
 
       {/* Transactions Header */}
       <View style={styles.transHeader}>
-        <Text style={styles.transHeaderText}>All Transactions ({transactions.length})</Text>
+        <Text style={styles.transHeaderText}>
+          {typeFilter === 'invoice' ? 'Invoices' : typeFilter === 'payment' ? 'Receipts' : 'All Transactions'} ({visibleTransactions.length})
+        </Text>
         <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity onPress={resetFilters} style={styles.iconBtn}>
             <Fontisto name="spinner-refresh" size={18} color="#999" />
@@ -522,6 +695,26 @@ export default function StatementsTrans({ navigation, route }) {
             <Feather name="sliders" size={18} color="#999" />
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Invoice / Receipt filter */}
+      <View style={styles.typeFilterRow}>
+        {[
+          { key: 'all', label: 'All', count: transactions.length },
+          { key: 'invoice', label: 'Invoices', count: invoiceCount },
+          { key: 'payment', label: 'Receipts', count: receiptCount },
+        ].map(({ key, label, count }) => (
+          <TouchableOpacity
+            key={key}
+            onPress={() => setTypeFilter(key)}
+            activeOpacity={0.8}
+            style={[styles.quickChip, typeFilter === key && styles.quickChipActive]}
+          >
+            <Text style={[styles.quickChipText, typeFilter === key && styles.quickChipTextActive]}>
+              {label} ({count})
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
@@ -594,6 +787,117 @@ export default function StatementsTrans({ navigation, route }) {
         </TouchableOpacity>
       </Modal>
 
+      <DocumentViewer
+        visible={viewerOpen}
+        id={detailId}
+        type={detailDocType}
+        title={detailIsInvoice ? 'Invoice' : 'Receipt'}
+        number={detailNumber}
+        onClose={() => setViewerOpen(false)}
+        onUnauthorized={handleLogout}
+      />
+
+      {/* Invoice / Receipt Detail Sheet */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={detailVisible}
+        onRequestClose={closeDetail}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.detailHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.detailTitle}>{detailIsInvoice ? 'Invoice Details' : 'Receipt Details'}</Text>
+                {detailRef ? <Text style={styles.detailSubtitle}>{detailRef}</Text> : null}
+              </View>
+              <TouchableOpacity onPress={closeDetail} style={styles.detailClose} activeOpacity={0.7}>
+                <Feather name="x" size={18} color={Style.headerBgColor} />
+              </TouchableOpacity>
+            </View>
+
+            {detailLoading ? (
+              <View style={{ paddingVertical: 50, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={Style.headerBgColor} />
+              </View>
+            ) : !detailData ? (
+              <Text style={styles.detailEmpty}>Details are not available for this entry.</Text>
+            ) : (
+              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                <View style={styles.detailCard}>
+                  {detailIsInvoice ? (
+                    <>
+                      <InfoRow label="Invoice Number" value={detailData.invoiceNumber} strong />
+                      <InfoRow label="Date" value={detailData.createdAt ? moment(detailData.createdAt).format('DD MMM YYYY') : '-'} />
+                      <InfoRow label="Status" value={detailData.status === 'PendingPayment' ? 'Pending Payment' : detailData.status} />
+                      {detailData.clientData ? <InfoRow label="Client" value={detailData.clientData} /> : null}
+                    </>
+                  ) : (
+                    <>
+                      <InfoRow label="Receipt Number" value={detailData.receiptNumber} strong />
+                      <InfoRow label="Date" value={detailData.date ? moment(detailData.date).format('DD MMM YYYY') : '-'} />
+                      <InfoRow label="Narration" value={detailData.naration} />
+                      <InfoRow label="Payment Mode" value={detailData.paymentmode ? detailData.paymentmode.charAt(0).toUpperCase() + detailData.paymentmode.slice(1) : '-'} />
+                      {detailData.chequeNumber ? <InfoRow label="Cheque No." value={detailData.chequeNumber} /> : null}
+                      {detailData.transectionNumber ? <InfoRow label="Transaction No." value={detailData.transectionNumber} /> : null}
+                    </>
+                  )}
+                </View>
+
+                <View style={styles.detailCard}>
+                  {detailIsInvoice ? (
+                    <>
+                      <InfoRow label="Total Amount" value={`Rs ${formatAmount(detailData.totalAmount)}`} />
+                      {Number(detailData.discountAmount) > 0 ? <InfoRow label="Discount" value={`Rs ${formatAmount(detailData.discountAmount)}`} /> : null}
+                      {Number(detailData.SGST) > 0 ? <InfoRow label="SGST" value={`Rs ${formatAmount(detailData.SGST)}`} /> : null}
+                      {Number(detailData.CGST) > 0 ? <InfoRow label="CGST" value={`Rs ${formatAmount(detailData.CGST)}`} /> : null}
+                      {Number(detailData.IGST) > 0 ? <InfoRow label="IGST" value={`Rs ${formatAmount(detailData.IGST)}`} /> : null}
+                      <InfoRow label="Grand Total" value={`Rs ${formatAmount(detailData.grandTotal)}`} strong />
+                    </>
+                  ) : (
+                    <>
+                      <InfoRow label="Sub Total" value={`Rs ${formatAmount(detailData.subTotalAmount)}`} />
+                      <InfoRow label="Total Amount" value={`Rs ${formatAmount(detailData.totalAmount)}`} />
+                      <InfoRow label="Grand Total" value={`Rs ${formatAmount(detailData.grandTotalAmount)}`} strong />
+                    </>
+                  )}
+                </View>
+              </ScrollView>
+            )}
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+              <TouchableOpacity
+                onPress={() => setViewerOpen(true)}
+                disabled={detailLoading || !detailId}
+                activeOpacity={0.8}
+                style={[styles.detailViewBtn, { opacity: detailId ? 1 : 0.5 }]}
+              >
+                <Feather name="eye" size={16} color={Style.headerBgColor} />
+                <Text style={[styles.detailDownloadText, { color: Style.headerBgColor }]}>View</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleDetailDownload}
+                disabled={detailLoading || detailDownloading || !detailId}
+                activeOpacity={0.8}
+                style={[styles.detailDownloadBtn, { flex: 1.4, marginTop: 0, backgroundColor: detailId ? Style.headerBgColor : '#e6e8ee' }]}
+              >
+                {detailDownloading ? (
+                  <ActivityIndicator size="small" color={detailId ? '#fff' : '#999'} />
+                ) : (
+                  <Feather name="download" size={16} color={detailId ? '#fff' : '#999'} />
+                )}
+                <Text style={[styles.detailDownloadText, { color: detailId ? '#fff' : '#999' }]}>
+                  {detailDownloading ? 'Downloading...' : `Download ${detailIsInvoice ? 'Invoice' : 'Receipt'} PDF`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <DateTimePickerModal
         isVisible={activeDatePicker !== null}
         mode="date"
@@ -647,7 +951,7 @@ export default function StatementsTrans({ navigation, route }) {
           </View>
         ) : (
           <FlatList
-            data={transactions}
+            data={visibleTransactions}
             keyExtractor={(_, index) => `txn-${index}`}
             renderItem={renderItem}
             ListHeaderComponent={renderListHeader}
@@ -736,14 +1040,16 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Style.headerBgColor,
+    backgroundColor: '#e8f0fe',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#dfe6f5',
   },
-  clientAvatarText: {
-    fontSize: 20,
-    fontFamily: 'Lato-Bold',
-    color: '#fff',
+  clientAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   clientName: {
     fontSize: 15,
@@ -845,8 +1151,138 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eef0f4',
   },
+  transCardTappable: {
+    borderColor: '#dfe6f5',
+  },
   transCardLeft: {
     marginRight: 12,
+  },
+  transRefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  kindTag: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  kindTagInvoice: {
+    backgroundColor: '#fff4e5',
+  },
+  kindTagReceipt: {
+    backgroundColor: '#e7f7ef',
+  },
+  kindTagText: {
+    fontSize: 10,
+    fontFamily: 'Lato-SemiBold',
+  },
+  transViewHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  transViewHintText: {
+    fontSize: 11,
+    fontFamily: 'Lato-SemiBold',
+    color: Style.headerBgColor,
+  },
+  typeFilterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  // Detail sheet
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  detailTitle: {
+    fontSize: 16,
+    fontFamily: 'Lato-SemiBold',
+    color: Style.headerBgColor,
+  },
+  detailSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Lato-Medium',
+    color: '#8a8fa8',
+    marginTop: 2,
+  },
+  detailClose: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#eef0f4',
+  },
+  detailCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#eef0f4',
+  },
+  detailEmpty: {
+    fontSize: 13,
+    fontFamily: 'Lato-Medium',
+    color: '#8a8fa8',
+    textAlign: 'center',
+    paddingVertical: 40,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f2f4f8',
+  },
+  infoLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: 'Lato-Medium',
+    color: '#8a8fa8',
+  },
+  infoValue: {
+    flex: 1.3,
+    fontSize: 13,
+    fontFamily: 'Lato-SemiBold',
+    color: '#1a1a2e',
+    textAlign: 'right',
+  },
+  infoValueStrong: {
+    color: Style.headerBgColor,
+    fontSize: 14,
+  },
+  detailDownloadBtn: {
+    flexDirection: 'row',
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+  },
+  detailViewBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#eef2ff',
+    borderWidth: 1,
+    borderColor: '#dfe6f5',
+  },
+  detailDownloadText: {
+    fontSize: 14,
+    fontFamily: 'Lato-SemiBold',
   },
   transIcon: {
     width: 38,

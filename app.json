@@ -2,7 +2,7 @@
   "expo": {
     "name": "E_Office",
     "slug": "E_Office",
-    "version": "1.0.3",
+    "version": "1.1.1",
     "runtimeVersion": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -22,7 +22,11 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vigorous.E-Office"
+      "bundleIdentifier": "com.vigorous.E-Office",
+      "infoPlist": {
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
+      }
     },
     "android": {
       "adaptiveIcon": {

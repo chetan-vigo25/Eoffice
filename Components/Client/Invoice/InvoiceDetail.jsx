@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ToastAndroid, ActivityIndicator, Platform, Alert } from "react-native";
+import { StatusBar, View, Text, TouchableOpacity, Animated, ScrollView, ToastAndroid, ActivityIndicator, Platform, Alert, InteractionManager } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RazorpayCheckout from 'react-native-razorpay';
@@ -8,8 +8,8 @@ import moment from "moment";
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import { DATA_ENCRYPT_DCRYPT_KEY } from "@env";
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import { downloadDocumentPdf, DOC_TYPE } from '../../../Utils/pdf';
+import DocumentViewer from '../../Common/DocumentViewer';
 
 import BASE_URL from '../../../Urls/DomainUrl';
 import Style from "../../../Style/Style";
@@ -33,6 +33,7 @@ export default function InvoiceDetail({ navigation, route }) {
   const [slideAnim] = useState(new Animated.Value(30));
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [invoiceData, setInvoiceData] = useState(null);
   const [razprPay_key, setRazprPay_key] = useState('');
@@ -117,8 +118,8 @@ export default function InvoiceDetail({ navigation, route }) {
       const result = await response.json();
 
       if (result.statusCode === 200) {
-        // console.log("Invoice Detail", JSON.stringify(result.data, null, 2))
         setInvoiceData(result.data);
+        return result.data;
       } else if (result.statusCode === 401) {
         handleLogout();
       } else {
@@ -138,6 +139,49 @@ export default function InvoiceDetail({ navigation, route }) {
       keyFetch();
     }
   }, [invoiceId]);
+
+  // The Razorpay SDK settles its promise only through a native event. If that
+  // event never arrives the screen would hang forever, so fall back to asking
+  // the server — the invoice status is the source of truth for whether the
+  // money actually moved.
+  const paymentInFlight = useRef(false);
+  const watchdogRef = useRef(null);
+  const PAYMENT_TIMEOUT_MS = 120000;
+
+  const clearWatchdog = () => {
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
+  };
+
+  useEffect(() => () => clearWatchdog(), []);
+
+  const reconcilePayment = async (fallbackMessage) => {
+    clearWatchdog();
+    paymentInFlight.current = false;
+    try {
+      const fresh = await fetchInvoiceDetail();
+      if (fresh?.status === 'Paid') {
+        showToast("Payment received.");
+        return true;
+      }
+    } catch (error) {
+      console.error("[Payment Reconcile Error]:", error);
+    }
+    if (fallbackMessage) showToast(fallbackMessage);
+    return false;
+  };
+
+  const startPaymentWatchdog = () => {
+    clearWatchdog();
+    paymentInFlight.current = true;
+    watchdogRef.current = setTimeout(() => {
+      if (!paymentInFlight.current) return;
+      reconcilePayment("Could not confirm the payment. Please refresh in a moment.")
+        .finally(() => setPaymentLoading(false));
+    }, PAYMENT_TIMEOUT_MS);
+  };
 
   // Razorpay: Create Order
   const CreateOrder = async () => {
@@ -198,11 +242,17 @@ export default function InvoiceDetail({ navigation, route }) {
       },
       theme: { color: Style.headerBgColor }
     };
+    startPaymentWatchdog();
     RazorpayCheckout.open(options).then((data) => {
+      clearWatchdog();
+      paymentInFlight.current = false;
       verifyPayment(data);
-    }).catch((error) => {
-      console.log(error);
-      showToast("CANCELLED");
+    }).catch(async (error) => {
+      console.log('[Razorpay Error]:', error);
+      // Landing here does not prove the payment failed — the SDK also rejects
+      // when the callback is lost. Ask the server before telling the user.
+      const paid = await reconcilePayment(null);
+      if (!paid) showToast("Payment cancelled.");
       setPaymentLoading(false);
     });
   };
@@ -234,7 +284,11 @@ export default function InvoiceDetail({ navigation, route }) {
       if (result.statusCode === 200) {
         showToast(result.message);
         fetchInvoiceDetail();
-        navigation.navigate('TransferSuccess', { reciptData: result.data });
+        // Navigating while Razorpay's view controller is still dismissing leaves
+        // it stranded on top on iOS — wait for the transition to finish.
+        InteractionManager.runAfterInteractions(() => {
+          navigation.navigate('TransferSuccess', { reciptData: result.data });
+        });
       } else {
         showToast(result.message);
       }
@@ -246,59 +300,26 @@ export default function InvoiceDetail({ navigation, route }) {
     }
   };
 
+  // The server renders the invoice on demand, so this works paid or unpaid.
+  const canDownload = !!invoiceData?._id;
+
   const handleDownloadPDF = async () => {
-    if (!invoiceData?.invoiceURL) {
-      showToast("No PDF available for this invoice.");
+    if (!canDownload) {
+      showToast("This invoice cannot be downloaded.");
       return;
     }
 
     setDownloading(true);
     try {
-      const filename = invoiceData.invoiceURL.split('/').pop() || `invoice_${invoiceData.invoiceNumber}.pdf`;
-      const fileUri = FileSystem.cacheDirectory + filename;
-
-      // Download file to cache first
-      const downloadResumable = FileSystem.createDownloadResumable(
-        invoiceData.invoiceURL,
-        fileUri
-      );
-      const { uri } = await downloadResumable.downloadAsync();
-
-      if (Platform.OS === 'android') {
-        // Use StorageAccessFramework to save PDF to Downloads
-        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-        if (!permissions.granted) {
-          showToast("Storage permission is required to download PDF.");
-          return;
-        }
-
-        const base64Data = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        const safUri = await FileSystem.StorageAccessFramework.createFileAsync(
-          permissions.directoryUri,
-          filename.replace('.pdf', ''),
-          'application/pdf'
-        );
-
-        await FileSystem.writeAsStringAsync(safUri, base64Data, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        showToast("PDF saved to Downloads folder.");
-      } else {
-        // iOS: present the share sheet so the user can save to Files / share
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, {
-            mimeType: 'application/pdf',
-            dialogTitle: filename,
-            UTI: 'com.adobe.pdf',
-          });
-        } else {
-          showToast("PDF downloaded successfully.");
-        }
-      }
+      await downloadDocumentPdf({
+        id: invoiceData._id,
+        type: DOC_TYPE.invoice,
+        source: invoiceData,
+        baseName: `Invoice_${invoiceData?.invoiceNumber || ''}_${moment().format('DDMMYYYY')}`,
+        fallbackName: 'Invoice',
+        onToast: showToast,
+        onUnauthorized: handleLogout,
+      });
     } catch (error) {
       console.error("[PDF Download Error]:", error);
       showToast(`Failed to download PDF: ${error?.message || error}`);
@@ -317,6 +338,16 @@ export default function InvoiceDetail({ navigation, route }) {
   const isPaid = invoiceData?.status === 'Paid';
 
   return (
+    <>
+    <DocumentViewer
+      visible={viewerOpen}
+      id={invoiceData?._id}
+      type={DOC_TYPE.invoice}
+      title="Invoice"
+      number={invoiceData?.invoiceNumber}
+      onClose={() => setViewerOpen(false)}
+      onUnauthorized={handleLogout}
+    />
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center', paddingHorizontal: 20 }}>
@@ -378,34 +409,8 @@ export default function InvoiceDetail({ navigation, route }) {
               </View>
             ) : null}
 
-            {/* Action Button: Make Payment OR Download PDF */}
-            {isPaid ? (
-              <TouchableOpacity
-                onPress={handleDownloadPDF}
-                disabled={downloading}
-                style={{
-                  flexDirection: 'row',
-                  backgroundColor: Style.headerBgColor,
-                  borderRadius: 10,
-                  padding: 15,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  gap: 10,
-                  marginTop: 5,
-                  marginBottom: 20,
-                  opacity: downloading ? 0.7 : 1,
-                }}
-              >
-                {downloading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Feather name="download" size={20} color="#fff" />
-                )}
-                <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: '#fff' }}>
-                  {downloading ? 'Downloading...' : 'Download PDF'}
-                </Text>
-              </TouchableOpacity>
-            ) : (
+            {/* Make Payment shows only while unpaid; View / Download always available. */}
+            {!isPaid && (
               <TouchableOpacity
                 onPress={CreateOrder}
                 disabled={paymentLoading}
@@ -418,7 +423,7 @@ export default function InvoiceDetail({ navigation, route }) {
                   alignItems: 'center',
                   gap: 10,
                   marginTop: 5,
-                  marginBottom: 20,
+                  marginBottom: 12,
                   opacity: paymentLoading ? 0.7 : 1,
                 }}
               >
@@ -432,6 +437,56 @@ export default function InvoiceDetail({ navigation, route }) {
                 </Text>
               </TouchableOpacity>
             )}
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: isPaid ? 5 : 0, marginBottom: 20 }}>
+              <TouchableOpacity
+                onPress={() => setViewerOpen(true)}
+                disabled={!canDownload}
+                activeOpacity={0.8}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  backgroundColor: '#eef2ff',
+                  borderRadius: 10,
+                  padding: 15,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: 8,
+                  borderWidth: 1,
+                  borderColor: '#dfe6f5',
+                  opacity: canDownload ? 1 : 0.5,
+                }}
+              >
+                <Feather name="eye" size={19} color={Style.headerBgColor} />
+                <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: Style.headerBgColor }}>View</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleDownloadPDF}
+                disabled={downloading || !canDownload}
+                activeOpacity={0.8}
+                style={{
+                  flex: 1.4,
+                  flexDirection: 'row',
+                  backgroundColor: canDownload ? Style.headerBgColor : '#e0e0e0',
+                  borderRadius: 10,
+                  padding: 15,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: 8,
+                  opacity: downloading ? 0.7 : 1,
+                }}
+              >
+                {downloading ? (
+                  <ActivityIndicator size="small" color={canDownload ? '#fff' : '#999'} />
+                ) : (
+                  <Feather name="download" size={19} color={canDownload ? '#fff' : '#999'} />
+                )}
+                <Text style={{ fontSize: 14, fontFamily: 'Lato-SemiBold', color: canDownload ? '#fff' : '#999' }}>
+                  {downloading ? 'Downloading...' : 'Download PDF'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
         ) : (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -440,5 +495,6 @@ export default function InvoiceDetail({ navigation, route }) {
         )}
       </Animated.View>
     </SafeAreaView>
+    </>
   );
 }

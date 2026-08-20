@@ -301,9 +301,9 @@ export default function FinDocument({ navigation }) {
        const { uri } = await downloadResumable.downloadAsync();
 
        // Only ask for permission if it hasn't already been granted
-       let { status, canAskAgain } = await MediaLibrary.getPermissionsAsync();
+       let { status, canAskAgain } = await MediaLibrary.getPermissionsAsync(true);
        if (status !== 'granted' && canAskAgain) {
-         status = (await MediaLibrary.requestPermissionsAsync()).status;
+         status = (await MediaLibrary.requestPermissionsAsync(true)).status;
        }
 
        if (status === 'granted') {

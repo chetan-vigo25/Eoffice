@@ -9,6 +9,8 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useDispatch } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import usePaginatedList from '../../../hooks/usePaginatedList';
+import { downloadDocumentPdf, DOC_TYPE } from '../../../Utils/pdf';
+import DocumentViewer from '../../Common/DocumentViewer';
 
 import { AntDesign, Feather, Entypo, Fontisto, MaterialCommunityIcons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
@@ -35,6 +37,9 @@ export default function UnPaidInvoice({ navigation }) {
   const statusData = ['All', 'Paid', 'PendingPayment'];
 
   const filtersRef = React.useRef({ statusD: 'PendingPayment', startDate: '' });
+
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [viewerDoc, setViewerDoc] = useState(null);   // { id, number }
 
   const onUnauthorized = useCallback(async () => {
     dispatch(logout());
@@ -151,8 +156,37 @@ export default function UnPaidInvoice({ navigation }) {
     return { bg: '#ffebee', text: '#c62828', label: 'Unpaid' };
   };
 
+  // Invoices are rendered on demand by the server, so this works paid or unpaid.
+  const downloadInvoicePDF = useCallback(async (invoice) => {
+    const rowId = invoice?._id;
+    if (!rowId) {
+      showToast('This invoice cannot be downloaded.');
+      return;
+    }
+    if (downloadingId) return;
+    setDownloadingId(rowId);
+    try {
+      await downloadDocumentPdf({
+        id: rowId,
+        type: DOC_TYPE.invoice,
+        source: invoice,
+        baseName: `Invoice_${invoice?.invoiceNumber || ''}_${moment().format('DDMMYYYY')}`,
+        fallbackName: 'Invoice',
+        onToast: showToast,
+        onUnauthorized,
+      });
+    } catch (error) {
+      console.error('[Invoice PDF Download Error]:', error);
+      showToast(`Failed to download PDF: ${error?.message || error}`);
+    } finally {
+      setDownloadingId(null);
+    }
+  }, [downloadingId, onUnauthorized]);
+
   const renderItem = useCallback(({ item }) => {
     const statusStyle = getStatusStyle(item.status);
+    const isDownloading = downloadingId === item._id;
+    const canOpen = !!item._id;
     return (
       <TouchableOpacity
         onPress={() => navigation.navigate('InvoiceDetail', { invoiceId: item._id })}
@@ -190,22 +224,28 @@ export default function UnPaidInvoice({ navigation }) {
               {moment(item.updatedAt).format('DD/MM/YYYY')}
             </Text>
           </View>
-          <TouchableOpacity 
-            onPress={() => {
-              // Handle share functionality
-              if (item.invoicePDFurl) {
-                // Add share logic here
-                showToast("Share feature coming soon");
-              }
-            }}
-            style={{ width: 30, height: 30, justifyContent: 'center', alignItems: 'center' }}
-          >
-            <Image source={require('../../../assets/shareIcon.png')} resizeMode="contain" style={{ width: 20, height: 20 }} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => setViewerDoc({ id: item._id, number: item.invoiceNumber })}
+              disabled={!canOpen}
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: canOpen ? '#eef2ff' : '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}
+            >
+              <Feather name="eye" size={16} color={canOpen ? Style.headerBgColor : '#bbb'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => downloadInvoicePDF(item)}
+              disabled={isDownloading || !canOpen}
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: canOpen ? '#eef2ff' : '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}
+            >
+              {isDownloading
+                ? <ActivityIndicator size="small" color={Style.headerBgColor} />
+                : <Feather name="download" size={16} color={canOpen ? Style.headerBgColor : '#bbb'} />}
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
-  }, [navigation]);
+  }, [navigation, downloadingId, downloadInvoicePDF]);
 
   const renderFooter = () => {
     if (!loading || data.length === 0) return null;
@@ -243,6 +283,16 @@ export default function UnPaidInvoice({ navigation }) {
   };
 
   return (
+    <>
+    <DocumentViewer
+      visible={!!viewerDoc}
+      id={viewerDoc?.id}
+      type={DOC_TYPE.invoice}
+      title="Invoice"
+      number={viewerDoc?.number}
+      onClose={() => setViewerDoc(null)}
+      onUnauthorized={onUnauthorized}
+    />
     <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       
@@ -410,6 +460,7 @@ export default function UnPaidInvoice({ navigation }) {
         </Animated.View>
       </View>
     </SafeAreaView>
+    </>
   );
 }
 

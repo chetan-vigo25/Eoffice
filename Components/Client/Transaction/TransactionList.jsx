@@ -13,6 +13,8 @@ import usePaginatedList from '../../../hooks/usePaginatedList';
 import { AntDesign, Feather, Entypo, Fontisto } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 import BASE_URL from '../../../Urls/DomainUrl';
+import { downloadDocumentPdf, DOC_TYPE } from '../../../Utils/pdf';
+import DocumentViewer from '../../Common/DocumentViewer';
 
 function showToast(message) {
   ToastAndroid.show(message, ToastAndroid.SHORT);
@@ -33,6 +35,9 @@ export default function TransactionList({ navigation }) {
   const statusData = ['Paid', 'PendingPayment'];
 
   const filtersRef = React.useRef({ statusD: '', startDate: '' });
+
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [viewerDoc, setViewerDoc] = useState(null);   // { id, number }
 
   const onUnauthorized = useCallback(async () => {
     dispatch(logout());
@@ -122,7 +127,37 @@ export default function TransactionList({ navigation }) {
   };
   const formattedDate = startDate ? moment(startDate).format("DD/MM/YYYY") : "Select Date";
 
-  const renderItem = useCallback(({ item }) => (
+  const downloadInvoicePDF = useCallback(async (invoice) => {
+    const rowId = invoice?._id;
+    if (!rowId) {
+      showToast('This invoice cannot be downloaded.');
+      return;
+    }
+    if (downloadingId) return;
+    setDownloadingId(rowId);
+    try {
+      await downloadDocumentPdf({
+        id: rowId,
+        type: DOC_TYPE.invoice,
+        source: invoice,
+        baseName: `Invoice_${invoice?.invoiceNumber || ''}_${moment().format('DDMMYYYY')}`,
+        fallbackName: 'Invoice',
+        onToast: showToast,
+        onUnauthorized,
+      });
+    } catch (error) {
+      console.error('[Invoice PDF Download Error]:', error);
+      showToast(`Failed to download PDF: ${error?.message || error}`);
+    } finally {
+      setDownloadingId(null);
+    }
+  }, [downloadingId, onUnauthorized]);
+
+  const renderItem = useCallback(({ item }) => {
+    // Advance entries are not invoices, so they get no document actions.
+    const canOpen = !!item._id && item.type !== 'Advance';
+    const isDownloading = downloadingId === item._id;
+    return (
     <View style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, marginBottom:10, padding:10 }} >
       <View style={{ width:"100%", flexDirection:'row', gap:10, justifyContent:'space-between', alignItems:'center' }} >
         <Text style={{flex:8, fontSize:14, fontWeight:"500", color:Style.headerBgColor }}>{item.type ==="Advance"?`Advance: ${item.invoiceNumber}`:`Inv: ${item.invoiceNumber}`}</Text>
@@ -139,12 +174,31 @@ export default function TransactionList({ navigation }) {
             <Text style={{ fontSize:14, fontWeight:"600", color:Style.secondryTextColor }}>Date : </Text>
             <Text style={{ fontSize:12, fontWeight:"500", color:Style.secondryTextColor }}>{moment(item.updatedAt).format('DD/MM/YYYY')}</Text>
          </View>
-         <View style={{ width:30, height:30, justifyContent:'center', alignItems:'center' }} >
-             <Image source={require('../../../assets/shareIcon.png')} resizeMode="contain" style={{ width:25, height:25 }} />
+         <View style={{ flexDirection:'row', alignItems:'center', gap:8 }} >
+           {canOpen ? (
+             <>
+               <TouchableOpacity
+                 onPress={() => setViewerDoc({ id: item._id, number: item.invoiceNumber })}
+                 style={{ width:34, height:34, borderRadius:17, backgroundColor:'#eef2ff', justifyContent:'center', alignItems:'center' }}
+               >
+                 <Feather name="eye" size={16} color={Style.headerBgColor} />
+               </TouchableOpacity>
+               <TouchableOpacity
+                 onPress={() => downloadInvoicePDF(item)}
+                 disabled={isDownloading}
+                 style={{ width:34, height:34, borderRadius:17, backgroundColor:'#eef2ff', justifyContent:'center', alignItems:'center' }}
+               >
+                 {isDownloading
+                   ? <ActivityIndicator size="small" color={Style.headerBgColor} />
+                   : <Feather name="download" size={16} color={Style.headerBgColor} />}
+               </TouchableOpacity>
+             </>
+           ) : null}
          </View>
        </View>
     </View>
-  ), [navigation]);
+    );
+  }, [navigation, downloadingId, downloadInvoicePDF]);
 
   const renderFooter = () => {
     if (!loading || data.length === 0) return null;
@@ -165,6 +219,16 @@ export default function TransactionList({ navigation }) {
   };
 
   return (
+    <>
+    <DocumentViewer
+      visible={!!viewerDoc}
+      id={viewerDoc?.id}
+      type={DOC_TYPE.invoice}
+      title="Invoice"
+      number={viewerDoc?.number}
+      onClose={() => setViewerDoc(null)}
+      onUnauthorized={onUnauthorized}
+    />
     <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
         <Modal
@@ -291,6 +355,7 @@ export default function TransactionList({ navigation }) {
         </Animated.View>
       </View>
     </SafeAreaView>
+    </>
   );
 }
 

@@ -1,5 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <!-- expo-media-library declares these in its own manifest, but this app only
+       SAVES assets (saveToLibraryAsync) and picks images through the system photo
+       picker, so it never reads the media store. Stripped here to satisfy Google
+       Play's Photo and Video Permissions policy. -->
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>

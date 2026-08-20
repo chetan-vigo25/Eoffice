@@ -5,6 +5,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import BASE_URL from '../../Urls/DomainUrl';
+import { downloadDocumentPdf, DOC_TYPE } from '../../Utils/pdf';
+import DocumentViewer from '../Common/DocumentViewer';
 import moment from "moment";
 import DatePicker from 'react-native-modern-datepicker';
 
@@ -27,6 +29,7 @@ export default function Statements({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredData, setFilteredData] = useState([]);
   const [refresh, setRefresh] = useState(false);
+  const [viewerDoc, setViewerDoc] = useState(null);   // { id, number }
 
   useEffect(() => {
     Animated.timing(scale, {
@@ -88,17 +91,24 @@ export default function Statements({ navigation }) {
       }, 2000);
   }
 
-  const downloadPDF = (item) => {
-    const { receiptPDFurl, status } = item;
-    if (!receiptPDFurl) {
-        showToast("pdf not generated.");
+  // Rendered on demand by the server, so this works paid or unpaid.
+  const downloadPDF = async (item) => {
+    if (!item?._id) {
+        showToast("This receipt cannot be downloaded.");
         return;
     }
-    if (status === 'Paid') {
-        Linking.openURL(receiptPDFurl)
-            .catch((err) => console.error("An error occurred while opening the URL", receiptPDFurl));
-    } else {
-        showToast("This invoice is not marked as Paid.");
+    try {
+        await downloadDocumentPdf({
+            id: item._id,
+            type: DOC_TYPE.receipt,
+            source: item,
+            baseName: `Receipt_${item.receiptNumber || ''}`,
+            fallbackName: 'Receipt',
+            onToast: showToast,
+        });
+    } catch (error) {
+        console.error("[Advance Receipt PDF Error]:", error);
+        showToast(`Failed to download PDF: ${error?.message || error}`);
     }
 };
 
@@ -116,6 +126,15 @@ export default function Statements({ navigation }) {
 
 
   return (
+    <>
+    <DocumentViewer
+      visible={!!viewerDoc}
+      id={viewerDoc?.id}
+      type={DOC_TYPE.receipt}
+      title="Receipt"
+      number={viewerDoc?.number}
+      onClose={() => setViewerDoc(null)}
+    />
     <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
      <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
       <Animated.View style={{ paddingHorizontal:20, transform: [{ scale }] }}>
@@ -154,9 +173,18 @@ export default function Statements({ navigation }) {
                             <View key={index} style={{ width:'100%', backgroundColor:Style.basicbgColor, borderRadius:10, marginBottom:10, padding:10 }} >
                               <View style={{ width:"100%", justifyContent:'space-between', alignItems:'center' }} >
                                  {/* <Text style={{ fontSize:16, fontFamily:'Lato-Medium', color:Style.headerBgColor }}>Advance {item.receiptNumber ? item.receiptNumber : "No receipt"} </Text> */}
-                                  <TouchableOpacity onPress={() => downloadPDF(item)} style={{  width:30, height:30, justifyContent:'center', alignItems:'center', alignSelf:'flex-end', borderRadius:5 }} >
-                                      <Image source={require('../../assets/pdfDownload.png')} style={{ width:30, height:30 }} />
-                                  </TouchableOpacity>
+                                  <View style={{ flexDirection:'row', alignItems:'center', gap:8, alignSelf:'flex-end' }} >
+                                      <TouchableOpacity
+                                        onPress={() => setViewerDoc({ id: item._id, number: item.receiptNumber })}
+                                        disabled={!item._id}
+                                        style={{ width:34, height:34, borderRadius:17, backgroundColor: item._id ? '#eef2ff' : '#f0f0f0', justifyContent:'center', alignItems:'center' }}
+                                      >
+                                        <Feather name="eye" size={16} color={item._id ? Style.headerBgColor : '#bbb'} />
+                                      </TouchableOpacity>
+                                      <TouchableOpacity onPress={() => downloadPDF(item)} style={{  width:34, height:34, justifyContent:'center', alignItems:'center', borderRadius:17 }} >
+                                          <Image source={require('../../assets/pdfDownload.png')} style={{ width:30, height:30 }} />
+                                      </TouchableOpacity>
+                                  </View>
                               </View>
                               <View style={{ width:"100%", flexDirection:'row', justifyContent:'space-between', alignItems:'center' }} >
                                   <Text style={{flex:6, fontSize:12, fontFamily:'Lato-Medium', color:Style.secondryTextColor }}>{item.naration ? item.naration : 'no naration!'}</Text>
@@ -194,6 +222,7 @@ export default function Statements({ navigation }) {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+    </>
   );
 }
 

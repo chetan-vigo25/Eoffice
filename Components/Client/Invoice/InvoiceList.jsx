@@ -9,8 +9,8 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { useDispatch } from 'react-redux';
 import { logout } from "../../../Redux/Reducer/Auth/Auth.reducers";
 import usePaginatedList from '../../../hooks/usePaginatedList';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import { downloadDocumentPdf, DOC_TYPE } from '../../../Utils/pdf';
+import DocumentViewer from '../../Common/DocumentViewer';
 
 import { AntDesign, Feather, Entypo, Fontisto, MaterialCommunityIcons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
@@ -66,6 +66,9 @@ export default function InvoiceList({ navigation }) {
   const [receiptViewLoading, setReceiptViewLoading] = useState(false);
   const [receiptViewData, setReceiptViewData] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
+
+  // Full invoice / receipt preview (server-rendered HTML -> WebView -> PDF)
+  const [viewerDoc, setViewerDoc] = useState(null);   // { id, type, title, number }
 
   const onUnauthorized = useCallback(async () => {
     dispatch(logout());
@@ -303,52 +306,46 @@ export default function InvoiceList({ navigation }) {
   };
 
   // ===== Receipt PDF download (same pattern as InvoiceDetail) =====
-  const downloadReceiptPDF = useCallback(async (fileUrl, receiptNumber, rowId) => {
-    if (!fileUrl) {
-      showToast('No PDF available for this receipt.');
+  // Invoices and receipts are both rendered on demand by the same endpoint.
+  const downloadDocument = useCallback(async (doc, type) => {
+    const rowId = doc?._id;
+    const label = type === DOC_TYPE.invoice ? 'Invoice' : 'Receipt';
+    const number = type === DOC_TYPE.invoice ? doc?.invoiceNumber : doc?.receiptNumber;
+
+    if (!rowId) {
+      showToast(`This ${label.toLowerCase()} cannot be downloaded.`);
       return;
     }
     if (downloadingId) return;
-    setDownloadingId(rowId || receiptNumber || 'pdf');
+    setDownloadingId(rowId);
     try {
-      const safeName = `Receipt_${(receiptNumber || '').replace(/[^a-zA-Z0-9]/g, '')}_${moment().format('DDMMYYYY')}`;
-      const filename = `${safeName}.pdf`;
-      const fileUri = FileSystem.cacheDirectory + filename;
-
-      const downloadResumable = FileSystem.createDownloadResumable(fileUrl, fileUri);
-      const { uri } = await downloadResumable.downloadAsync();
-
-      if (Platform.OS === 'android') {
-        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-        if (!permissions.granted) {
-          showToast('Storage permission is required to download PDF.');
-          return;
-        }
-        const base64Data = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-        const safUri = await FileSystem.StorageAccessFramework.createFileAsync(
-          permissions.directoryUri,
-          safeName,
-          'application/pdf'
-        );
-        await FileSystem.writeAsStringAsync(safUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
-        showToast('Receipt saved to Downloads folder.');
-      } else {
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: filename, UTI: 'com.adobe.pdf' });
-        } else {
-          showToast('Receipt downloaded successfully.');
-        }
-      }
+      await downloadDocumentPdf({
+        id: rowId,
+        type,
+        source: doc,
+        baseName: `${label}_${number || ''}_${moment().format('DDMMYYYY')}`,
+        fallbackName: label,
+        onToast: showToast,
+        onUnauthorized,
+      });
     } catch (error) {
-      console.error('[Receipt PDF Download Error]:', error);
-      showToast(`Failed to download receipt: ${error?.message || error}`);
+      console.error(`[${label} PDF Download Error]:`, error);
+      showToast(`Failed to download PDF: ${error?.message || error}`);
     } finally {
       setDownloadingId(null);
     }
-  }, [downloadingId]);
+  }, [downloadingId, onUnauthorized]);
+
+  const downloadReceiptPDF = useCallback(
+    (receipt) => downloadDocument(receipt, DOC_TYPE.receipt),
+    [downloadDocument]
+  );
 
   // ===== Invoice card (unchanged) =====
-  const renderItem = useCallback(({ item }) => (
+  const renderItem = useCallback(({ item }) => {
+    const isDownloading = downloadingId === item._id;
+    const canOpen = !!item._id;
+    return (
     <TouchableOpacity
       onPress={() => navigation.navigate('InvoiceDetail', { invoiceId: item._id })}
       activeOpacity={0.7}
@@ -383,16 +380,33 @@ export default function InvoiceList({ navigation }) {
           <Feather name="calendar" size={13} color={Style.secondryTextColor} />
           <Text style={{ fontSize: 12, fontFamily: 'Lato-Medium', color: Style.secondryTextColor }}>{moment(item.updatedAt).format('DD/MM/YYYY')}</Text>
         </View>
-        <View style={{ width: 30, height: 30, justifyContent: 'center', alignItems: 'center' }}>
-          <Image source={require('../../../assets/shareIcon.png')} resizeMode="contain" style={{ width: 20, height: 20 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => setViewerDoc({ id: item._id, type: DOC_TYPE.invoice, title: 'Invoice', number: item.invoiceNumber })}
+            disabled={!canOpen}
+            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: canOpen ? '#eef2ff' : '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}
+          >
+            <Feather name="eye" size={16} color={canOpen ? Style.headerBgColor : '#bbb'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => downloadDocument(item, DOC_TYPE.invoice)}
+            disabled={isDownloading || !canOpen}
+            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: canOpen ? '#eef2ff' : '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}
+          >
+            {isDownloading
+              ? <ActivityIndicator size="small" color={Style.headerBgColor} />
+              : <Feather name="download" size={16} color={canOpen ? Style.headerBgColor : '#bbb'} />}
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
-  ), [navigation]);
+    );
+  }, [navigation, downloadingId, downloadDocument]);
 
   // ===== Receipt card (same design language as invoice card) =====
   const renderReceiptItem = useCallback(({ item }) => {
     const isDownloading = downloadingId === (item._id || item.receiptNumber);
+    const canOpen = !!item._id;
     return (
       <TouchableOpacity
         onPress={() => openReceiptView(item._id)}
@@ -444,19 +458,20 @@ export default function InvoiceList({ navigation }) {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TouchableOpacity
-              onPress={() => openReceiptView(item._id)}
-              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#eef2ff', justifyContent: 'center', alignItems: 'center' }}
+              onPress={() => setViewerDoc({ id: item._id, type: DOC_TYPE.receipt, title: 'Receipt', number: item.receiptNumber })}
+              disabled={!canOpen}
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: canOpen ? '#eef2ff' : '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}
             >
-              <Feather name="eye" size={16} color={Style.headerBgColor} />
+              <Feather name="eye" size={16} color={canOpen ? Style.headerBgColor : '#bbb'} />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => downloadReceiptPDF(item.receiptPDFurl, item.receiptNumber, item._id)}
-              disabled={isDownloading}
-              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#eef2ff', justifyContent: 'center', alignItems: 'center' }}
+              onPress={() => downloadReceiptPDF(item)}
+              disabled={isDownloading || !canOpen}
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: canOpen ? '#eef2ff' : '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}
             >
               {isDownloading
                 ? <ActivityIndicator size="small" color={Style.headerBgColor} />
-                : <Feather name="download" size={16} color={Style.headerBgColor} />}
+                : <Feather name="download" size={16} color={canOpen ? Style.headerBgColor : '#bbb'} />}
             </TouchableOpacity>
           </View>
         </View>
@@ -509,6 +524,16 @@ export default function InvoiceList({ navigation }) {
   const isInvoiceTab = activeTab === 'invoice';
 
   return (
+    <>
+    <DocumentViewer
+      visible={!!viewerDoc}
+      id={viewerDoc?.id}
+      type={viewerDoc?.type}
+      title={viewerDoc?.title}
+      number={viewerDoc?.number}
+      onClose={() => setViewerDoc(null)}
+      onUnauthorized={onUnauthorized}
+    />
     <SafeAreaView edges={['top']} style={{ flex:1, backgroundColor:Style.headerBgColor }}>
       <StatusBar backgroundColor={Style.headerBgColor} barStyle='light-content' />
 
@@ -713,20 +738,20 @@ export default function InvoiceList({ navigation }) {
 
                 {/* Download PDF */}
                 <TouchableOpacity
-                  onPress={() => downloadReceiptPDF(receiptViewData.receiptPDFurl, receiptViewData.receiptNumber, receiptViewData._id)}
-                  disabled={!receiptViewData.receiptPDFurl || downloadingId === receiptViewData._id}
+                  onPress={() => downloadReceiptPDF(receiptViewData)}
+                  disabled={!receiptViewData._id || downloadingId === receiptViewData._id}
                   style={{
                     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                     height: 48, borderRadius: 12,
-                    backgroundColor: receiptViewData.receiptPDFurl ? Style.headerBgColor : '#e0e0e0',
+                    backgroundColor: receiptViewData._id ? Style.headerBgColor : '#e0e0e0',
                   }}
                 >
                   {downloadingId === receiptViewData._id ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <>
-                      <Feather name="download" size={16} color={receiptViewData.receiptPDFurl ? '#fff' : '#999'} />
-                      <Text style={{ fontFamily: 'Lato-SemiBold', fontSize: 15, color: receiptViewData.receiptPDFurl ? '#fff' : '#999' }}>Download Receipt PDF</Text>
+                      <Feather name="download" size={16} color={receiptViewData._id ? '#fff' : '#999'} />
+                      <Text style={{ fontFamily: 'Lato-SemiBold', fontSize: 15, color: receiptViewData._id ? '#fff' : '#999' }}>Download Receipt PDF</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -846,6 +871,7 @@ export default function InvoiceList({ navigation }) {
         </Animated.View>
       </View>
     </SafeAreaView>
+    </>
   );
 }
 const styles = StyleSheet.create({
