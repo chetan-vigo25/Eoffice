@@ -9,14 +9,60 @@ import { AntDesign, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import Style from "../../../Style/Style";
 import BASE_URL from "../../../Urls/DomainUrl";
 
+// Branches whose address carries no state still have to be reachable, otherwise the
+// per-state counts silently add up to less than the total shown in the header.
+const NO_STATE = '__no_state__';
+
+const normalizeState = value => (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// The form takes the state as free text, so one branch can carry several of them
+// ("Nagpur, Maharashtra"). Each entry becomes its own row in the filter.
+const splitStates = value =>
+  (value || '')
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean);
+const isShouting = value => value === value.toUpperCase() && value !== value.toLowerCase();
+
+// A branch stores its state as free text, so the same place arrives spelled several
+// ways ("Himach", "tamilnadu"). Expand it to the master spelling when that is
+// unambiguous, and otherwise keep exactly what the branch has — a wrong full name
+// would be worse than a short one.
+const makeStateResolver = masterNames => {
+  const byName = new Map();
+  masterNames.forEach(name => {
+    const key = normalizeState(name);
+    if (key && !byName.has(key)) byName.set(key, name);
+  });
+
+  return raw => {
+    const value = (raw || '').trim();
+    if (!value) return '';
+
+    const key = normalizeState(value);
+    const sameName = byName.get(key);
+    // Master holds a few all-caps entries (GOA, ODISHA) — don't shout them back
+    if (sameName) return isShouting(sameName) ? value : sameName;
+
+    if (key.length >= 4) {
+      const completions = masterNames.filter(name => {
+        const candidate = normalizeState(name);
+        return candidate.length > key.length && candidate.startsWith(key);
+      });
+      if (completions.length === 1) return completions[0];
+    }
+    return value;
+  };
+};
+
 export default function ClientBranch({ navigation }) {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { isLoading, personalInfoData } = useSelector((state) => state.client);
   const [slideAnim] = useState(new Animated.Value(30));
-  const [states, setStates] = useState([]);
   const [selectedState, setSelectedState] = useState(null);
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [masterStates, setMasterStates] = useState([]);
 
   useEffect(() => {
     Animated.timing(slideAnim, {
@@ -45,6 +91,7 @@ export default function ClientBranch({ navigation }) {
     fetchStates();
   }, [dispatch]);
 
+  // Only used to spell the branches' own states out in full
   const fetchStates = async () => {
     try {
       const response = await fetch(`${BASE_URL}/admin/master/others/state/list`, {
@@ -54,7 +101,7 @@ export default function ClientBranch({ navigation }) {
       });
       const result = await response.json();
       if (result.statusCode === 200) {
-        setStates(result.data?.docs || []);
+        setMasterStates((result.data?.docs || []).map(s => s.name).filter(Boolean));
       }
     } catch (error) {
       console.log('Error fetching states:', error);
@@ -63,9 +110,36 @@ export default function ClientBranch({ navigation }) {
 
   const branchData = personalInfoData?.branchData || [];
 
+  const resolveState = makeStateResolver(masterStates);
+  // Resolve once and reuse, so the filter can never disagree with the list counts.
+  // A branch listing two states belongs to both, so this is a list per branch.
+  const branchStates = branchData.map(branch => {
+    const resolved = splitStates(branch.addresses?.primary?.state).map(resolveState).filter(Boolean);
+    // "Delhi, delhi" is one place, not two
+    const seen = new Set();
+    return resolved.filter(name => {
+      const key = normalizeState(name);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  });
+
+  // Re-resolve the selection too: it may have been picked before the master list
+  // arrived, when the same state still went by its short spelling.
+  const resolvedSelection =
+    selectedState && selectedState !== NO_STATE ? resolveState(selectedState) : selectedState;
+
   const filteredBranches = selectedState
-    ? branchData.filter(branch => branch.addresses?.primary?.state === selectedState)
+    ? branchData.filter((branch, index) => {
+        const states = branchStates[index];
+        return selectedState === NO_STATE
+          ? states.length === 0
+          : states.some(state => normalizeState(state) === normalizeState(resolvedSelection));
+      })
     : branchData;
+
+  const selectedStateLabel = selectedState === NO_STATE ? 'Not Specified' : resolvedSelection;
 
   const InfoRow = ({ icon, label, value }) => (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 6 }}>
@@ -83,13 +157,38 @@ export default function ClientBranch({ navigation }) {
     </View>
   );
 
+  // States come from the branches themselves, so the list only ever shows places
+  // the client actually has a branch in — no empty rows, and no dependency on the
+  // master-state spelling matching what is saved on the branch.
+  const stateOptions = (() => {
+    const groups = new Map();
+    let missing = 0;
+    branchStates.forEach(states => {
+      if (states.length === 0) {
+        missing += 1;
+        return;
+      }
+      states.forEach(name => {
+        const key = normalizeState(name);
+        const existing = groups.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          groups.set(key, { _id: name, name, count: 1 });
+        }
+      });
+    });
+    const options = Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name));
+    // Keep the odd ones out at the bottom so the counts always reconcile with the total
+    if (missing > 0) {
+      options.push({ _id: NO_STATE, name: 'Not Specified', count: missing });
+    }
+    return options;
+  })();
+
   const listItems = [
     { _id: '__all__', name: 'All States', count: branchData.length },
-    ...states.map(s => ({
-      _id: s._id,
-      name: s.name,
-      count: branchData.filter(b => b.addresses?.primary?.state === s.name).length,
-    })),
+    ...stateOptions,
   ];
 
   return (
@@ -108,7 +207,7 @@ export default function ClientBranch({ navigation }) {
           <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lato-SemiBold' }}>Client Branches</Text>
           <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontFamily: 'Lato-Medium', marginTop: 2 }}>
             {filteredBranches.length} {filteredBranches.length === 1 ? 'Branch' : 'Branches'}
-            {selectedState ? ` in ${selectedState}` : ' Total'}
+            {selectedState ? ` in ${selectedStateLabel}` : ' Total'}
           </Text>
         </View>
         {/* Total badge */}
@@ -161,7 +260,7 @@ export default function ClientBranch({ navigation }) {
               fontFamily: 'Lato-SemiBold',
               color: selectedState ? Style.primaryTextColor : Style.secondryTextColor,
             }}>
-              {selectedState || 'All States'}
+              {selectedStateLabel || 'All States'}
             </Text>
             {selectedState && (
               <TouchableOpacity
@@ -225,11 +324,16 @@ export default function ClientBranch({ navigation }) {
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingVertical: 8 }}
                     renderItem={({ item }) => {
-                      const isSelected = item._id === '__all__' ? selectedState === null : selectedState === item.name;
+                      const isSelected =
+                        item._id === '__all__'
+                          ? selectedState === null
+                          : item._id === NO_STATE
+                            ? selectedState === NO_STATE
+                            : normalizeState(resolvedSelection) === normalizeState(item._id);
                       return (
                         <TouchableOpacity
                           onPress={() => {
-                            setSelectedState(item._id === '__all__' ? null : item.name);
+                            setSelectedState(item._id === '__all__' ? null : item._id);
                             setDropdownVisible(false);
                           }}
                           activeOpacity={0.7}
@@ -247,7 +351,13 @@ export default function ClientBranch({ navigation }) {
                             justifyContent: 'center', alignItems: 'center', marginRight: 12,
                           }}>
                             <MaterialCommunityIcons
-                              name={item._id === '__all__' ? 'earth' : 'map-marker-outline'}
+                              name={
+                                item._id === '__all__'
+                                  ? 'earth'
+                                  : item._id === NO_STATE
+                                    ? 'map-marker-off-outline'
+                                    : 'map-marker-outline'
+                              }
                               size={17}
                               color={isSelected ? Style.headerBgColor : Style.secondryTextColor}
                             />
@@ -384,7 +494,7 @@ export default function ClientBranch({ navigation }) {
             {selectedState ? (
               <>
                 <Text style={{ fontSize: 13, fontFamily: 'Lato-Medium', color: Style.secondryTextColor, textAlign: 'center', marginBottom: 18 }}>
-                  No branches available in {selectedState}
+                  No branches available in {selectedStateLabel}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setSelectedState(null)}
