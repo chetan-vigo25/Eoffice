@@ -8,7 +8,6 @@ import { logout } from "../../Redux/Reducer/Auth/Auth.reducers";
 import moment from "moment";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import { io } from 'socket.io-client';
 import { useFocusEffect } from '@react-navigation/native';
 
 import BASE_URL from '../../Urls/DomainUrl';
@@ -27,7 +26,6 @@ export default function ClientProfile({ navigation, route }) {
     const { isLoading, personalInfoData, error } = useSelector((state) => state.client);
     const [loading, setLoading] = useState(false);
     const [images, setImages] = useState(null);
-    const socketRef = useRef(null);
 
     // Animations
     const headerAnim = useRef(new Animated.Value(0)).current;
@@ -81,7 +79,9 @@ export default function ClientProfile({ navigation, route }) {
          redirect: "follow"
        };
 
-       fetch(`${BASE_URL}/client/auth/logout`, requestOptions)
+       // Returned so the caller can revoke the session server-side *before*
+       // wiping local storage — otherwise the token is gone by the time we read it.
+       return fetch(`${BASE_URL}/client/auth/logout`, requestOptions)
         .then((response) => response.json())
          .then(async(result) => {
             if(result.statusCode === 200){
@@ -225,15 +225,14 @@ export default function ClientProfile({ navigation, route }) {
     const fullAddress = `${street || "Street not available"}, ${city || "City not available"}, ${state || "State not available"} ${pinCode || "PinCode not available"}, ${country || "Country not available"}`;
 
   const handleLogout = async() => {
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      dispatch(logout());
-      await AsyncStorage.clear();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Splash' }],
-      });
-    }
+    // This used to be guarded by `if (socketRef.current)`, but no socket was
+    // ever opened here, so the guard was always false and the button did nothing.
+    dispatch(logout());
+    await AsyncStorage.clear();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Splash' }],
+    });
   };
 
   return (
@@ -330,9 +329,11 @@ export default function ClientProfile({ navigation, route }) {
                   },
                   {
                     text: "Confirm",
-                    onPress: () => {
-                      logoutFun();
-                      handleLogout();
+                    onPress: async () => {
+                      await logoutFun();
+                      // Runs whatever the API answered, so a failed call can't
+                      // leave the user signed in locally.
+                      await handleLogout();
                     },
                   },
                 ]);

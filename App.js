@@ -72,6 +72,8 @@ import { ContactsProvider } from './Context/Contact';
 import { NetworkProvider } from './Context/NetworkContext';
 import { EmployeeDashboardProvider } from './Context/EmployeeDashboardContext';
 import { UserProvider } from './Context/UserProvider';
+import ForceLogoutProvider from './Context/ForceLogoutProvider';
+import { navigationRef } from './Utils/navigationRef';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from './Redux/Reducer/Auth/Auth.reducers';
 
@@ -194,10 +196,12 @@ export default function App() {
           <StatusBar translucent backgroundColor={'transparent'} barStyle='light-content' />
            {
              isConnected ? 
-               <NavigationContainer key={refreshKey} >
+               <NavigationContainer key={refreshKey} ref={navigationRef} >
                     <UserProvider>
                       <EmployeeDashboardProvider>
-                        <MyStack />
+                        <ForceLogoutProvider>
+                          <MyStack />
+                        </ForceLogoutProvider>
                       </EmployeeDashboardProvider>
                     </UserProvider>
                </NavigationContainer>

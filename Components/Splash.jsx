@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
-import { ScrollView, View, Text, StyleSheet, Image, Animated, StatusBar, Platform, Alert, TextInput, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, LinearGradient } from "react-native";
+import { ScrollView, View, Text, StyleSheet, Image, Animated, StatusBar, Platform, Alert, TextInput, TouchableOpacity, ImageBackground, ActivityIndicator, ToastAndroid, Dimensions, LinearGradient, KeyboardAvoidingView, Keyboard } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SelectDropdown from 'react-native-select-dropdown';
@@ -14,7 +14,6 @@ import Style from "../Style/Style.js";
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import BASE_URL, { EMPLOYEE_SCREEN } from "../Urls/DomainUrl";
 import * as Notifications from 'expo-notifications';
-import { io } from 'socket.io-client';
 
 
 const CONSENT_STORAGE_KEY = 'contactConsentShown';
@@ -89,7 +88,31 @@ export default function Splash({ navigation }) {
   const [contactList, setContactList] = useState([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [disclosed, setDisclosed] = useState(true);
-  const socketRef = useRef(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  const scrollRef = useRef(null);
+  const passwordRef = useRef(null);
+
+  // Keep the form usable when the on-screen keyboard is up: on short devices the
+  // full-size logo pushes the password field under the keyboard, so we collapse
+  // the header while the user is typing.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Bring the focused field (and the Login button below it) above the keyboard.
+  const scrollToInput = () => {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, Platform.OS === 'ios' ? 50 : 150);
+  };
 
   useEffect(() => {
     const autoLoginCheck = async () => {
@@ -418,64 +441,6 @@ export default function Splash({ navigation }) {
     };
   }, [groupId]);
 
-   useEffect(() => {
-     if (!user?.data?._id) return;
-   
-     const userId = user.data._id;
-     const socketUrl = `https://api.vieasyoffice.com?userId=${userId}`;
-     socketRef.current = io(socketUrl, {
-       transports: ['websocket'],
-       reconnection: true,
-       reconnectionAttempts: 5,
-       reconnectionDelay: 1000,
-       reconnectionDelayMax: 5000,
-       randomizationFactor: 0.5,
-     });
-   
-     const socket = socketRef.current;
-   
-     socket.on('connect', () => {
-       console.warn('Socket connected');
-     });  
-     console.log("connect...");
-     //  Log when the socket emits "force_logout"
-    socket.on("force_logout", (data) => {
-      console.log("Received force_logout message: ", data);
-      // Prevent reconnection
-      socket.io.opts.reconnection = false;
-      socket.disconnect();
-      socketRef.current = null;
-    
-      (async () => {
-        await AsyncStorage.removeItem('token');
-        console.log("AsyncStorage cleared.");
-        dispatch(logout());
-        navigation.reset({
-         index: 0,
-         routes: [{ name: 'Splash' }],
-       });
-      })();
-    });
-     socket.on('disconnect', () => {
-       console.warn('Socket disconnected');
-     });
-   
-     socket.on('reconnect', () => {
-       console.warn('Socket reconnected');
-     });
-   
-     socket.on('reconnect_attempt', () => {
-       console.warn('Attempting to reconnect...');
-     });
-   
-     socket.on('reconnect_error', (error) => {
-       console.error('Reconnection attempt failed:', error);
-     });
-   
-     return () => {
-       socket.disconnect();
-     };
-   }, [user]);
 
   // console.log("clientList", clientList)
 
@@ -502,20 +467,30 @@ export default function Splash({ navigation }) {
         </View>
       )}
       <StatusBar translucent={false} backgroundColor={'#ffffff'} barStyle='dark-content' />
-      <View style={styles.backgroundContainer}>
+      <KeyboardAvoidingView
+        style={styles.backgroundContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
         <ScrollView
+          ref={scrollRef}
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: keyboardVisible ? 24 : insets.bottom + 40 },
+          ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         >
           {/* Header Section */}
-          <View style={styles.headerSection}>
+          <View style={[styles.headerSection, keyboardVisible && styles.headerSectionCompact]}>
             <View style={styles.logoContainer}>
-              <View style={styles.logoWrapper}>
+              <View style={[styles.logoWrapper, keyboardVisible && styles.logoWrapperCompact]}>
                 <Image
                   source={require("../assets/coloricon.png")}
                   resizeMode="contain"
-                  style={styles.logo}
+                  style={[styles.logo, keyboardVisible && styles.logoCompact]}
                 />
               </View>
             </View>
@@ -571,6 +546,9 @@ export default function Splash({ navigation }) {
                         style={styles.textInput}
                         keyboardType="email-address"
                         autoCapitalize="none"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onSubmitEditing={() => passwordRef.current?.focus()}
                       />
                     </View>
                   </View>
@@ -586,6 +564,10 @@ export default function Splash({ navigation }) {
                         placeholderTextColor="#999"
                         secureTextEntry={showPass}
                         style={styles.textInput}
+                        ref={passwordRef}
+                        onFocus={scrollToInput}
+                        returnKeyType="go"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                       />
                       <TouchableOpacity 
                         onPress={() => setShowPass(!showPass)} 
@@ -669,6 +651,10 @@ export default function Splash({ navigation }) {
                         placeholderTextColor="#999"
                         secureTextEntry={showPass}
                         style={styles.textInput}
+                        ref={passwordRef}
+                        onFocus={scrollToInput}
+                        returnKeyType="go"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                       />
                       <TouchableOpacity 
                         onPress={() => setShowPass(!showPass)} 
@@ -697,6 +683,9 @@ export default function Splash({ navigation }) {
                         style={styles.textInput}
                         keyboardType="email-address"
                         autoCapitalize="none"
+                        returnKeyType="next"
+                        blurOnSubmit={false}
+                        onSubmitEditing={() => passwordRef.current?.focus()}
                       />
                     </View>
                   </View>
@@ -712,6 +701,10 @@ export default function Splash({ navigation }) {
                         placeholderTextColor="#999"
                         secureTextEntry={showPass}
                         style={styles.textInput}
+                        ref={passwordRef}
+                        onFocus={scrollToInput}
+                        returnKeyType="go"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                       />
                       <TouchableOpacity 
                         onPress={() => setShowPass(!showPass)} 
@@ -775,11 +768,13 @@ export default function Splash({ navigation }) {
               </TouchableOpacity>
             )}
           </View>
-         <View style={{ width:'100%', alignSelf:'center', bottom:20 + insets.bottom, position:'absolute' }} >
+         {!keyboardVisible && (
+         <View style={{ width:'100%', alignSelf:'center', marginTop:'auto', paddingTop:24, paddingBottom:insets.bottom }} >
              <Text style={{ color: '#000', fontSize:10, fontFamily:"Lato-Medium", textAlign:'center' }} >By continuing, you agree to our <Text onPress={() => navigation.navigate('TermCondition')} style={{ color: "#999", fontSize:10, fontFamily:'Lato-Medium', textAlign:'center' }} >Term</Text> & <Text onPress={() => navigation.navigate('Privacy')} style={{ color: "#999", fontSize:10, fontFamily:'Lato-Medium', textAlign:'center' }} >Privacy Policy</Text> </Text>
          </View>
+         )}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -809,6 +804,9 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: 20,
   },
+  headerSectionCompact: {
+    marginBottom: 4,
+  },
   logoContainer: {
     marginBottom: 0,
   },
@@ -819,9 +817,16 @@ const styles = StyleSheet.create({
     // borderWidth: 1,
     // borderColor: '#e9ecef',
   },
+  logoWrapperCompact: {
+    paddingVertical: 0,
+  },
   logo: {
     width: 180,
     height: 180,
+  },
+  logoCompact: {
+    width: 90,
+    height: 90,
   },
   welcomeContainer: {
     alignItems: 'center',
