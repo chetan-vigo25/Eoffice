@@ -3,7 +3,7 @@ export default BACKEND_URL = 'https://api.vieasyoffice.com/api/v1';
 export const IMAGE_FILEPATH_URL = 'https://api.vieasyoffice.com/public';
 
 // Web frontend base used by the employee WebView (loads `${WEBVIEW_BASE_URL}/login/<token>`)
-export const WEBVIEW_BASE_URL = 'https://vieasyoffice.com';
+export const WEBVIEW_BASE_URL = 'https://vieasyoffice.com/admin';
 
 // Route name an employee lands on after login (must match the Stack.Screen name in App.js)
 export const EMPLOYEE_SCREEN = 'WebViewComp';
